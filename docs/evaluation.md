@@ -3,8 +3,9 @@
 This repository provides de-identified offline regression vectors. They exercise
 domain, transport, accounting and review boundaries; numerical correctness does
 not establish real-model understanding, evidence selection or task quality.
-No current real-model quality pass or public deployment is claimed. Remote CI
-is paused with zero runs.
+No current real-model quality pass or public deployment is claimed. The source
+repository is public. The first [fixture CI run](https://github.com/Will413028/dive-trip-agent/actions/runs/36317342675)
+passed on `2a3d3d5` on 2026-09-27; its job and every step concluded successfully.
 
 Original non-deletable claims, reports, usage, review receipts and retained
 databases stay in ignored local storage. Public vectors are not that ledger:
@@ -14,6 +15,24 @@ explicit bounded authorization and a fresh check of original local history.
 
 ## Latest verification boundary
 
+The same CI run completed **3308 unit passed, 388 integration passed / 11 live
+skipped, and 63 production Chromium E2E passed / 5 skipped**. Lint, strict
+typecheck, fixture boundary, production build and disposable DB teardown passed.
+The job took 8m58s on Ubuntu 24.04 with Node 26.8.1 and pnpm 11.2.2. Unit and
+integration suite durations were 47.39s and 317.61s; browser duration was 1.3m.
+Timeouts, assertions and Agent deadlines were unchanged. These are results from
+one run, not selective rechecks assembled into a pass.
+
+The 11 integration skips are opt-in live tests. The five browser skips are two
+opt-in replay scenarios in each browser project plus the mobile recording case.
+Mobile here means a 390px Chromium viewport, not a physical mobile device.
+The dedicated `test:adk` probes and `playwright.replay.config.ts` are outside this
+CI scope. Separately, local actionlint and the 30-record domain fixture self-check
+passed; the latter reported `modelCalls:0`, `liveEvidence:false` and
+`evaluationGatePassed:false`. Neither is real-model quality evidence.
+
+### Historical checkpoints
+
 | Scope | Recorded expanded-suite checkpoint |
 | --- | --- |
 | Unit | 3141 passed |
@@ -22,14 +41,15 @@ explicit bounded authorization and a fresh check of original local history.
 | Production browser | 54 passed / 9 failed / 5 skipped |
 | Strict typecheck, lint, actionlint, production build | Passed at the recorded checkpoint |
 | Current real-model quality | Not passed |
-| Remote CI / public deployment | Paused, 0 runs / not deployed |
+| Remote CI / public deployment | Not exercised at that historical checkpoint |
 
 The publication cleanup has a separate verification result: **3308 unit passed,
 15 affected integration passed / 9 live skipped, typecheck and lint passed**.
 That cleanup did not rerun full integration, build or browser tests, trigger
-remote CI, or deploy publicly. It does not clear the expanded-suite/browser
-failures above. The earlier 2776-test scope and selective rechecks also do not
-pass the expanded gate. No combination of different runs is an all-green batch. See
+remote CI, or deploy publicly. It did not clear the expanded-suite/browser
+failures above; the subsequent complete CI run supplies the new fixture pass.
+The earlier 2776-test scope and selective rechecks are not substitutes for that
+run. The old failures remain historical evidence, not a proven common root cause. See
 [release evidence](release-evidence.md) for the remaining release gates.
 
 ## Current answer contract
@@ -302,8 +322,10 @@ gate, so file workers are serialized; concurrent transactions inside tests remai
 The recorded comparison found slower SDK initialization in the history-bearing
 DB than in a separate clean DB. It did not prove every uninstrumented timeout's
 cause. Storage A/B/A did not establish a stable tmpfs benefit; durability settings,
-test limits and Agent deadlines were not relaxed. Latest integration failures
-remain at their original limits.
+test limits and Agent deadlines were not relaxed. The later clean CI run passed
+all 388 integration tests and all 63 active production browser cases at their
+original limits, including the previously failing test files. This does not
+identify every local timeout's cause or guarantee cross-environment stability.
 
 Browser failures require independent evidence: HTTP 200, a saved version and UI
 visibility are different checkpoints. A captured successful stream followed by

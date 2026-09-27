@@ -63,7 +63,7 @@ Next.js／TypeScript／PostgreSQL 承擔 UI、權限與交易；Google ADK TypeS
 
 ## Task 6 — HTTP 入口與可操作工作台（M3）
 
-已建立正式 Next.js 工作台與桌面／手機測試；目前擴大 browser 回歸仍有等待失敗，不標全綠。
+已建立正式 Next.js 工作台與桌面／390px viewport 測試；`2a3d3d5` 的 production fixture browser 為 63 passed／5 skipped，公開 hosted 驗收仍待完成。
 
 ## Task 7 — 對話、執行事件與中斷恢復（M3）
 
@@ -92,8 +92,9 @@ Next.js／TypeScript／PostgreSQL 承擔 UI、權限與交易；Google ADK TypeS
 ## Task 12 — 展示包與發布驗收（M6）
 
 - [x] 案例頁、三組展示入口、fixture／歷史 replay 影片及明示標籤。
-- [ ] 原門檻下完整回歸與 browser 綠燈。
-- [ ] 獨立程式版控及實際遠端 fixture CI 的各 job 結論。
+- [x] `2a3d3d5` 在原門檻下完整 fixture CI 回歸與 production browser 綠燈；範圍及 skip 見 release evidence，不含真模型或專用 ADK／replay 探針。
+- [x] 獨立程式版控及原始碼 repository 公開；不代表服務已部署。
+- [x] 實際遠端 fixture CI 的各 job 結論；[第一輪](https://github.com/Will413028/dive-trip-agent/actions/runs/36317342675) 的 job 與全部 steps 均 success。
 - [ ] 正式啟動、公開 URL、可信 ingress、secret／預算設定、清理／告警、備份還原及 kill-switch／rollback 演練。
 - [ ] 新版真模型穩定完成任務的可核對展示成果。
 
@@ -114,9 +115,9 @@ CI 僅使用 fixture 與專用 PostgreSQL，不讀本機環境檔或消費模型
 
 依序完成以下五項；平台遷移暫停，不新增平行 roadmap：
 
-1. **收尾測試穩定性。** 舊範圍曾在原門檻下 2776／2776 通過，但擴大最新 suite 為 3519 pass／10 integration timeout／11 live skip，其中 unit 3141 通過；browser 54 pass／9 fail／5 skip。typecheck／lint／actionlint／build 通過。尚未證實統一根因；先定位階段耗時，再取同一 revision 的原門檻全套結果，不能拼湊跨輪成功。
+1. **收尾測試穩定性。** `2a3d3d5` 的同一 fixture CI run 在原門檻下 3308 unit、388 integration、63 production browser 通過，11 live／5 browser skip；lint／typecheck／build／DB teardown 全過。舊 10 integration timeout／9 browser failure 保留於 release evidence，本輪未重現，尚未證實統一根因或跨環境穩定性。另有 action runtime deprecation 非阻擋警告待升級及重新驗證。
 2. **新版真模型品質驗收。** 最新單案失敗；diagnostic 入口已準備，但須離線 gate、新一輪有效授權、本機歷史承接與逐案內容審查共同通過。完整 30 案未過，不提高預算、不抹除 unknown、不自動重試。
-3. **獨立版控與遠端 CI。** 私人 remote 已建立，fixture workflow 尚未實跑，CI 仍暫停。當前先依 [public-source preparation](2026-09-27-public-source-preparation.md) 清理原始碼及準備乾淨本機歷史；不在清理時自動改 public、push 或觸發 CI。
+3. **獨立版控與遠端 CI。** 原 repo 已公開，`main` 為去識別化的單一初始 commit `2a3d3d5`；[第一輪 fixture CI](https://github.com/Will413028/dive-trip-agent/actions/runs/36317342675) 的 job 與全部 steps 均 success。保留 [public-source preparation](2026-09-27-public-source-preparation.md) 的原始私有備份；不因公開化或 CI 通過推定可讀憑證、呼叫模型或部署。
 4. **公開部署與維運。** 尚無公開 URL；完成 Task 12 的發布清單並獲部署授權後才開放。
 5. **新版真模型展示。** 沿用同次有界驗收的真實證據，不為影片額外發送；不能把 fixture 或舊 replay 改標 live。
 

@@ -2,7 +2,7 @@
 
 平台資料查證日期：2026-09-22。狀態：**未發布**；本機工作台不表示 release gates 已完成。本文件描述尚未配置、驗收的部署候選，沒有 public URL。實際驗證狀態見 [release evidence](release-evidence.md)。
 
-Cloudflare 平台遷移暫停；下方 Render 是歷史候選，尚未選定部署目標。CI 仍 paused、0 runs，workflow 存在不表示可觸發或已通過。CI 防線在 install 前依檔名及 provider/live env namespace 拒絕憑證與 live 設定（包括空值），不讀內容。舊 live 的 retention apply 在 DB 存取前封鎖；這些本機防護不代表公開 startup、backup/restore 或維運驗收完成。
+Cloudflare 平台遷移暫停；下方 Render 是歷史候選，尚未選定部署目標。原始碼 repository 已公開，`2a3d3d5` 的第一輪 fixture CI 已通過；完整結果及 skip 見 [release evidence](release-evidence.md)。CI 防線在 install 前依檔名及 provider/live env namespace 拒絕憑證與 live 設定（包括空值），不讀內容。舊 live 的 retention apply 在 DB 存取前封鎖；這些本機防護不代表公開 startup、backup/restore 或維運驗收完成。
 
 ## 現有程式的阻擋項
 
@@ -62,6 +62,6 @@ Free web 15 分鐘無流量會休眠；Free Postgres 30 天到期，不提供 re
 
 [CI workflow](../.github/workflows/ci.yml) 在 GitHub-hosted ephemeral runner 循序跑 install → lint → typecheck → unit → dedicated Compose DB integration → build → production desktop/mobile E2E。固定 Node／pnpm，沒有 provider secrets、live flags 或 deploy job；live smoke 預設 skip。
 
-`compose.test.yml` 的 `pull_policy: never` 保留不變，因此**未來 CI runner** 明示 pull `postgres:16-alpine`，再以 `--env-file /dev/null` 啟動。此 image tag 不是 immutable digest；這次不修改 Compose。唯一 `COMPOSE_PROJECT_NAME` 同時傳給 startup、test helper 與 teardown，隨機 loopback port、run 專用 volume；helper 只接受 `dive_trip_test`，案例建立隨機 schema。integration 與 E2E 不並行，always teardown 只清該 run 的 disposable DB。
+`compose.test.yml` 的 `pull_policy: never` 保留不變，因此 CI runner 明示 pull `postgres:16-alpine`，再以 `--env-file /dev/null` 啟動。此 image tag 不是 immutable digest；這次不修改 Compose。唯一 `COMPOSE_PROJECT_NAME` 同時傳給 startup、test helper 與 teardown，隨機 loopback port、run 專用 volume；helper 只接受 `dive_trip_test`，案例建立隨機 schema。integration 與 E2E 不並行，always teardown 只清該 run 的 disposable DB。
 
-CI 安裝依賴、image 與 Chromium 需要網路，但 fixture 模型不呼叫 provider；fixture-only 不代表完全無網路。Remote CI 暫停且 0 runs；本機結果以 [release evidence](release-evidence.md) 為準。Workflow root 必須是本 repository，release SHA 必須對應實際產品來源。
+CI 安裝依賴、image 與 Chromium 需要網路，但 fixture 模型不呼叫 provider；fixture-only 不代表完全無網路。2026-09-27 第一輪 CI 已成功，結果僅適用 `2a3d3d5`，不是 deployment artifact；實際範圍以 [release evidence](release-evidence.md) 為準。Workflow root 必須是本 repository，release SHA 必須對應實際產品來源。

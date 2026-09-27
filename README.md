@@ -6,18 +6,19 @@
 
 ## 驗證狀態
 
-既有完整範圍 checkpoint 如下；本輪 cleanup 的局部驗證另列，不能替代整批結果：
+原始碼 repository 已公開，服務尚未部署。2026-09-27 第一輪 [Fixture CI](https://github.com/Will413028/dive-trip-agent/actions/runs/36317342675) 在 `2a3d3d5` 通過；job 與全部 steps 均成功，耗時 8 分 58 秒，未放寬 timeout 或 assertions。
 
 | 範圍 | 結果 |
 | --- | --- |
-| 既有 expanded suite 的 Unit | 3141 passed |
-| 既有整批 unit＋integration | 3519 passed／10 integration timeout／11 live skipped |
-| 既有 Production browser | 54 passed／9 failed／5 skipped |
+| Unit | 3308 passed |
+| Integration | 388 passed／11 live skipped |
+| Production Chromium browser | 63 passed／5 skipped；桌面及 390px viewport，非實體手機 |
+| Lint／strict typecheck／production build | Passed |
 | 真模型品質 | 新版未通過 |
-| Remote CI | Paused，0 runs，沒有 job conclusion |
+| Remote fixture CI | Passed；包含 fixture boundary 與 disposable DB teardown |
 | Public deployment | 尚未部署 |
 
-本輪公開文件／source cleanup 另完成 3308 unit、15 affected integration（另 9 live skipped）、typecheck／lint 通過。這不是完整 integration 重跑，亦未重跑 build／browser、觸發 CI 或公開部署；上述整批缺口仍保留。詳細限制見 [release evidence](docs/release-evidence.md)。
+上述為同一 CI run，不是拼湊局部重跑。11 項 live skip 不算真模型驗收；5 項 browser skip 為另行啟用的 replay 情境及手機錄影。獨立 `test:adk` 探針與 replay suite 不在此 CI 範圍。本輪乾淨環境通過不證明舊本機逾時的統一根因；歷史失敗與詳細界線見 [release evidence](docs/release-evidence.md)。
 
 ## 本機檢查
 
@@ -59,7 +60,7 @@ pnpm test:e2e
 E2E_PRODUCTION=1 pnpm test:e2e
 ```
 
-E2E 使用 4319 及當次建立的 `e2e_*` schema，只清理自己的產品與 ADK schema。涵蓋桌面／390px 手機的確認、刷新、衝突、分享、未知費用與地圖降級；涵蓋範圍不表示最新整批通過。
+E2E 使用 4319 及當次建立的 `e2e_*` schema，只清理自己的產品與 ADK schema。涵蓋桌面／390px viewport 的確認、刷新、衝突、分享、未知費用與地圖降級；通過證據只適用上列已驗證 revision 與範圍。
 
 離線 launcher 傳入固定 APP_ORIGIN，不信任 Host／Forwarded headers；跳過 `.env.local`，依檔名拒絕其他可載入的 test 環境檔，不讀內容。只傳必要環境變數、停用 telemetry；正式部署不能沿用本機 test mode。
 
@@ -123,4 +124,4 @@ Gemini、OpenRouter、Cloudflare adapter 已接入有界 ADK 工作流；離線�
 
 新的 unknown usage、限流或技術失敗必須停止、不重試；原始 unknown 保留，reference budget 不等於實際帳單或免費額度。Review 方法見 [評估審查模板](docs/cloudflare-evaluation-1-review.md)。
 
-新版真模型品質尚未通過，CI 仍 paused、0 runs，沒有 public deployment。Hosted ingress、可信 proxy/IP、secret loading、retention、backup/restore 與 kill-switch 尚需驗收；repository 公開與服務上線是不同交付。產品約束見 [AGENTS.md](AGENTS.md)，發布缺口見 [release evidence](docs/release-evidence.md)。
+新版真模型品質尚未通過，第一輪 fixture CI 已通過，沒有 public deployment。Hosted ingress、可信 proxy/IP、secret loading、retention、backup/restore 與 kill-switch 尚需驗收；repository 公開與服務上線是不同交付。產品約束見 [AGENTS.md](AGENTS.md)，發布缺口見 [release evidence](docs/release-evidence.md)。
