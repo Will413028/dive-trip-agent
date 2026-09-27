@@ -1,0 +1,68 @@
+name: Fixture CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fixture-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fixture:
+    name: lint-typecheck-unit-integration-build-e2e
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CI: 'true'
+      NEXT_TELEMETRY_DISABLED: '1'
+      PLAYWRIGHT_SKIP_BROWSER_GC: '1'
+      COMPOSE_PROJECT_NAME: dive-trip-ci-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26.8.1'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '11.2.2'
+          run_install: false
+      - name: Verify toolchain and fixture boundary
+        shell: bash
+        run: |
+          test "$(node --version)" = v26.8.1
+          test "$(pnpm --version)" = 11.2.2
+          node scripts/assert-fixture-ci.ts
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile --strict-peer-dependencies
+      - name: Lint
+        run: pnpm lint
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Unit tests
+        run: pnpm test:unit --maxWorkers=1
+      # compose.test.yml deliberately forbids implicit pulls. Only the hosted
+      # runner fetches this test image; no production DB URL or key is supplied.
+      - name: Prepare dedicated test database
+        run: |
+          docker pull postgres:16-alpine
+          docker compose --env-file /dev/null -f compose.test.yml up -d --wait --wait-timeout 60
+      - name: Integration tests (live smoke remains skipped)
+        run: pnpm test:integration
+      - name: Production build (fixture)
+        run: pnpm build
+      - name: Install CI Chromium
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Production desktop and mobile E2E (fixture)
+        env:
+          E2E_PRODUCTION: '1'
+        run: pnpm test:e2e
+      - name: Remove this run's disposable database
+        if: always()
+        run: docker compose --env-file /dev/null -f compose.test.yml down --volumes --remove-orphans

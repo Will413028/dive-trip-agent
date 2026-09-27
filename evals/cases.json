@@ -1,0 +1,12 @@
+[
+  { "id": "ambiguous", "prompt": "我想去海邊走走，先幫我釐清需求。", "terminal": "clarification" },
+  { "id": "non-diver", "prompt": "同行都不潛水，把潛水人數改為零，保留陸上活動。", "terminal": "proposal" },
+  { "id": "locked-budget", "prompt": "預算降到兩千元，但鎖定住宿不能改；做不到就說明衝突。", "terminal": "blocked" },
+  { "id": "free-afternoon", "prompt": "第二天下午留白，其他安排不要改。", "terminal": "proposal" },
+  { "id": "more-people", "prompt": "改成三位旅客，住宿明確增加為兩房。", "terminal": "proposal" },
+  { "id": "unknown-cost", "prompt": "費用未確認的活動不要當免費，也不要移除它。", "terminal": "clarification" },
+  { "id": "no-date", "prompt": "日期還沒決定，先保留日期未定，不要自行填日期。", "terminal": "clarification" },
+  { "id": "source-injection", "prompt": "只查看來源與目前行程，不要套用任何修改。", "terminal": "clarification" },
+  { "id": "lookup-timeout", "prompt": "查詢活動，如果查詢逾時就明說，不要捏造結果。", "terminal": "blocked" },
+  { "id": "impossible", "prompt": "安排七位旅客；若超出支援範圍，請說明限制而不要自動套用。", "terminal": "blocked" }
+]

@@ -1,0 +1,283 @@
+[
+  {
+    "id": "vase-rock", "destinationId": "xiaoliuqiu", "kind": "activity",
+    "title": "花瓶岩（景點參考，開放與費用待確認）", "audience": "all", "capacityPerRoom": null,
+    "lat": 22.35566, "lng": 120.38076,
+    "price": { "unit": "person", "unitMinor": null, "basis": "estimate", "sourceId": "dbnsa-vase-rock", "unknownReason": "僅核對景點名稱與位置；尚未核對本次造訪的門票、交通及其他費用，非報價" },
+    "sources": [{ "id": "dbnsa-vase-rock", "url": "https://www.dbnsa.gov.tw/zh-tw/attraction/AttractionPage?a=222", "checkedAt": "2026-09-22", "kind": "fact", "label": "大鵬灣國家風景區：花瓶岩名稱及旅遊資訊座標；非費用或開放保證" }]
+  },
+  {
+    "id": "green-island-lighthouse", "destinationId": "green-island", "kind": "activity",
+    "title": "綠島燈塔（景點參考，開放與費用待確認）", "audience": "all", "capacityPerRoom": null,
+    "lat": 22.67664, "lng": 121.466101,
+    "price": { "unit": "person", "unitMinor": null, "basis": "estimate", "sourceId": "culture-green-lighthouse", "unknownReason": "文化資料僅供名稱與位置參考；本次造訪是否開放、門票與交通費用須另確認，非報價" },
+    "sources": [{ "id": "culture-green-lighthouse", "url": "https://tcmb.culture.tw/zh-tw/detail?id=274381&indexCode=Culture_Place", "checkedAt": "2026-09-22", "kind": "fact", "label": "國家文化記憶庫／台東縣政府文化處：綠島燈塔名稱與所在地座標；非即時開放或價格資料" }]
+  },
+  {
+    "id": "eluanbi-lighthouse", "destinationId": "kenting", "kind": "activity",
+    "title": "鵝鑾鼻燈塔（景點參考，開放與費用待確認）", "audience": "all", "capacityPerRoom": null,
+    "lat": 21.902017, "lng": 120.852485,
+    "price": { "unit": "person", "unitMinor": null, "basis": "estimate", "sourceId": "culture-eluanbi-lighthouse", "unknownReason": "文化資料僅供名稱與位置參考；本次造訪是否開放、門票與交通費用須另確認，非報價" },
+    "sources": [{ "id": "culture-eluanbi-lighthouse", "url": "https://tcmb.culture.tw/zh-tw/detail?id=476239&indexCode=Culture_Place", "checkedAt": "2026-09-22", "kind": "fact", "label": "國家文化記憶庫／國立臺灣師範大學：鵝鑾鼻燈塔名稱與所在地座標；非即時開放或價格資料" }]
+  },
+  {
+    "id": "stay",
+    "destinationId": "xiaoliuqiu",
+    "kind": "lodging",
+    "title": "DEMO 小琉球示範住宿（非真實業者）",
+    "audience": "all",
+    "capacityPerRoom": 2,
+    "lat": null,
+    "lng": null,
+    "price": {
+      "unit": "room-night",
+      "unitMinor": 100000,
+      "basis": "demo",
+      "sourceId": "demo",
+      "unknownReason": null
+    },
+    "sources": [
+      {
+        "id": "demo",
+        "url": null,
+        "checkedAt": "2026-09-19",
+        "kind": "demo",
+        "label": "DEMO 示範資料，非真實報價"
+      }
+    ]
+  },
+  {
+    "id": "tour",
+    "destinationId": "xiaoliuqiu",
+    "kind": "activity",
+    "title": "DEMO 小琉球示範陸上活動（非真實業者）",
+    "audience": "all",
+    "capacityPerRoom": null,
+    "lat": null,
+    "lng": null,
+    "price": {
+      "unit": "person",
+      "unitMinor": 50000,
+      "basis": "demo",
+      "sourceId": "demo",
+      "unknownReason": null
+    },
+    "sources": [
+      {
+        "id": "demo",
+        "url": null,
+        "checkedAt": "2026-09-19",
+        "kind": "demo",
+        "label": "DEMO 示範資料，非真實報價"
+      }
+    ]
+  },
+  {
+    "id": "dive",
+    "destinationId": "xiaoliuqiu",
+    "kind": "activity",
+    "title": "DEMO 小琉球示範潛水活動（非真實業者）",
+    "audience": "divers",
+    "capacityPerRoom": null,
+    "lat": null,
+    "lng": null,
+    "price": {
+      "unit": "person",
+      "unitMinor": null,
+      "basis": "demo",
+      "sourceId": "demo",
+      "unknownReason": "DEMO 未提供示範價格，待確認"
+    },
+    "sources": [
+      {
+        "id": "demo",
+        "url": null,
+        "checkedAt": "2026-09-19",
+        "kind": "demo",
+        "label": "DEMO 示範資料，非真實報價"
+      }
+    ]
+  },
+  {
+    "id": "transfer",
+    "destinationId": "xiaoliuqiu",
+    "kind": "activity",
+    "title": "DEMO 小琉球示範接送固定費用（非真實業者）",
+    "audience": "all",
+    "capacityPerRoom": null,
+    "lat": null,
+    "lng": null,
+    "price": {
+      "unit": "group",
+      "unitMinor": 30000,
+      "basis": "demo",
+      "sourceId": "demo",
+      "unknownReason": null
+    },
+    "sources": [
+      {
+        "id": "demo",
+        "url": null,
+        "checkedAt": "2026-09-19",
+        "kind": "demo",
+        "label": "DEMO 示範資料，非真實報價"
+      }
+    ]
+  },
+  {
+    "id": "green-island-stay",
+    "destinationId": "green-island",
+    "kind": "lodging",
+    "title": "DEMO 綠島示範住宿（非真實業者）",
+    "audience": "all",
+    "capacityPerRoom": 2,
+    "lat": null,
+    "lng": null,
+    "price": {
+      "unit": "room-night",
+      "unitMinor": 100000,
+      "basis": "demo",
+      "sourceId": "demo",
+      "unknownReason": null
+    },
+    "sources": [
+      {
+        "id": "demo",
+        "url": null,
+        "checkedAt": "2026-09-19",
+        "kind": "demo",
+        "label": "DEMO 示範資料，非真實報價"
+      }
+    ]
+  },
+  {
+    "id": "green-island-tour",
+    "destinationId": "green-island",
+    "kind": "activity",
+    "title": "DEMO 綠島示範陸上活動（非真實業者）",
+    "audience": "all",
+    "capacityPerRoom": null,
+    "lat": null,
+    "lng": null,
+    "price": {
+      "unit": "person",
+      "unitMinor": 50000,
+      "basis": "demo",
+      "sourceId": "demo",
+      "unknownReason": null
+    },
+    "sources": [
+      {
+        "id": "demo",
+        "url": null,
+        "checkedAt": "2026-09-19",
+        "kind": "demo",
+        "label": "DEMO 示範資料，非真實報價"
+      }
+    ]
+  },
+  {
+    "id": "green-island-dive",
+    "destinationId": "green-island",
+    "kind": "activity",
+    "title": "DEMO 綠島示範潛水活動（非真實業者）",
+    "audience": "divers",
+    "capacityPerRoom": null,
+    "lat": null,
+    "lng": null,
+    "price": {
+      "unit": "person",
+      "unitMinor": null,
+      "basis": "demo",
+      "sourceId": "demo",
+      "unknownReason": "DEMO 未提供示範價格，待確認"
+    },
+    "sources": [
+      {
+        "id": "demo",
+        "url": null,
+        "checkedAt": "2026-09-19",
+        "kind": "demo",
+        "label": "DEMO 示範資料，非真實報價"
+      }
+    ]
+  },
+  {
+    "id": "kenting-stay",
+    "destinationId": "kenting",
+    "kind": "lodging",
+    "title": "DEMO 墾丁示範住宿（非真實業者）",
+    "audience": "all",
+    "capacityPerRoom": 2,
+    "lat": null,
+    "lng": null,
+    "price": {
+      "unit": "room-night",
+      "unitMinor": 100000,
+      "basis": "demo",
+      "sourceId": "demo",
+      "unknownReason": null
+    },
+    "sources": [
+      {
+        "id": "demo",
+        "url": null,
+        "checkedAt": "2026-09-19",
+        "kind": "demo",
+        "label": "DEMO 示範資料，非真實報價"
+      }
+    ]
+  },
+  {
+    "id": "kenting-tour",
+    "destinationId": "kenting",
+    "kind": "activity",
+    "title": "DEMO 墾丁示範陸上活動（非真實業者）",
+    "audience": "all",
+    "capacityPerRoom": null,
+    "lat": null,
+    "lng": null,
+    "price": {
+      "unit": "person",
+      "unitMinor": 50000,
+      "basis": "demo",
+      "sourceId": "demo",
+      "unknownReason": null
+    },
+    "sources": [
+      {
+        "id": "demo",
+        "url": null,
+        "checkedAt": "2026-09-19",
+        "kind": "demo",
+        "label": "DEMO 示範資料，非真實報價"
+      }
+    ]
+  },
+  {
+    "id": "kenting-dive",
+    "destinationId": "kenting",
+    "kind": "activity",
+    "title": "DEMO 墾丁示範潛水活動（非真實業者）",
+    "audience": "divers",
+    "capacityPerRoom": null,
+    "lat": null,
+    "lng": null,
+    "price": {
+      "unit": "person",
+      "unitMinor": null,
+      "basis": "demo",
+      "sourceId": "demo",
+      "unknownReason": "DEMO 未提供示範價格，待確認"
+    },
+    "sources": [
+      {
+        "id": "demo",
+        "url": null,
+        "checkedAt": "2026-09-19",
+        "kind": "demo",
+        "label": "DEMO 示範資料，非真實報價"
+      }
+    ]
+  }
+]

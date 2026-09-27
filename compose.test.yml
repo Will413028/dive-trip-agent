@@ -1,0 +1,19 @@
+name: dive-trip-test
+services:
+  dive-trip-test-db:
+    image: postgres:16-alpine
+    pull_policy: never
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_DB: dive_trip_test
+    ports:
+      - "127.0.0.1::5432"
+    volumes:
+      - dive-trip-test-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d dive_trip_test"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+volumes:
+  dive-trip-test-data:

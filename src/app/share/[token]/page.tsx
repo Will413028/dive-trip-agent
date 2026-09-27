@@ -1,0 +1,17 @@
+import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
+import { readShare } from '../../../server/share-store';
+import PublicTripView from '../../../components/workbench/PublicTripView';
+
+export const dynamic = 'force-dynamic';
+export const metadata: Metadata = { title: '唯讀行程快照 · 潛旅筆記', robots: { index: false, follow: false }, referrer: 'no-referrer' };
+export default async function SharedTrip({ params }: { params: Promise<{ token: string }> }) {
+  const { token } = await params;
+  const trip = await readShare(token);
+  if (!trip) notFound();
+  return <main id="main" className="landing"><section className="panel">
+    <p className="eyebrow">A SHARED SNAPSHOT</p><h1>唯讀行程快照</h1>
+    <p>這是分享當時的固定內容，不會跟著原行程更新。持有連結者可讀；擁有者可以撤銷。</p>
+    <PublicTripView trip={trip} />
+  </section></main>;
+}

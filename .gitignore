@@ -1,0 +1,14 @@
+node_modules/
+.next/
+next-env.d.ts
+coverage/
+.vitest/
+test-results/
+playwright-report/
+*.tsbuildinfo
+.env*
+!.env.example
+.DS_Store
+AGENTS.local.md
+.local-ingress-key
+.artifacts/

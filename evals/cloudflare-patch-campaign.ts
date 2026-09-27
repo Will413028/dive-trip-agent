@@ -1,0 +1,54 @@
+import { historyIdentity } from './cloudflare-history-profile.ts';
+import { z } from 'zod';
+import { CLOUDFLARE_MODEL } from '../src/agent/cloudflare-wire.ts';
+import { maximumProviderModelCost } from '../src/server/model-cost.ts';
+import { CAMPAIGN_BUDGET_MICROS, CAMPAIGN_INVOCATION_LIMIT } from './campaign-policy.ts';
+import { runFiniteCloudflareCampaign, type CloudflareCampaignReport, type FiniteCampaignPorts } from './cloudflare-campaign.ts';
+import type { readCloudflareSecondCarryForward } from './cloudflare-carry-forward-2.ts';
+
+export const CLOUDFLARE_PATCH_CAMPAIGN_AUTHORIZATION = 'patch-locked-budget-once-cloudflare-free-tier-confirmed';
+const caseIds = ['locked-budget'] as const;
+const accountId = () => (historyIdentity('accountId_1'));
+// Pin the historical contract without importing the carry reader's IO at runtime.
+const carrySchema = () => (z.object({
+  sourceSha256: z.literal(historyIdentity('artifacts_SECOND_REPORT_SHA256_1')),
+  historyConsistent: z.literal(true), dispatchAuthorized: z.literal(false), accountingComplete: z.literal(false),
+  evaluationGatePassed: z.literal(false), historicalUnknownReceipts: z.literal(1),
+  invocations: z.literal(9), modelCalls: z.literal(12), chargedMicros: z.literal(188948),
+  observedTokens: z.literal(51739), totalTokens: z.null(),
+  remainingInvocationCeiling: z.literal(91), remainingReferenceMicros: z.literal(2811052),
+}));
+type CarryForward = Awaited<ReturnType<typeof readCloudflareSecondCarryForward>>;
+export type PatchCampaignReport = Omit<CloudflareCampaignReport, 'prior' | 'maxModelCalls' | 'cumulativeTokens'> & {
+  prior: CarryForward; maxModelCalls: 7; maxInvocations: 2;
+  cumulativeTokens: null; accountingComplete: false; historicalUnknownReceipts: 1;
+  dispatchAuthorized: false;
+};
+type PatchCampaignPorts = FiniteCampaignPorts<PatchCampaignReport> & { accountId: string; prior: CarryForward };
+
+/** Pure finite scheduler, NOT authorization. The live caller must obtain fresh
+ * readCloudflareSecondCarryForward evidence under its exclusive lock and perform real
+ * admission before every dispatch. A fabricated summary cannot grant permission.
+ * totalTokens is NEW batch accounting; cumulativeTokens stays null forever here.
+ * prior.observedTokens is historical observation, never a complete token total. */
+export async function runCloudflarePatchCampaign(ports: PatchCampaignPorts): Promise<PatchCampaignReport> {
+  const parsed = carrySchema().safeParse(ports.prior);
+  if (ports.accountId !== accountId() || !parsed.success) throw new Error('EVAL_INVALID_HISTORY');
+  const prior = parsed.data;
+  if (prior.chargedMicros + maximumProviderModelCost('cloudflare') > CAMPAIGN_BUDGET_MICROS) {
+    throw new Error('EVAL_CUMULATIVE_BUDGET_STOP');
+  }
+  if (prior.invocations + 2 > CAMPAIGN_INVOCATION_LIMIT) throw new Error('EVAL_CUMULATIVE_INVOCATION_STOP');
+  const report: PatchCampaignReport = {
+    schemaVersion: 2, model: CLOUDFLARE_MODEL, accountId: accountId(), transport: 'real-cloudflare-via-http-handler',
+    budgetMicros: CAMPAIGN_BUDGET_MICROS, maxModelCalls: 7, maxInvocations: 2, prior,
+    chargedMicros: 0, invocations: 0, modelCalls: 0, totalTokens: 0,
+    cumulativeChargedMicros: prior.chargedMicros, cumulativeInvocations: prior.invocations,
+    cumulativeModelCalls: prior.modelCalls, cumulativeTokens: null,
+    accountingComplete: false, historicalUnknownReceipts: 1, dispatchAuthorized: false,
+    stopped: null, textReview: 'pending', evaluationGatePassed: false, records: [],
+  };
+  return runFiniteCloudflareCampaign(ports, report, {
+    slots: caseIds.map(caseId => ({ round: 1, caseId })), maxInvocations: 2,
+  });
+}

@@ -1,0 +1,53 @@
+import type { CloudflareHistoryIdentities } from './cloudflare-history-contract.ts';
+
+/** Synthetic identities only. Numerical regression vectors are not live evaluation evidence. */
+export const PUBLIC_HISTORY = {
+  "artifacts_FIRST_REPORT_SHA256_1": "a4871418af3515b4b8a0b4370c53a3cc1836eb1566dcb9a99e71ead14e829cb2",
+  "artifacts_SECOND_REPORT_SHA256_1": "491ffcaccdb30045113dcbc78e511d25e56e6e79faa82cbf0bd705df51e0786b",
+  "artifacts_PATCH_REPORT_SHA256_1": "3cd0ada7274e15b4c1813b884c0e0a8a7d1ebc277b3f1c0337c00abf5269248d",
+  "artifacts_QUALITY_REPORT_SHA256_1": "bdd12aea5bff6267a47b09ca0f3bd889faa442cc5cb8e703198ff5e16b709713",
+  "artifacts_REVISION_REPORT_SHA256_1": "1f3713e89e71eb0e918f7e7a7c155133f6c4d92f6bce198d361f3d7761562cc9",
+  "artifacts_RECOVERY_REPORT_SHA256_1": "9d5b67923121efbd04f8c2d4f84f89dae38449aacdca1f7db8ef32d48de4f5fe",
+  "artifacts_GROUNDED_REPORT_SHA256_1": "b7be130c2d2046b8a27c8d30c222d63eafe4c25bd42a03eab60745804f53d3bc",
+  "artifacts_NONTHINKING_REPORT_SHA256_1": "c4aa1d5e258701fd43b82cb84fde1c7bb0b86af52c28a9fc1798374f8084e51b",
+  "audit_database_CLOUDFLARE_RETAINED_SCHEMA_1": "test_6f69832669c94db6b216fe43f9ec7f96",
+  "audit_database_CLOUDFLARE_SECOND_RETAINED_SCHEMA_1": "test_7f3a3eea62f1d805ec9719d74690e10d",
+  "audit_database_CLOUDFLARE_QUALITY_RETAINED_SCHEMA_1": "test_1ec798b7bbd711a7e5c7f7428f447de5",
+  "audit_database_CLOUDFLARE_REVISION_RETAINED_SCHEMA_1": "test_a4d7dae7c3b3389291330a811bd9d3ed",
+  "audit_database_CLOUDFLARE_RECOVERY_RETAINED_SCHEMA_1": "test_b7f9550a5d7708a617a74163e9507a4f",
+  "audit_database_CLOUDFLARE_GROUNDED_RETAINED_SCHEMA_1": "test_1bb1495f83fe318c62c316d1e4cc99c4",
+  "audit_database_CLOUDFLARE_NONTHINKING_RETAINED_SCHEMA_1": "test_5b43b2f13ed5a2f461e70c22d928b514",
+  "accountId_1": "1fd574e905257afa3cfd7db80cf70b23",
+  "carry_forward_2_runId_1": "cd18d166-fc0a-4f05-8ecc-751ed9577ae6",
+  "carry_forward_2_tripId_1": "ab07e87b-5a3f-4172-8624-7ffee813910e",
+  "carry_forward_2_ownerId_1": "d73d8d06-7154-4962-89e4-c14d25b9e317",
+  "carry_forward_runIds_1": "81a6eb61-7188-48d6-8e37-b07715433b4d",
+  "carry_forward_runIds_2": "1587fc58-9bb9-4b26-8851-90a2933ec1ee",
+  "carry_forward_tripIds_1": "9186a471-201b-4a67-8c9b-e14278e2705f",
+  "carry_forward_tripIds_2": "64db0940-6c0f-4ca4-85d4-eaf4aea57aa5",
+  "carry_forward_ownerIds_1": "a1109568-64ae-4719-8ad6-bbcb033c828a",
+  "carry_forward_ownerIds_2": "b1d49441-9aed-451a-85c4-292d79e9a7ec",
+  "carry_forward_unknownReceipt_1": "3d7f1f07-d513-46e5-8f82-7415671339e2",
+  "grounded_carry_runId_1": "53a2acc8-127e-4c4b-8e6f-9fc42db07532",
+  "grounded_carry_tripId_1": "e613881b-147c-4c4e-89c2-6ed0e5a8da3d",
+  "nonthinking_carry_runId_1": "1c18c417-145e-45ef-8e4a-64931326498f",
+  "nonthinking_carry_tripId_1": "6c119e67-05b6-49f6-88b1-de5530d8504f",
+  "patch_carry_runId_1": "4d420bb9-704b-4463-8f94-398065919454",
+  "patch_carry_receipt_1": "30110afd-0f5b-4d53-8c71-6742d1e2ea9d",
+  "quality_carry_bindingsSha256_1": "61b5a16e88ad1ae8268a148d6e445a385ea0f00b626ad2e8158576eb57e0ecd1",
+  "quality_carry_inventoryScopes_1": "633862f23cb3dc4cce0eec4b0ef4c56c1a2917f1fb8b6728d7b5302f2ad6ea3f",
+  "quality_carry_inventoryScopes_2": "c0e2fdb79bdda369d33dee832163676aa98ca6a9db22e652066b876926881266",
+  "quality_carry_inventoryScopes_3": "dbbfaebb0d0a5c48fb04819c8c2416012255c1bdbf0514e5b2df977615160258",
+  "quality_carry_inventoryScopes_4": "86bda988c31463fb325dd573a6ca4c021ed800a17f469585d5e3d03fdbda218f",
+  "revision_carry_unknown_1": "33bf833b-e2c9-4f3c-8dea-d016ca87678c",
+  "revision_carry_unknown_2": "37005f83-b2f9-4c29-883f-a704c3e9a140",
+  "revision_carry_unknown_3": "23b8edaf-9159-44a1-8355-b7002bd1ce49",
+  "replay_quality_1": "67b5f450-80c4-403d-8a57-0280642258e1",
+  "replay_quality_2": "f5b9481e-fb06-4e12-8db0-639d6bef019b",
+  "replay_revision_3": "101855df-90b1-4479-8db6-99d57b319170",
+  "replay_recovery_4": "50a70ddd-f054-4f55-8362-9dbc43decc9a",
+  "replay_recovery_5": "b9be947b-f0b4-4160-84ca-1829e74c9ba8"
+} as const satisfies CloudflareHistoryIdentities;
+
+/** Pins an approved local identity profile; never permits caller-selected history. */
+export const PRIVATE_HISTORY_SHA256 = 'ca23447307a3e50bfe021001851b6128d6c39f2bbb1c4fc342d478321f5e3a4d';
