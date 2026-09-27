@@ -7,7 +7,7 @@ Cloudflare 平台遷移暫停；下方 Render 是歷史候選，尚未選定部�
 ## 現有程式的阻擋項
 
 - `pnpm start` 執行 `tests/support/workbench-dev.ts --production`：仍使用 `testDatabaseUrl()`、專用 `dive_trip_test` DB、loopback 與固定 port。`--production` 僅表示 Next production build，**不是公開環境 launcher**。
-- `src/server/local-live-context.ts` 僅接受固定 loopback origin、私有 ingress token 與可信 local peer。不得把 Render proxy 的 forwarding headers 偽裝成 local peer，也不得只把 host 改成 `0.0.0.0` 就宣稱公開 ingress 完成。
+- 一般 Next HTTP route 固定使用 fixture；明示 `DIVE_LOCAL_LIVE` 時回 503。舊 loopback live proxy 與 context factory 已移除，真模型只保留另外受控的評估入口；改 host 或 forwarding headers 不會建立公開 ingress。
 - `scripts/expire-data.ts` 僅接受上述本機 DB 的 `workbench_demo`／`workbench_live`，後者只允許dry-run；不能直接作為 hosted DB 的 cron command。
 - 公開 launcher、trusted proxy／IP contract、HTTPS cookie／origin、憑證載入與預算／停用設定介面尚待實作。2026-09-27僅補本機retention及fixture CI防護，不實作public runtime或修改`.env.example`，不提供假的可用production start command／deployment manifest。
 

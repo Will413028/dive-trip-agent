@@ -9,10 +9,9 @@ import { gradeEvidenceV2, type RunEvidence, type RunEvidenceV2 } from './evidenc
 import { answerEventSchema, parseAcceptedAnswers, parseReplayBundle, validateAnswerPhase,
   type ProductDecisionReceipt, type ReplayBundle } from './replay-bundle.ts';
 
-type RecordedEvaluationFields = { evidence: RunEvidence; events: BaseEvent[]; grade: ReturnType<typeof gradeEvidenceV2> };
-/** Historical wire data had no version field. Never derive its shape from today's collector. */
-export type RecordedEvaluationV1 = Readonly<RecordedEvaluationFields & { schemaVersion?: 1 }>;
-export type RecordedEvaluationV2 = Omit<RecordedEvaluationFields, 'evidence'> & { schemaVersion: 2; evidence: RunEvidenceV2 };
+export type RecordedEvaluationV2 = {
+  schemaVersion: 2; evidence: RunEvidenceV2; events: BaseEvent[]; grade: ReturnType<typeof gradeEvidenceV2>;
+};
 
 /** Bounded whole-stream collection. Never treats EOF/HTTP200 as run completion. */
 export async function collectEvents(response: Response, signal: AbortSignal): Promise<BaseEvent[]> {

@@ -9,12 +9,7 @@ import { withAdkSchemaLock } from '../../src/server/adk-schema-lock.ts';
 import { parseWorkbenchOptions } from './workbench-options.ts';
 
 const options = parseWorkbenchOptions(process.argv.slice(2));
-const { e2e, production, liveProvider } = options;
-// This cutover only admits the independent offline demo. Stop before database
-// migration, credential loading or ingress creation; legacy live is history.
-if (liveProvider !== undefined) {
-  console.error('WORKBENCH_LIVE_READ_ONLY'); process.exit(1);
-}
+const { e2e, production } = options;
 const publicPort = e2e ? 4319 : options.port ?? 4318;
 const schema = e2e ? `e2e_${randomUUID().replaceAll('-', '')}` : 'workbench_demo';
 const url = testDatabaseUrl();

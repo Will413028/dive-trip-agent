@@ -57,7 +57,6 @@ export const proposalParametersSchema = z.strictObject({ changes: agentChangesSc
 export const validatedProposalParametersSchema = z.strictObject({
   validationId: z.uuid().describe('Copy the validationId from the latest successful validate_changes result. Do not resubmit changes.'),
 });
-export type AgentChange = z.infer<typeof agentChangesSchema>[number];
 
 const empty = z.strictObject({});
 export const agentToolParameters = {

@@ -7,7 +7,6 @@ import { CLOUDFLARE_PRICE_BASIS, matchesCloudflareModel } from '../agent/cloudfl
  * and https://ai.google.dev/gemini-api/docs/models/gemini-3.1-flash-lite.
  * Standard text: USD .25/M input, 1.50/M output including thoughts.
  */
-export const MODEL_PRICE_BASIS = 'gemini-3.1-flash-lite-standard-text-2026-09-22';
 const MAX_INPUT_TOKENS = 1_048_576;
 const MAX_OUTPUT_TOKENS = 2_048;
 const MAX_CALLS = 7;

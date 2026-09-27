@@ -30,6 +30,17 @@ test('invalid credential errors contain no source data', () => {
     `GEMINI_API_KEY=${'x'.repeat(4097)}`]) expect(() => parseLiveCredential(source)).toThrow(/^LIVE_CREDENTIAL_INVALID$/);
 });
 
+test('local credential parsing accepts opaque characters and preserves control-character checks', () => {
+  expect(parseLocalCredential('GEMINI_API_KEY=synthetic-rn0')).toBe('synthetic-rn0');
+  expect(parseLocalCredential('OPENROUTER_API_KEY=synthetic-rn0', 'OPENROUTER_API_KEY')).toBe('synthetic-rn0');
+  for (const control of ['\r', '\n', '\0']) {
+    const value = `synthetic${control}key`;
+    // Node parseEnv normalizes CR before validation (including CRLF files).
+    if (control === '\r') expect(parseLocalCredential(`GEMINI_API_KEY="${value}"`)).toBe('synthetickey');
+    else expect(() => parseLocalCredential(`GEMINI_API_KEY="${value}"`)).toThrow('LIVE_CREDENTIAL_UNAVAILABLE');
+  }
+});
+
 test('Cloudflare reads only its dedicated nofollow file and selects only its token', async () => {
   vi.stubEnv('CLOUDFLARE_API_TOKEN', 'synthetic-inherited-token');
   const file = mockFile('GEMINI_API_KEY=synthetic-gemini\nOPENROUTER_API_KEY=synthetic-openrouter\nCLOUDFLARE_API_TOKEN=synthetic-cloudflare-token');

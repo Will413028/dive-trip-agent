@@ -215,17 +215,15 @@ Public AG-UI output still contains only the existing allowlisted event projectio
 `quotaIpKeys` ignores request forwarding headers. It requires a verified network
 peer address from the server, normalizes IPv4/mapped IPv6, derives daily hashes,
 and supplies the previous day's hash during midnight's rolling-minute overlap.
-Raw IPs are not stored. The opt-in local launcher binds 4318 and its Next upstream
-4320 to 127.0.0.1, checks the socket peer and fixed Host, strips caller forwarding
-and private headers, then supplies its random process-only ingress token and
-verified peer. Next requires constant-time token equality and loopback peer;
-direct upstream API requests fail closed. The 0600 ignored `.local-ingress-key`
-holds only a random IP hash salt across local restarts, never a model credential.
-This is not suitable for public deployment or port forwarding. The live schema
-is `workbench_live`, separate from fixture `workbench_demo`. The local daily risk
-budget permits at most ten full outstanding invocation reservations; existing
-IP/session/concurrency limits remain enforced. Billing-disabled remains an
-operator-confirmed prerequisite, not something a launch flag can prove.
+Raw IPs are not stored. Ordinary workbench launchers are fixture-only and reject
+retired live/provider options before database discovery or environment loading.
+The old loopback proxy, IP-salt writer, live context factory and browser live
+smoke entrypoints have been removed. The Next route selects fixture directly;
+any explicit `DIVE_LOCAL_LIVE` value returns 503 before product HTTP handling.
+Reviewed evaluation entries still provide their separate server capability;
+there is no supported live workbench launcher or public ingress. The retained
+`workbench_live` schema and its quota receipts remain read-only, separate from
+fixture `workbench_demo`.
 
 The runtime-only credential path is resolved from the project working directory,
 not a bundler asset URL. It is opened read-only/no-follow after admission, with
@@ -233,7 +231,7 @@ regular-file/size/0600 checks, and no raw error propagation. UI mode comes from 
 server API, not a client toggle; live mode warns against personal/secret input.
 Ordinary live launch options are disabled; use the offline commands in
 [README](../README.md). Returning to fixtures must not delete historical data
-or the local hash salt.
+or IP hashing material.
 
 Admission includes pool/row-lock elapsed time. Expiration or a Taipei day change
 while waiting rejects the request, including a delayed commit response; a
@@ -271,7 +269,7 @@ receipt contracts; prompt wording and narrow smoke results cannot establish
 general model quality.
 
 Offline regressions use actual native ADK / worker / HTTP paths with synthetic
-transport, including direct-upstream/forged-ingress rejection, persisted
+transport, including retired live activation rejection, persisted
 confirmation, receipt-only resume and replay. They do not prove public ingress,
 billing state or real-model task success. Latest complete-suite failures and
 the paused CI state remain in [release evidence](release-evidence.md).

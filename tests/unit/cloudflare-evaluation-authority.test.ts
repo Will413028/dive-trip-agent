@@ -41,6 +41,25 @@ test('explicit Cloudflare campaign authority validates lazily without granting c
   expect(context.loadCredential).toHaveBeenCalledTimes(1);
 });
 
+test('live credential loading remains lazy and respects an already-aborted invocation', async () => {
+  const context = campaignContext();
+  context.loadCredential.mockResolvedValue('synthetic-local-credential');
+  validateAgentContext(context);
+  expect(context.loadCredential).not.toHaveBeenCalled();
+  await expect(credential(context, AbortSignal.abort())).rejects.toThrow();
+  expect(context.loadCredential).not.toHaveBeenCalled();
+  expect(await credential(context, new AbortController().signal)).toBe('synthetic-local-credential');
+  expect(context.loadCredential).toHaveBeenCalledTimes(1);
+});
+
+test('live credential validation rejects the offline placeholder and control characters', async () => {
+  const context = campaignContext();
+  for (const value of ['offline-placeholder-not-a-credential', 'synthetic\rkey', 'synthetic\nkey', 'synthetic\0key']) {
+    context.loadCredential.mockResolvedValue(value);
+    await expect(credential(context, new AbortController().signal)).rejects.toThrow('AGENT_PROVIDER_CONFIG');
+  }
+});
+
 test.each(['cloudflare-grounded-30-cases', 'cloudflare-nonthinking-one-case', 'cloudflare-diagnostic-30-cases'] as const)(
   '%s is a separate server marker and never supplies a credential grant', async liveCampaign => {
   const base = campaignContext();
