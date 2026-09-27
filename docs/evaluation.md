@@ -160,7 +160,7 @@ model immunity.
 tools, requirement/entry differences and domain-recomputed budgets. Durable audit
 rows are not extra attempts. Missing slots and pending review remain visible;
 the worksheet itself always has `evaluationGatePassed:false`.
-Use the [review template](cloudflare-evaluation-1-review.md), including distinctions
+Use the [review guide](evaluation-review.md), including distinctions
 between technical failure, task failure and absent evidence.
 
 Current monetary answers derive target budget, unit price, known subtotal and
@@ -221,6 +221,27 @@ checkpointing the decision and dispatching another case. Technical completion
 or a preflight receipt never sets the final quality gate.
 
 ## Closed-world history integrity
+
+Public identities and numeric vectors are regression inputs, never private
+provenance or remaining quota. `cloudflare-history-contract.ts` defines the
+private profile format independently of public example values. Default fixture
+lookup performs no filesystem IO; authorized live entries load one fixed,
+digest-pinned profile before claim, DB or credential access, with no caller path
+override or missing-profile fallback. CI rejects private loading before IO.
+
+`cloudflare-history-profile.ts` freezes that profile in an `AsyncLocalStorage`
+scope and revokes it when the evaluation ends. Escaped inactive contexts fail
+closed; concurrent fixture work does not inherit private identities. Integrity
+is rechecked at dispatch/final-history boundaries. Explicit bound descriptors
+should be reconsidered if one evaluation must compare multiple approved
+profiles or the comparator becomes a general-purpose library.
+
+Profile and report policies share `bounded-artifact-file.ts` for canonical,
+bounded, immutable reads with bigint metadata and directory/file snapshots;
+their names, pins, size limits and lease requirements stay separate. Keep the
+original private Git bundle/tree archive and historical artifacts ignored.
+Never merge or publish the private backup history into public refs; source
+publication does not authorize another model run or reset historical usage.
 
 Local history readers use closed descriptors: fixed paths, report hashes, schema,
 run/trip/owner/provider/model/account bindings, known sidecars and expected

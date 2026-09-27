@@ -122,6 +122,6 @@ Gemini、OpenRouter、Cloudflare adapter 已接入有界 ADK 工作流；離線�
 
 一般 live launcher 已停用，會在 migration／憑證讀取前回 `WORKBENCH_LIVE_READ_ONLY`；舊 `workbench_live` 與用量保留。真模型評估須另外取得明確、有界授權，先在本機核對不可刪的原始 claims／reports／usage、完整 DB inventory、source manifest 與既有 quota，再經隔離的一次性入口。Public regression vectors、離線通過或未用滿的預算都不能放行模型請求，也不能重設 quota。
 
-新的 unknown usage、限流或技術失敗必須停止、不重試；原始 unknown 保留，reference budget 不等於實際帳單或免費額度。Review 方法見 [評估審查模板](docs/cloudflare-evaluation-1-review.md)。
+新的 unknown usage、限流或技術失敗必須停止、不重試；原始 unknown 保留，reference budget 不等於實際帳單或免費額度。Review 方法與離線反例見 [評估審查指南](docs/evaluation-review.md)。
 
 新版真模型品質尚未通過，第一輪 fixture CI 已通過，沒有 public deployment。Hosted ingress、可信 proxy/IP、secret loading、retention、backup/restore 與 kill-switch 尚需驗收；repository 公開與服務上線是不同交付。產品約束見 [AGENTS.md](AGENTS.md)，發布缺口見 [release evidence](docs/release-evidence.md)。

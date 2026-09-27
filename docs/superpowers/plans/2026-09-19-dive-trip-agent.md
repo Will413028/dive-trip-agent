@@ -117,7 +117,7 @@ CI 僅使用 fixture 與專用 PostgreSQL，不讀本機環境檔或消費模型
 
 1. **收尾測試穩定性。** `2a3d3d5` 的同一 fixture CI run 在原門檻下 3308 unit、388 integration、63 production browser 通過，11 live／5 browser skip；lint／typecheck／build／DB teardown 全過。舊 10 integration timeout／9 browser failure 保留於 release evidence，本輪未重現，尚未證實統一根因或跨環境穩定性。另有 action runtime deprecation 非阻擋警告待升級及重新驗證。
 2. **新版真模型品質驗收。** 最新單案失敗；diagnostic 入口已準備，但須離線 gate、新一輪有效授權、本機歷史承接與逐案內容審查共同通過。完整 30 案未過，不提高預算、不抹除 unknown、不自動重試。
-3. **獨立版控與遠端 CI。** 原 repo 已公開，`main` 為去識別化的單一初始 commit `2a3d3d5`；[第一輪 fixture CI](https://github.com/Will413028/dive-trip-agent/actions/runs/36317342675) 的 job 與全部 steps 均 success。保留 [public-source preparation](2026-09-27-public-source-preparation.md) 的原始私有備份；不因公開化或 CI 通過推定可讀憑證、呼叫模型或部署。
+3. **獨立版控與遠端 CI。** 原 repo 已公開，公開初始基線為去識別化的單一初始 commit `2a3d3d5`；[第一輪 fixture CI](https://github.com/Will413028/dive-trip-agent/actions/runs/36317342675) 的 job 與全部 steps 均 success。原始私有備份保留於 ignored local storage，現行[公開fixture／私有歷史契約](../../evaluation.md#closed-world-history-integrity)不得因公開化而放寬；CI 通過不授權讀憑證、呼叫模型或部署。
 4. **公開部署與維運。** 尚無公開 URL；完成 Task 12 的發布清單並獲部署授權後才開放。
 5. **新版真模型展示。** 沿用同次有界驗收的真實證據，不為影片額外發送；不能把 fixture 或舊 replay 改標 live。
 

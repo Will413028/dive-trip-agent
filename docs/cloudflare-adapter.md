@@ -89,7 +89,7 @@ Public tests use de-identified offline vectors, fixed synthetic credentials,
 replaced fetch and isolated PostgreSQL schemas. They verify account binding,
 request policy, native ADK confirmation, usage persistence, private diagnostics
 and public event projection. Numerical bounds do not prove real-model quality.
-Latest whole-suite/browser results remain incomplete; see
+Revision-specific fixture results and remaining live-quality/release gates are in
 [release evidence](release-evidence.md).
 
 Original claims, reports, usage, reviews and retained schemas remain in ignored
@@ -121,7 +121,7 @@ exports and run-bound review. Server-only catalog/fault overrides require
 isolated test schemas; public request fields cannot select them. Review worksheets
 remain pending/false until actual task/content review and aggregation.
 See [evaluation](evaluation.md) and the
-[review template](cloudflare-evaluation-1-review.md).
+[review guide](evaluation-review.md).
 
 Rollback disables dispatch and returns to the ordinary offline fixture workbench.
 Preserve credentials, provider bindings, immutable reports, claims and quota;

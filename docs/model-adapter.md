@@ -2,8 +2,9 @@
 
 ## Current cutover — 2026-09-27 (offline only)
 
-The grounded-answer refactor completed offline cutover verification under the existing
-[implementation plan](superpowers/plans/2026-09-27-grounded-answer-refactor.md).
+The grounded-answer refactor is implemented. Remaining semantic-quality and
+release work stays in the [master plan](superpowers/plans/2026-09-19-dive-trip-agent.md#執行交接);
+verification results remain scoped to their recorded revision.
 Only `workbench_demo` may cut over; `workbench_live` and its undecided legacy
 proposal remain read-only. The launcher rejects live options before migration,
 ingress or credentials. HTTP admits fixture/synthetic contexts only. Historical live evidence remains private and does not establish this contract's quality.
@@ -47,6 +48,36 @@ Original claims/reports/usage stay in ignored local storage. Real-model entries
 require separate explicit bounded authorization and a fresh original-history
 check; public fixtures must never reset quota. Current release status is in
 [release evidence](release-evidence.md).
+
+## Answer design and rollback
+
+The model produces strict intent/reference data, never public amounts, saved-state
+claims or arbitrary text/HTML/Markdown. Server-owned Evidence binds owner/trip/run,
+snapshot/version, tool call and current/candidate/committed scope; reference IDs
+are not authorization. The compiler resolves those references into AcceptedAnswer.
+Required evidence and disclosures come from the answer type, not only the subset
+the model selected. A partial comparison cannot establish the cheapest option.
+Classifying a turn as general chat does not open a free-prose bypass.
+
+This replaces free prose plus post-hoc checks, including correct cards beside
+unverified prose. It trades open-ended expression for closed answer types and
+versioned templates; it does not establish source truth or semantic task success.
+The bounded ADK loop remains because compound requests need tool exploration.
+Reconsider a fixed workflow if same-scenario task evidence favors it, rather
+than treating a prose error as evidence that all dynamic tool choice must go.
+
+Durable native events supply evidence; no second mutable evidence ledger is
+maintained. Existing UUIDs, request hashes, answer uniqueness, trip transactions
+and leases protect persistence/replay. Native stateDelta and product run events
+hold the same immutable projection for their distinct recovery/delivery roles.
+External side effects or cross-service delivery would require a fresh transaction
+and outbox assessment, not a claim of arbitrary exactly-once execution.
+
+If the answer contract fails, disable Agent execution and retain read-only or
+already validated manual operations. Never fall back to unvalidated model prose,
+resume legacy proposals, regrade old reports or rewrite unknown accounting.
+Future post-decision exploration needs a new run with explicit generation
+capability; it cannot silently reuse the receipt-only continuation.
 
 ## Framework and provider
 
@@ -271,8 +302,8 @@ general model quality.
 Offline regressions use actual native ADK / worker / HTTP paths with synthetic
 transport, including retired live activation rejection, persisted
 confirmation, receipt-only resume and replay. They do not prove public ingress,
-billing state or real-model task success. Latest complete-suite failures and
-the paused CI state remain in [release evidence](release-evidence.md).
+billing state or real-model task success. Revision-specific results and remaining
+release gates are recorded in [release evidence](release-evidence.md).
 
 ## Remaining integration gate
 

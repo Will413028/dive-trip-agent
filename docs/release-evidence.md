@@ -60,7 +60,7 @@ Acceptance 要求同一模型、同一 case 版本的三輪各十例；每輪至
 
 原始 claims、reports、replays、usage 與 retained DB 留於 ignored local storage，保留失敗原貌、unknown 和已消耗 claim，不刪除或改寫。Public docs 不包含私人報告的精確識別、帳戶或實際 ledger 成本歷史；去識別化 regression vectors 只用於離線驗證，不可代替本機原始歷史、remaining quota 或新的發送授權。
 
-真模型入口另需明確、有界授權及本機 closed-world history check；不能刪 report／claim、換 schema／IP identity 或清 quota 重新啟動。新的 unknown usage、限流、技術／安全失敗立即停止。Reference budget（例如 US$3）只是保守政策上限，不是實際帳單、免費餘額或付費許可。詳細方法見 [評估審查模板](cloudflare-evaluation-1-review.md)。
+真模型入口另需明確、有界授權及本機 closed-world history check；不能刪 report／claim、換 schema／IP identity 或清 quota 重新啟動。新的 unknown usage、限流、技術／安全失敗立即停止。Reference budget（例如 US$3）只是保守政策上限，不是實際帳單、免費餘額或付費許可。詳細方法見 [評估審查指南](evaluation-review.md)。
 
 ## Public release 待填欄位
 
