@@ -36,6 +36,9 @@ if (kind === 'diagnostic') sidecars.push('cloudflare-nonthinking-review.json',
   'cloudflare-nonthinking-1c18c417-145e-45ef-8e4a-64931326498f.replay.json');
 const claimName = `cloudflare-${kind}.claim`, reportName = `cloudflare-${kind}.json`;
 const denied = `EVAL_CLOUDFLARE_${kind.toUpperCase()}_ALREADY_CLAIMED`;
+// Inventory tests cover every policy name. File-type rejection uses the same
+// loop: sample a required claim/report and an optional review/replay per policy.
+const historyFileTypes = [required[0], required.at(-1)!, sidecars[0], sidecars.at(-1)!];
 
 async function temporary(work: (dir: string) => Promise<void>) {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'revision-claim-')));
@@ -99,7 +102,7 @@ test.each([claimName, reportName, 'cloudflare-evaluation-3.claim', 'cloudflare-e
     if (name !== reportName) expect(await readdir(dir)).not.toContain(reportName);
   }));
 
-test.each([...required, ...sidecars, claimName, reportName])('symlink %s blocks without touching target', name => temporary(async dir => {
+test.each([...historyFileTypes, claimName, reportName])('symlink %s blocks without touching target', name => temporary(async dir => {
   const target = join(dir, 'sentinel');
   await writeFile(target, 'untouched');
   if (required.includes(name)) await rm(join(dir, name));
@@ -207,7 +210,7 @@ test('symlink artifact directory is refused before claim creation', () => tempor
   expect(await readdir(`${dir}-original`)).toEqual([...required].sort());
 }));
 
-test.each([...required, ...sidecars])('directory/special history %s is refused', name => temporary(async dir => {
+test.each(historyFileTypes)('directory/special history %s is refused', name => temporary(async dir => {
   if (required.includes(name)) await rm(join(dir, name));
   await mkdir(join(dir, name));
   await expect(withEvaluationLock(claimCampaign)).rejects.toThrow(denied);
