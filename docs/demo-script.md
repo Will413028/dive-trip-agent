@@ -2,7 +2,7 @@
 
 這份腳本配合 `/case-study` 個人作品案例頁。首頁已提供一般規劃、鎖定住宿的預算衝突，以及明示的查詢失敗靜態劇本；不把靜態文字當成真模型故障。公開部署與完整live評估通過仍是發布門檻。
 
-2026-09-27新版切換：僅使用獨立離線demo；舊live及以下舊錄影／評估證據保留歷史，不代表新版通過。核心回答改為受控AcceptedAnswer，金額統一顯示`TWD 4300.00`等兩位小數格式（下表NT$數字為相同數值）。待確認回答必須先有已保存提案；確認後顯示已套用／拒絕的明確receipt。回答契約見 [model adapter](model-adapter.md#answer-design-and-rollback)，驗收進度以[主清單](superpowers/plans/2026-09-19-dive-trip-agent.md#執行交接)為準。
+2026-09-27新版切換：僅使用獨立離線demo；舊live及以下舊錄影／評估證據保留歷史，不代表新版通過。核心回答改為受控AcceptedAnswer，金額統一顯示`TWD 4300.00`等兩位小數格式（下表NT$數字為相同數值）。待確認回答必須先有已保存提案；確認後顯示已套用／拒絕的明確receipt。回答契約見 [model adapter](model-adapter.md#answer-design-and-rollback)，驗收進度以[主清單](release-evidence.md#執行交接)為準。
 
 ## 展示前提
 

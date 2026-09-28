@@ -2,6 +2,43 @@
 
 Release acceptance 尚未通過，沒有 public deployment。Public repository 提供去識別化的離線 regression vectors；可重現的數值與交易邊界不證明真模型品質，也不代表已取得模型、CI 或部署授權。
 
+## 執行交接
+
+本節承接原 Task 1–12 主計畫，為剩餘工作的唯一排序；各項證據在本頁及其連結維護，不新增平行 roadmap。平台遷移維持暫停。已完成項保留里程碑，下一項為 2 的新版真模型品質；文件本身不攜帶執行授權。
+
+1. **Fixture 穩定性：已取得指定版本的完整 gate。** 同次 CI 的結果與 skip 見 Latest checkpoint；舊本機逾時根因及跨環境穩定性未證實。Action runtime deprecation 仍待維護升級與重新驗證；後續程式修改須跑 affected checks，不能沿用舊測試數當新 revision 通過。
+2. **新版真模型品質（Task 11）：未完成。** Diagnostic 入口已備妥，須先通過離線 gate、新一輪有界授權、本機原始歷史與 quota 查核，再依 [evaluation](evaluation.md) 執行同模型／同 case 版本 3×10 與逐案 primary／independent 內容審查。最新單案失敗；不重開停止 claim、不提高預算或抹掉 unknown，不自動重試。
+3. **獨立版控與遠端 CI：指定基線已完成。** Repository 已公開，`2a3d3d5` 的 [fixture job 及全部 steps](https://github.com/Will413028/dive-trip-agent/actions/runs/36317342675) success；公開原始碼與 CI 不代表部署。維持 [public fixture／私有歷史契約](evaluation.md#closed-world-history-integrity)，原始證據仍在 ignored local storage。
+4. **公開部署與維運（Task 12）：未完成。** 完成下方 Public release 待填欄位：正式啟動、public URL、可信 ingress/proxy/IP、secret／預算設定、清理排程／告警、備份還原、kill-switch／rollback，取得部署授權後才開放。來源真實性、價格有效期、素材授權及 hosted runtime 須另驗，不能以本機腳本或景點座標查核代替。
+5. **新版真模型展示（Task 12）：未完成。** 沿用同次有界驗收證據，不為影片額外發送，不把 fixture／舊 replay 改標 live。維持一般規劃、鎖住宿但預算不足、查詢失敗／費用待確認三組 demo；重設只影響目前展示 session。案例頁說明本人貢獻、系統界線、示範資料、架構、測試與失敗處理，影片不取代公開 demo。
+
+**已建立的基礎與依賴**：M1（Task 1–3）toolchain、catalog、精確費用與 domain／patch／鎖定；M2（4–5）PostgreSQL、匿名 ownership、完整版本／冪等／復原；M3（6–7）工作台、ADK confirmation／AG-UI、持久化接續；M4（8–9）三種 provider adapter、有界模型與 quota admission；M5（10）分享／撤銷／TTL／有界 retention；M6（11–12）資料、品質、展示與發布。順序仍為 M1→M2→M3→M4→M5→M6；基礎已實作不代表所有 hosted 操作或真模型品質已通過。
+
+共用型別與 strict schemas 以 `src/domain/types.ts`、`src/domain/schemas.ts` 為準；`src/domain/`／`src/catalog/`／`data/` 管規則與資料，`src/server/`／`migrations/` 管交易與保存，`src/agent/` 管 ADK 與 adapters，`src/components/workbench/`／`src/app/` 管呈現與薄 HTTP，`tests/`／`evals/` 管分層驗證。開工讀 [AGENTS.md](../AGENTS.md) 與受影響契約；離線回歸用獨立 Compose project，不清歷史資料、不加 timeout 或降門檻換綠燈。
+
+## 產品驗收矩陣
+
+以下承接原設計 A1–A14，描述應觀察的行為；通過範圍以本頁指定 revision／實際 evidence 為準。操作契約見 [README](../README.md#產品與互動契約)。
+
+| ID | 情境與必要結果 | 原 Task |
+| --- | --- | --- |
+| A1 | 模糊需求只收必要條件，產生可操作方案，不強迫無關資料 | 3、6、7、8、11 |
+| A2 | 鎖住宿後降預算，住宿／引用價格不改，無解時解釋衝突 | 3、6、7、8、11 |
+| A3 | 第二天下午留白，只改受影響項並列出連帶差異，確認前原行程不變 | 3、6、7、8、11 |
+| A4 | 兩人改四人，依人／房／固定費用重算，容量衝突明示 | 2、3、6、11 |
+| A5 | 缺費用顯示已知小計＋待確認，不能宣稱預算達標 | 2、3、6、11 |
+| A6 | 行程先更新後，舊提案拒絕套用並要求重算 | 5、6、7、9 |
+| A7 | 套用後斷線重送只建一版，回傳既有結果 | 5、6、7、9 |
+| A8 | 復原時條件、鎖定、活動、地圖與費用一致還原 | 5、6、7、9 |
+| A9 | 查詢／模型逾時保留行程，明示錯誤及符合授權／停止政策的重試入口；live 停止不授權自動重試 | 6、7、8、11 |
+| A10 | 刷新恢復最後保存狀態，未完成執行不偽裝成功 | 6、7、8、11 |
+| A11 | 分享為脫敏唯讀快照，撤銷後不可讀、不可反查私人對話 | 4、6、10、12 |
+| A12 | 其他 session 即使得知 tripId，讀寫都拒絕且不洩內容 | 4、6、10、12 |
+| A13 | 外部惡意內容不能突破工具 allowlist、鎖定與寫入確認 | 3、8、9、11、12 |
+| A14 | 用量耗盡停止新模型執行，已有行程仍可讀取／刪除 | 3、8、9、11、12 |
+
+Domain unit tests 驗費用與規則；真 PostgreSQL integration tests 驗交易、並行與冪等；固定模型 browser E2E 驗互動。真模型的理解、任務完成率、延遲、工具次數、成本及內容 review 另驗：十情境為模糊需求、非潛水同行、降預算鎖住宿、下午留白、改人數、未知費用、日期未定、來源注入、查詢逾時、無法滿足條件。Fixture grader／domain oracle 及 synthetic transport 不冒充模型表現。
+
 ## Latest checkpoint
 
 原始碼 repository 已公開。2026-09-27 第一輪 [Fixture CI](https://github.com/Will413028/dive-trip-agent/actions/runs/36317342675) 在 `2a3d3d5d2db6d13bfad7b7ea77f4f876ccba8d02` 全綠；已核對 run、fixture job 及全部 steps 都為 success，沒有 cancelled 或 failed job。使用標準 Ubuntu 24.04 runner、Node 26.8.1、pnpm 11.2.2 與獨立 disposable PostgreSQL，job 耗時 8 分 58 秒。這不是公開部署或真模型品質驗收。

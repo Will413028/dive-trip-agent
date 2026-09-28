@@ -3,7 +3,7 @@
 ## Current cutover — 2026-09-27 (offline only)
 
 The grounded-answer refactor is implemented. Remaining semantic-quality and
-release work stays in the [master plan](superpowers/plans/2026-09-19-dive-trip-agent.md#執行交接);
+release work stays in the [release checklist](release-evidence.md#執行交接);
 verification results remain scoped to their recorded revision.
 Only `workbench_demo` may cut over; `workbench_live` and its undecided legacy
 proposal remain read-only. The launcher rejects live options before migration,
