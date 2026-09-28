@@ -10,7 +10,7 @@ Release acceptance 尚未通過，沒有 public deployment。Public repository �
 
 0. **Python／Temporal 核心重構：已完成本機切換與遠端 Fixture CI。** 產品等價、帳務／歷史、跨程序故障、完整離線gates及獨立review已通過；原demo備份還原演練、migration與持久重啟已驗證。精確範圍見 [核心重構](architecture-refactor.md)。新版CI同SHA完整gate通過，不代表真模型品質。
 
-1. **Fixture 穩定性：新版指定版本完整 gate 已通過。** `ab80b3f` 同次 CI 的結果與 skip 見 Latest checkpoint；舊本機逾時根因及跨環境穩定性未證實。Action runtime deprecation 仍待維護升級與重新驗證；後續程式修改須跑 affected checks，不能沿用舊測試數當新 revision 通過。
+1. **Fixture 穩定性：新版指定版本完整 gate 已通過。** `f171ac6` 同次 CI 的結果與 skip 見 Latest checkpoint；舊本機逾時根因及跨環境穩定性未證實。Action runtime deprecation 仍待維護升級與重新驗證；後續程式修改須跑 affected checks，不能沿用舊測試數當新 revision 通過。
 2. **新版真模型品質（Task 11）：未完成，當次 diagnostic 已停止。** 2026-09-29 固定來源、離線 gate 與本機原始歷史／quota 查核通過後，一次性入口首案第二次模型呼叫出現未知用量，依政策停於 `UNKNOWN_USAGE_STOP`；1 案失敗、29 案未送，未進入內容雙審。Claim 已消耗，私有報告與隔離儲存保留；詳下方 Latest checkpoint。已在離線 SDK 補上未來逾時來源的固定分類，無法回溯當次原始原因。不得重開停止 claim、提高預算、抹掉 unknown 或自動重試；新的模型品質實驗須另定範圍與授權。
 3. **獨立版控與遠端 CI：新版基線已完成。** Repository 已公開，`ab80b3f` 的 [新版fixture job及全部steps](https://github.com/Will413028/dive-trip-agent/actions/runs/36460356520) success；公開原始碼與CI不代表部署。維持 [public fixture／私有歷史契約](evaluation.md#closed-world-history-integrity)，原始證據仍在ignored local storage。
 4. **公開部署與維運（Task 12）：未完成。** 完成下方 Public release 待填欄位：正式啟動、public URL、可信 ingress/proxy/IP、secret／預算設定、清理排程／告警、備份還原、kill-switch／rollback，取得部署授權後才開放。來源真實性、價格有效期、素材授權及 hosted runtime 須另驗，不能以本機腳本或景點座標查核代替。
@@ -45,7 +45,7 @@ Domain unit tests 驗費用與規則；真 PostgreSQL integration tests 驗交�
 
 ## Latest checkpoint
 
-2026-09-29 Python／Temporal重構在 `ab80b3f` 的 [新版Fixture CI](https://github.com/Will413028/dive-trip-agent/actions/runs/36460356520) 通過：唯一job及所有steps success，Web unit **3036 passed／103 files**、integration **388 passed／11 live skipped**、backend **262 passed**、production E2E **67 passed／5 skipped**；typecheck、lint、mypy、contracts、production build及disposable DB清理全部成功（job 15分50秒）。這是同一CI run，不將首兩次Python安裝前失敗的run當測試結果。獨立設計／正確性複查已收口，原專案預設與demo migration020已切換，既有資料及受保護歷史指紋不變。本機命令、耗時、logs與重啟證據見 [最終驗收](architecture-refactor.md#2026-09-29-最終驗收與本機切換)。尚無真模型品質或public deployment驗收。
+2026-09-29 Python／Temporal重構及後續 timeout 分類修正在 `f171ac6` 的 [新版Fixture CI](https://github.com/Will413028/dive-trip-agent/actions/runs/36477194214) 通過：唯一job及所有steps success，Web unit **3036 passed／103 files**、integration **388 passed／11 live skipped**、backend **266 passed**、production E2E **67 passed／5 skipped**；typecheck、lint、mypy、contracts、production build及disposable DB清理全部成功。這是同一CI run，不將首兩次Python安裝前失敗的run當測試結果。獨立設計／正確性複查已收口，原專案預設與demo migration020已切換，既有資料及受保護歷史指紋不變。本機命令、耗時、logs與重啟證據見 [最終驗收](architecture-refactor.md#2026-09-29-最終驗收與本機切換)。尚無真模型品質或public deployment驗收。
 
 ### 2026-09-29 Python diagnostic live stop
 
@@ -100,7 +100,7 @@ Skip 不算 pass：11 項 integration 為真模型 opt-in；5 項 browser 為兩
 | 固定 runtime | 已指定版本 | Node 26.8.1、pnpm 11.2.2；hosted runtime 未驗證，見 [toolchain](toolchain.md) |
 | 核心回答契約 | 已完成離線接線 | AnswerPlan → compiler → AcceptedAnswer；交易後固定 receipt、零模型 resume、不可變 replay，見 [model adapter](model-adapter.md) |
 | 本機展示 | CI 的 production fixture browser 通過 | [Demo 腳本](demo-script.md)；影片／單案 smoke 不作完整品質證明 |
-| Fixture CI | Passed at `ab80b3f` | [新版Run](https://github.com/Will413028/dive-trip-agent/actions/runs/36460356520) 的唯一job及全部steps成功；範圍與skip見上方 |
+| Fixture CI | Passed at `f171ac6` | [新版Run](https://github.com/Will413028/dive-trip-agent/actions/runs/36477194214) 的唯一job及全部steps成功；範圍與skip見上方 |
 | Live quality | 未通過；diagnostic 已停止 | 首案失敗、29 案未送，新增未知用量且一次性 claim 已消耗；仍需完整 3×10、獨立任務／內容 review 與已知 usage，見 [evaluation](evaluation.md#coverage-and-acceptance) |
 | Public runtime | Blocker | Hosted startup、可信 ingress/proxy/IP、secret loader、budget、kill-switch 未驗收，見 [deployment](deployment.md) |
 | Retention operations | Blocker | 有本機有界 cleanup；hosted adapter、supervised schedule、告警與 backlog 證據不足 |
@@ -124,7 +124,7 @@ Acceptance 要求同一模型、同一 case 版本的三輪各十例；每輪至
 | 欄位 | 現值 |
 | --- | --- |
 | Release commit / immutable artifact | 未指定 release artifact；checkout 身分可由 `git rev-parse HEAD` 取得 |
-| CI run URL / fixture job conclusion / steps | [36317342675](https://github.com/Will413028/dive-trip-agent/actions/runs/36317342675)／job `108614449542`：success，全部 steps success；SHA `2a3d3d5` |
+| CI run URL / fixture job conclusion / steps | [36477194214](https://github.com/Will413028/dive-trip-agent/actions/runs/36477194214)／job `109113749100`：success，全部 steps success；SHA `f171ac6` |
 | Deployment ID / region / public HTTPS URL | 未部署 |
 | Hosting configuration / daily model budget | 公開環境未配置 |
 | 新版 model / 完整 campaign / reviewer evidence | 品質未通過；私有歷史不能改標為新版成功 |
