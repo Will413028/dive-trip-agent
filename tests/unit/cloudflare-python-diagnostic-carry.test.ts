@@ -40,6 +40,8 @@ function vector() {
     cumulativeInvocations: 44, cumulativeModelCalls: 63, cumulativeChargedMicros: 948999,
     totalTokens: null, cumulativeTokens: null, sourceFingerprint: profile.sourceSha256,
     sourceManifest: { sha256: profile.sourceSha256 },
+    replays: [{ file: `cloudflare-diagnostic-${runId}.replay.json`, runId,
+      sha256: hash('synthetic replay bytes'), recordedResume: false }],
     records: [{ schemaVersion: 2, round: 1, caseId: 'unknown-cost', outcome: 'failed', events,
       evidence: { runId, usageRunId: runId, model: CLOUDFLARE_MODEL, modelCalls: 2,
         usageComplete: false, costMicros: null, runStatus: 'failed' } },
@@ -75,7 +77,7 @@ test('stopped Python report, owner, full storage pin and Temporal marker carry f
       totalTokens: null, dispatchAuthorized: false, evaluationGatePassed: false });
 });
 
-test.each(['report-prior', 'report-account', 'report-call', 'database-owner',
+test.each(['report-prior', 'report-account', 'report-call', 'replay-extra', 'replay-run', 'database-owner',
   'database-rows', 'temporal-marker', 'temporal-run'] as const)('%s mutation cannot become a new grant', mutation => {
   const v = vector();
   if (mutation === 'report-prior') Object.assign(v.report.prior, { modelCalls: 60 });
@@ -83,6 +85,11 @@ test.each(['report-prior', 'report-account', 'report-call', 'database-owner',
   if (mutation === 'report-call') {
     const audit = v.report.records[1] as { privateUsage: { calls: { event: { usage: unknown } }[] }[] };
     audit.privateUsage[0].calls[1].event.usage = { totalTokens: 1 };
+  }
+  if (mutation === 'replay-extra') v.report.replays.push({ ...v.report.replays[0] });
+  if (mutation === 'replay-run') {
+    v.report.replays[0].runId = tripId;
+    v.report.replays[0].file = `cloudflare-diagnostic-${tripId}.replay.json`;
   }
   if (mutation === 'database-owner') v.database.trips[0].owner_id = runId;
   if (mutation === 'database-rows') v.database.fingerprint = hash('changed original row');

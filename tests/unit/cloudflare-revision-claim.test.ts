@@ -10,6 +10,11 @@ import * as checkpoints from '../../evals/checkpoint';
 import * as lock from '../../evals/live-evaluation-lock';
 
 describe.each(['revision', 'recovery', 'grounded', 'nonthinking', 'diagnostic', 'probe'] as const)('%s one-shot claim', kind => {
+const diagnosticRunId = '77777777-7777-4777-8777-777777777777';
+const diagnosticReplay = `cloudflare-diagnostic-${diagnosticRunId}.replay.json`;
+const historyContent = (name: string) => kind === 'probe' && name === 'cloudflare-diagnostic.json'
+  ? JSON.stringify({ replays: [{ file: diagnosticReplay, runId: diagnosticRunId,
+    sha256: 'a'.repeat(64), recordedResume: false }] }) : `history:${name}`;
 const claimCampaign = kind === 'revision' ? claimCloudflareRevisionCampaign : kind === 'recovery'
   ? claimCloudflareRecoveryCampaign : (lease: EvaluationLockLease) => claimCloudflareCampaign(lease, kind);
 const required = ['cloudflare-evaluation-1', 'cloudflare-evaluation-2',
@@ -18,7 +23,7 @@ const required = ['cloudflare-evaluation-1', 'cloudflare-evaluation-2',
   ...(['nonthinking', 'diagnostic', 'probe'].includes(kind) ? ['cloudflare-grounded'] : []),
   ...(['diagnostic', 'probe'].includes(kind) ? ['cloudflare-nonthinking'] : []),
   ...(kind === 'probe' ? ['cloudflare-diagnostic'] : [])]
-  .flatMap(stem => [`${stem}.claim`, `${stem}.json`]);
+  .flatMap(stem => [`${stem}.claim`, `${stem}.json`]).concat(kind === 'probe' ? [diagnosticReplay] : []);
 const sidecars = ['cloudflare-evaluation-1-review.json', 'cloudflare-patch-verification-review.json',
   'cloudflare-quality-review.json', 'cloudflare-quality-diagnostic.json', 'cloudflare-quality-preflight.json',
   'cloudflare-quality-preflight-review.json', 'cloudflare-quality-preflight-receipt.json',
@@ -47,7 +52,7 @@ async function temporary(work: (dir: string) => Promise<void>) {
   await mkdir(dir);
   const cwd = vi.spyOn(process, 'cwd').mockReturnValue(root);
   try {
-    for (const name of required) await writeFile(join(dir, name), `history:${name}`);
+    for (const name of required) await writeFile(join(dir, name), historyContent(name));
     await work(dir);
   } finally { cwd.mockRestore(); vi.restoreAllMocks(); await rm(root, { recursive: true, force: true }); }
 }
@@ -72,7 +77,7 @@ test('claims once with private modes and fixed pending scope; preflight failure 
   await expect(withEvaluationLock(claimCampaign)).rejects.toThrow(denied);
   expect(await readFile(join(dir, claimName), 'utf8')).toBe('');
   expect(JSON.parse(await readFile(join(dir, reportName), 'utf8')).stopped).toBe('PREFLIGHT_GOAL_STOP');
-  for (const name of [...required, ...sidecars]) expect(await readFile(join(dir, name), 'utf8')).toBe(`history:${name}`);
+  for (const name of [...required, ...sidecars]) expect(await readFile(join(dir, name), 'utf8')).toBe(historyContent(name));
   expect(await readdir(dir)).not.toContain('live-evaluation.lock');
 }));
 

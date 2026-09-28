@@ -395,10 +395,11 @@ Provider diagnostics are deliberately limited:
 - A separately authorized Free-only one-case probe is limited to `unknown-cost`,
   one invocation and seven model calls. Its new permanent claim cannot reopen
   `cloudflare-diagnostic`. The private digest-pinned Python history profile
-  binds that stopped report, its synthetic PostgreSQL schema's complete table
-  fingerprint, original owner/run/provider/account evidence, and the retained
-  Temporal SQLite bytes and execution identity. Every admission and final
-  check repeats the old eight-scope carry and this new scope twice. A technically
+  binds that stopped report and its replay sidecar, the synthetic PostgreSQL
+  schema's complete table fingerprint, original owner/run/provider/account
+  evidence, and the retained Temporal SQLite bytes and execution identity.
+  Every admission and final check repeats the old eight-scope carry and this
+  new scope twice. A technically
   complete case records `diagnosticComplete: true` and retains raw storage;
   new unknown/technical failures also retain it. No one-case outcome satisfies
   the thirty-case quality gate or replaces the independent reviews.

@@ -11,6 +11,7 @@ import { assertEvaluationLock, type EvaluationLockLease } from './live-evaluatio
 import { assertPrivateCloudflareHistory, historyIdentity } from './cloudflare-history-profile.ts';
 import { readCloudflareNonthinkingCarry } from './cloudflare-nonthinking-carry.ts';
 import { nonthinkingCarrySchema } from './cloudflare-nonthinking-carry-schema.ts';
+import { diagnosticReplayFromReport } from './cloudflare-diagnostic-replay.ts';
 import { assertCloudflareAuditPool } from '../tests/support/cloudflare-audit-database.ts';
 import { CLOUDFLARE_MODEL } from '../src/agent/cloudflare-wire.ts';
 import { CAMPAIGN_BUDGET_MICROS, CAMPAIGN_INVOCATION_LIMIT } from './campaign-policy.ts';
@@ -66,8 +67,10 @@ export function comparePythonDiagnosticCarry(
       sourceFingerprint: digest, sourceManifest: z.object({ sha256: digest }),
       records: z.array(z.unknown()).length(31),
     }).parse(reportInput);
+    const replayRef = diagnosticReplayFromReport(reportInput);
     if (!isDeepStrictEqual(report.prior, old) || report.sourceFingerprint !== profile.sourceSha256
       || report.sourceManifest.sha256 !== profile.sourceSha256
+      || replayRef.runId !== profile.runId
       || old.invocations + report.invocations !== report.cumulativeInvocations
       || old.modelCalls + report.modelCalls !== report.cumulativeModelCalls
       || old.chargedMicros + report.chargedMicros !== report.cumulativeChargedMicros) invalid();
@@ -171,8 +174,17 @@ async function captureFiles(profile: PythonDiagnosticProfile, lease: EvaluationL
     const claim = await directory.read('cloudflare-diagnostic.claim', { minBytes: 0, maxBytes: 0 });
     const file = await directory.read('cloudflare-diagnostic.json', { minBytes: 1, maxBytes: 2_000_000 });
     if (sha256(file.bytes) !== profile.reportSha256) invalid();
-    return { value: JSON.parse(file.bytes.toString('utf8')) as unknown, claim: claim.snapshot,
-      file: file.snapshot, directory: directory.snapshot };
+    const value = JSON.parse(file.bytes.toString('utf8')) as unknown;
+    const replayRef = diagnosticReplayFromReport(value);
+    if (replayRef.runId !== profile.runId) invalid();
+    const expected = ['cloudflare-diagnostic.claim', 'cloudflare-diagnostic.json', replayRef.file].sort();
+    const names = (await readdir(artifacts)).filter(name => name.startsWith('cloudflare-diagnostic')).sort();
+    if (!isDeepStrictEqual(names, expected)) invalid();
+    const replay = await directory.read(replayRef.file, { minBytes: 1, maxBytes: 2_000_000 });
+    if (sha256(replay.bytes) !== replayRef.sha256
+      || !isDeepStrictEqual((await readdir(artifacts)).filter(name => name.startsWith('cloudflare-diagnostic')).sort(), expected)) invalid();
+    return { value, claim: claim.snapshot, file: file.snapshot, replay: replay.snapshot,
+      directory: directory.snapshot };
   });
   const path = join(artifacts, profile.storageDir);
   const temporal = await withBoundedArtifactDirectory([root, artifacts, path], async directory => {

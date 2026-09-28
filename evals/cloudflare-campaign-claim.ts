@@ -3,6 +3,8 @@ import { lstat, open, readdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { assertEvaluationLock, type EvaluationLockLease } from './live-evaluation-lock.ts';
 import { writeAtomicCheckpoint } from './checkpoint.ts';
+import { withBoundedArtifactDirectory } from './bounded-artifact-file.ts';
+import { diagnosticReplayFromReport } from './cloudflare-diagnostic-replay.ts';
 
 const requiredFiles = ['cloudflare-evaluation-1', 'cloudflare-evaluation-2',
   'cloudflare-patch-verification', 'cloudflare-quality'].flatMap(stem => [`${stem}.claim`, `${stem}.json`]);
@@ -67,7 +69,18 @@ export async function claimCloudflareCampaign(lease: EvaluationLockLease, kind: 
   await assertEvaluationLock(lease);
   const dir = resolve('.artifacts');
   const names = await readdir(dir);
+  let probeReplay: string | undefined;
+  if (kind === 'probe' && policy.required.every(name => names.includes(name))) {
+    try {
+      probeReplay = await withBoundedArtifactDirectory([resolve('.'), dir], async directory => {
+        const report = await directory.read('cloudflare-diagnostic.json', { minBytes: 1, maxBytes: 2_000_000 });
+        return diagnosticReplayFromReport(JSON.parse(report.bytes.toString('utf8'))).file;
+      });
+      policy.prior.add(probeReplay);
+    } catch { fail(); }
+  }
   if (policy.required.some(name => !names.includes(name))
+    || (kind === 'probe' && (!probeReplay || !names.includes(probeReplay)))
     || names.some(name => policy.campaign.test(name) && !policy.prior.has(name))) fail();
   for (const name of names.filter(name => policy.prior.has(name))) {
     if (!(await lstat(resolve(dir, name))).isFile()) fail();
