@@ -15,7 +15,7 @@ pnpm test:backend
 
 DB測試使用已備妥的`postgres:18-alpine`、固定Docker context、當次唯一container／schema；不接受任意DB URL或環境檔。Temporal測試SDK可能在cache缺少時下載隔離測試工具；persistent launcher則必須明確提供已安裝的CLI1.9.1（server1.32.0／UI2.54.1），缺少或版本不符即拒絕，不下載。SQLite及產品DB须一起保留；任一重置不能靠修改binding接回。SDK／CLI升級須重跑跨程序重啟、history replay與刪除故障驗證。
 
-CI 使用 [官方 setup-uv action](https://github.com/astral-sh/setup-uv/blob/main/README.md) 的固定 commit 安裝 uv 0.7.2／Python 3.13.13，再以 frozen lockfile 安裝。CI workflow 已接 backend lint／mypy／contracts／tests；尚未執行新版遠端 CI。
+CI 使用 [官方 setup-uv action](https://github.com/astral-sh/setup-uv/blob/main/README.md) 的固定 commit 安裝 uv 0.7.2；`python-version` 只設定 `UV_PYTHON`，所以另以 `uv python install 3.13.13` 安裝固定 Python，再以 frozen lockfile 安裝依賴。CI workflow 已接 backend lint／mypy／contracts／tests；實際結果見 [release evidence](release-evidence.md)。
 
 本節不是整體切換完成宣告；新舊驗證證據依[遷移計畫](architecture-refactor.md)分開記錄。
 
