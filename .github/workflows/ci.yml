@@ -41,15 +41,20 @@ jobs:
           node scripts/assert-fixture-ci.ts
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile --strict-peer-dependencies
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.13.13'
       - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           version: '0.7.2'
           python-version: '3.13.13'
           enable-cache: false
-      - name: Install pinned Python
-        run: uv python install 3.13.13
+      - name: Verify pinned Python is visible to uv
+        run: |
+          test "$(python --version)" = 'Python 3.13.13'
+          uv python find --no-python-downloads 3.13.13
       - name: Install locked backend dependencies
-        run: uv sync --frozen --project backend
+        run: uv sync --frozen --project backend --no-python-downloads
       - name: Backend static checks and generated contracts
         run: |
           pnpm lint:backend
