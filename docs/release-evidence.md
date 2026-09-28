@@ -10,9 +10,9 @@ Release acceptance 尚未通過，沒有 public deployment。Public repository �
 
 0. **Python／Temporal 核心重構：已完成本機切換與遠端 Fixture CI。** 產品等價、帳務／歷史、跨程序故障、完整離線gates及獨立review已通過；原demo備份還原演練、migration與持久重啟已驗證。精確範圍見 [核心重構](architecture-refactor.md)。新版CI同SHA完整gate通過，不代表真模型品質。
 
-1. **Fixture 穩定性：新版指定版本完整 gate 已通過。** `f171ac6` 同次 CI 的結果與 skip 見 Latest checkpoint；舊本機逾時根因及跨環境穩定性未證實。Action runtime deprecation 仍待維護升級與重新驗證；後續程式修改須跑 affected checks，不能沿用舊測試數當新 revision 通過。
-2. **新版真模型品質（Task 11）：未完成，當次 diagnostic 已停止。** 2026-09-29 固定來源、離線 gate 與本機原始歷史／quota 查核通過後，一次性入口首案第二次模型呼叫出現未知用量，依政策停於 `UNKNOWN_USAGE_STOP`；1 案失敗、29 案未送，未進入內容雙審。Claim 已消耗，私有報告與隔離儲存保留；詳下方 Latest checkpoint。已在離線 SDK 補上未來逾時來源的固定分類，無法回溯當次原始原因。不得重開停止 claim、提高預算、抹掉 unknown 或自動重試；新的模型品質實驗須另定範圍與授權。
-3. **獨立版控與遠端 CI：新版基線已完成。** Repository 已公開，`ab80b3f` 的 [新版fixture job及全部steps](https://github.com/Will413028/dive-trip-agent/actions/runs/36460356520) success；公開原始碼與CI不代表部署。維持 [public fixture／私有歷史契約](evaluation.md#closed-world-history-integrity)，原始證據仍在ignored local storage。
+1. **Fixture 穩定性：新版指定版本完整 gate 已通過。** `09d339b` 同次 CI 的結果與 skip 見 Latest checkpoint；舊本機逾時根因及跨環境穩定性未證實。Action runtime deprecation 仍待維護升級與重新驗證；後續程式修改須跑 affected checks，不能沿用舊測試數當新 revision 通過。
+2. **新版真模型品質（Task 11）：未完成，兩次獨立 diagnostic 均已停止。** 原 30 案入口首案第二次模型呼叫出現未知用量，停於 `UNKNOWN_USAGE_STOP`；1 案失敗、29 案未送。另經授權的 Free-only 單案 probe 在 4 次用量完整的模型呼叫後，因工具參數被拒而停於 `FAILED_RUN_STOP`；它不計入 30 案品質驗收。兩個 claim 及原始證據均保留，均未進入內容雙審；詳下方 Latest checkpoint。不得重開停止 claim、抹掉 unknown 或自動重試；新的模型品質實驗須另定範圍與授權。
+3. **獨立版控與遠端 CI：新版基線已完成。** Repository 已公開，`09d339b` 的 [fixture job 及全部 steps](https://github.com/Will413028/dive-trip-agent/actions/runs/36488396679) success；公開原始碼與 CI 不代表部署。維持 [public fixture／私有歷史契約](evaluation.md#closed-world-history-integrity)，原始證據仍在 ignored local storage。
 4. **公開部署與維運（Task 12）：未完成。** 完成下方 Public release 待填欄位：正式啟動、public URL、可信 ingress/proxy/IP、secret／預算設定、清理排程／告警、備份還原、kill-switch／rollback，取得部署授權後才開放。來源真實性、價格有效期、素材授權及 hosted runtime 須另驗，不能以本機腳本或景點座標查核代替。
 5. **新版真模型展示（Task 12）：未完成。** 沿用同次有界驗收證據，不為影片額外發送，不把 fixture／舊 replay 改標 live。維持一般規劃、鎖住宿但預算不足、查詢失敗／費用待確認三組 demo；重設只影響目前展示 session。案例頁說明本人貢獻、系統界線、示範資料、架構、測試與失敗處理，影片不取代公開 demo。
 
@@ -47,6 +47,8 @@ Domain unit tests 驗費用與規則；真 PostgreSQL integration tests 驗交�
 
 2026-09-29 Python／Temporal重構及後續 timeout 分類修正在 `f171ac6` 的 [新版Fixture CI](https://github.com/Will413028/dive-trip-agent/actions/runs/36477194214) 通過：唯一job及所有steps success，Web unit **3036 passed／103 files**、integration **388 passed／11 live skipped**、backend **266 passed**、production E2E **67 passed／5 skipped**；typecheck、lint、mypy、contracts、production build及disposable DB清理全部成功。這是同一CI run，不將首兩次Python安裝前失敗的run當測試結果。獨立設計／正確性複查已收口，原專案預設與demo migration020已切換，既有資料及受保護歷史指紋不變。本機命令、耗時、logs與重啟證據見 [最終驗收](architecture-refactor.md#2026-09-29-最終驗收與本機切換)。尚無真模型品質或public deployment驗收。
 
+後續單案 probe 修正於 `09d339b` 的 [Fixture CI](https://github.com/Will413028/dive-trip-agent/actions/runs/36488396679) 通過：唯一 job 及全部 steps success，Web unit **3121 passed／106 files**、integration **389 passed／12 live skipped**、backend **267 passed**、production E2E **67 passed／5 skipped**；lint、typecheck、backend 靜態檢查、build 與 disposable DB 清理均成功。這一 run 的 live test 是 skipped；真模型結果另列如下。
+
 ### 2026-09-29 Python diagnostic live stop
 
 同一程式來源的離線 fixture、固定原始歷史與 quota 雙輪唯讀查核通過後，按一次性 diagnostic 入口執行。首案 `unknown-cost` 失敗，其餘 29 案未 dispatch；首案兩次模型呼叫中，第一次有完整用量並完成 `validate_changes`，第二次約 30 秒後沒有可結算用量，native model activity 失敗，公開事件為 `AGENT_INTERRUPTED`。整批依 `UNKNOWN_USAGE_STOP` 停止，`evaluationGatePassed=false`；首兩案未完成，沒有 preflight 內容審查或後續案的品質結論。
@@ -56,6 +58,14 @@ Domain unit tests 驗費用與規則；真 PostgreSQL integration tests 驗交�
 ### 2026-09-29 Offline timeout diagnostic follow-up
 
 合成 `MockTransport` 重現 `httpx.ReadTimeout` 經 PydanticAI 包裝後被誤列為 `AGENT_PROVIDER_INVALID_RESPONSE`。後端 SDK 現以固定私有活動失敗碼區分本地 30 秒 deadline、SDK／transport timeout、已觀察到的 HTTP 408／504；只比對例外型別，不保存上游文字。公開錯誤、單次 dispatch、未知用量保守結算、停止規則與 30 秒上限均未改。受影響的 provider／evaluation generation 測試 **29 passed**、Ruff 通過、strict mypy **84 source files** 通過；未執行新的 live 呼叫，當次已停止證據不重新分類。
+
+### 2026-09-29 Free-only one-case probe stop
+
+獨立授權的 `unknown-cost` 技術 probe 以固定上限 **1 invocation／7 model calls** 執行。首個啟動嘗試在 claim 前發現舊 diagnostic 合法 replay sidecar 未納入唯一檔案清單，未送模型；修正並經 `09d339b` 完整 CI 後才建立新 claim。Free 方案查核及完整舊九範圍歷史、來源指紋、quota 的雙輪唯讀 preflight 通過。
+
+實際只送 **1 invocation／4 model calls**，四筆用量均完整，沒有新增 unknown；前三次 `validate_changes` 完成，第四個模型步驟的工具參數被拒。Temporal 固定失敗碼為 `AGENT_TOOL_ARGUMENTS_REJECTED`，公開 run 為 `AGENT_INTERRUPTED`，單案約 **25.1 秒**，停於 `FAILED_RUN_STOP`；`diagnosticComplete=false`、`evaluationGatePassed=false`，不代表模型品質通過。沒有提案或確認，行程版本未變。原始參數值未保存，不能由固定失敗碼判定是哪個欄位或模型選擇的根因。
+
+新 claim、私有報告、22 張表的隔離 PostgreSQL schema 與 Temporal SQLite history 均保留；四筆當次帳務與 provider binding 完整，既有 unknown 仍保守保留。執行後舊歷史與來源重查相符，owned lease 已釋放。不得重送這個已停止的 probe；完整 30 案及獨立內容審查仍缺，新的真模型 dispatch 須另定範圍與授權。
 
 ### 2026-09-27 Historical ADK fixture CI
 
@@ -100,8 +110,8 @@ Skip 不算 pass：11 項 integration 為真模型 opt-in；5 項 browser 為兩
 | 固定 runtime | 已指定版本 | Node 26.8.1、pnpm 11.2.2；hosted runtime 未驗證，見 [toolchain](toolchain.md) |
 | 核心回答契約 | 已完成離線接線 | AnswerPlan → compiler → AcceptedAnswer；交易後固定 receipt、零模型 resume、不可變 replay，見 [model adapter](model-adapter.md) |
 | 本機展示 | CI 的 production fixture browser 通過 | [Demo 腳本](demo-script.md)；影片／單案 smoke 不作完整品質證明 |
-| Fixture CI | Passed at `f171ac6` | [新版Run](https://github.com/Will413028/dive-trip-agent/actions/runs/36477194214) 的唯一job及全部steps成功；範圍與skip見上方 |
-| Live quality | 未通過；diagnostic 已停止 | 首案失敗、29 案未送，新增未知用量且一次性 claim 已消耗；仍需完整 3×10、獨立任務／內容 review 與已知 usage，見 [evaluation](evaluation.md#coverage-and-acceptance) |
+| Fixture CI | Passed at `09d339b` | [本輪 Run](https://github.com/Will413028/dive-trip-agent/actions/runs/36488396679) 的唯一 job 及全部 steps 成功；範圍與 skip 見上方 |
+| Live quality | 未通過；兩次 diagnostic 均已停止 | 原 30 案入口首案新增未知用量；獨立單案 probe 四筆用量已知但工具參數被拒。兩個 claim 均已消耗；仍需完整 3×10、獨立任務／內容 review 與已知 usage，見 [evaluation](evaluation.md#coverage-and-acceptance) |
 | Public runtime | Blocker | Hosted startup、可信 ingress/proxy/IP、secret loader、budget、kill-switch 未驗收，見 [deployment](deployment.md) |
 | Retention operations | Blocker | 有本機有界 cleanup；hosted adapter、supervised schedule、告警與 backlog 證據不足 |
 | Backup / restore | Blocker | 未有公開環境 backup policy、restore 演練及刪除／撤銷／成本 reconciliation 證據 |
@@ -124,7 +134,7 @@ Acceptance 要求同一模型、同一 case 版本的三輪各十例；每輪至
 | 欄位 | 現值 |
 | --- | --- |
 | Release commit / immutable artifact | 未指定 release artifact；checkout 身分可由 `git rev-parse HEAD` 取得 |
-| CI run URL / fixture job conclusion / steps | [36477194214](https://github.com/Will413028/dive-trip-agent/actions/runs/36477194214)／job `109113749100`：success，全部 steps success；SHA `f171ac6` |
+| CI run URL / fixture job conclusion / steps | [36488396679](https://github.com/Will413028/dive-trip-agent/actions/runs/36488396679)／job `109150793583`：success，全部 steps success；SHA `09d339b` |
 | Deployment ID / region / public HTTPS URL | 未部署 |
 | Hosting configuration / daily model budget | 公開環境未配置 |
 | 新版 model / 完整 campaign / reviewer evidence | 品質未通過；私有歷史不能改標為新版成功 |

@@ -399,10 +399,15 @@ Provider diagnostics are deliberately limited:
   schema's complete table fingerprint, original owner/run/provider/account
   evidence, and the retained Temporal SQLite bytes and execution identity.
   Every admission and final check repeats the old eight-scope carry and this
-  new scope twice. A technically
-  complete case records `diagnosticComplete: true` and retains raw storage;
-  new unknown/technical failures also retain it. No one-case outcome satisfies
-  the thirty-case quality gate or replaces the independent reviews.
+  new scope twice. A technically complete case would record
+  `diagnosticComplete: true` and retain raw storage; new unknown/technical
+  failures also retain it. No one-case outcome satisfies the thirty-case
+  quality gate or replaces the independent reviews. The 2026-09-29 probe used
+  one invocation and four known-usage model calls, then stopped at
+  `FAILED_RUN_STOP`: three `validate_changes` tools completed, the fourth
+  model step's tool arguments were rejected, and Temporal retained
+  `AGENT_TOOL_ARGUMENTS_REJECTED`. The claim, report, PostgreSQL schema and
+  Temporal SQLite remain; no new unknown usage or quality pass was recorded.
 - New private REST diagnostics permit provider plus locally selected
   `request`, `call-start`, `fetch`, `body-read`, `body-json`, `evidence`,
   `response`, `evidence-save`, or `http` with integer status 0–599.
