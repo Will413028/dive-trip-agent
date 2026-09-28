@@ -51,7 +51,7 @@ Domain unit tests 驗費用與規則；真 PostgreSQL integration tests 驗交�
 
 同一程式來源的離線 fixture、固定原始歷史與 quota 雙輪唯讀查核通過後，按一次性 diagnostic 入口執行。首案 `unknown-cost` 失敗，其餘 29 案未 dispatch；首案兩次模型呼叫中，第一次有完整用量並完成 `validate_changes`，第二次約 30 秒後沒有可結算用量，native model activity 失敗，公開事件為 `AGENT_INTERRUPTED`。整批依 `UNKNOWN_USAGE_STOP` 停止，`evaluationGatePassed=false`；首兩案未完成，沒有 preflight 內容審查或後續案的品質結論。
 
-本機第二次呼叫時間與 30 秒 client timeout 相符，但原始上游原因未保存，不能將 timeout、模型輸出或 provider 限流定為已證實根因。行程 snapshot 未變，未建立提案或確認；原始受保護歷史及來源在事後重查仍一致。一次性 claim、完整私有報告、保守帳務、隔離 PostgreSQL schema 與 Temporal 儲存已保留；精確身份與 ledger 留在 ignored local storage，不以公開摘要重建或重跑本次結果。
+保留的 Temporal history 有固定 `AGENT_PROVIDER_TIMEOUT` 失敗分類；程式對本地逾時及上游 HTTP 408／504 都使用此代碼。第二次呼叫約 30 秒，但原始 HTTP 狀態與例外未保存，尚不能判定哪一種觸發或上游根因。行程 snapshot 未變，未建立提案或確認；原始受保護歷史及來源在事後重查仍一致。一次性 claim、完整私有報告、保守帳務、隔離 PostgreSQL schema 與 Temporal 儲存已保留；精確身份與 ledger 留在 ignored local storage，不以公開摘要重建或重跑本次結果。
 
 ### 2026-09-27 Historical ADK fixture CI
 

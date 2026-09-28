@@ -378,11 +378,12 @@ Provider diagnostics are deliberately limited:
   rate limit or invalid credential. A controlled failure answer is not task success.
 - The 2026-09-29 Python diagnostic stopped after the first included case:
   one known-usage call completed `validate_changes`, then a second call ended
-  around the local 30-second client limit without usable usage. The native
-  model activity failed, the public run ended `AGENT_INTERRUPTED`, and all
-  remaining 29 slots were skipped by `UNKNOWN_USAGE_STOP`. The original
-  provider response or exception was not retained, so the elapsed time is a
-  timeout clue, not a proven upstream cause. The one-shot claim, private
+  around the local 30-second client limit without usable usage. The retained
+  Temporal history records the fixed `AGENT_PROVIDER_TIMEOUT` classification;
+  that code also covers upstream HTTP 408/504, and neither the original status
+  nor exception was retained. The native model activity failed, the public run
+  ended `AGENT_INTERRUPTED`, and all remaining 29 slots were skipped by
+  `UNKNOWN_USAGE_STOP`. The one-shot claim, private
   report, isolated DB and Temporal storage remain; no review or retry followed.
 - New private REST diagnostics permit provider plus locally selected
   `request`, `call-start`, `fetch`, `body-read`, `body-json`, `evidence`,
