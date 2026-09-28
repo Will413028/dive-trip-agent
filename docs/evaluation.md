@@ -287,9 +287,10 @@ a trusted-local-filesystem/cooperating-runner boundary, not hostile ABA protecti
 
 `readCloudflareSourceManifest` hashes sorted path/content identities from fixed
 source roots (`src`, `evals`, `migrations`, `tests/support`,
-`tests/integration`), required config and `data/catalog.json`.
-JS/TS variants, JSON and SQL are included; docs, hidden files, credentials,
-installed packages and generated/history artifacts are excluded.
+`tests/integration`, `backend/src`), required Node and Python config／lock／runtime
+version files, and `data/catalog.json`. JS/TS variants, JSON, SQL and Python
+source are included; docs, hidden files, credentials, installed packages and
+generated/history artifacts are excluded.
 Reject symlinks/special files, changing inventories, files over 2 MB, total input
 over 32 MB or more than 2048 entries. This is bounded source identity, not a
 hermetic-runtime claim or proof about installed binaries.
@@ -391,6 +392,16 @@ Provider diagnostics are deliberately limited:
   SDK/transport timeout, and observed HTTP 408/504. The original diagnostic
   retains its ambiguous historical code. Public `RUN_ERROR`, one dispatch per
   call, unknown usage and the stop policy are unchanged; no new live call was made.
+- A separately authorized Free-only one-case probe is limited to `unknown-cost`,
+  one invocation and seven model calls. Its new permanent claim cannot reopen
+  `cloudflare-diagnostic`. The private digest-pinned Python history profile
+  binds that stopped report, its synthetic PostgreSQL schema's complete table
+  fingerprint, original owner/run/provider/account evidence, and the retained
+  Temporal SQLite bytes and execution identity. Every admission and final
+  check repeats the old eight-scope carry and this new scope twice. A technically
+  complete case records `diagnosticComplete: true` and retains raw storage;
+  new unknown/technical failures also retain it. No one-case outcome satisfies
+  the thirty-case quality gate or replaces the independent reviews.
 - New private REST diagnostics permit provider plus locally selected
   `request`, `call-start`, `fetch`, `body-read`, `body-json`, `evidence`,
   `response`, `evidence-save`, or `http` with integer status 0–599.

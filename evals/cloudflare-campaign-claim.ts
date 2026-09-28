@@ -33,6 +33,8 @@ const diagnosticRequired = [...nonthinkingRequired, 'cloudflare-nonthinking.clai
 const diagnosticPrior = () => new Set([...nonthinkingPrior(), ...diagnosticRequired,
   'cloudflare-nonthinking-review.json',
   `cloudflare-nonthinking-${historyIdentity('nonthinking_carry_runId_1')}.replay.json`]);
+const probeRequired = [...diagnosticRequired, 'cloudflare-diagnostic.claim', 'cloudflare-diagnostic.json'];
+const probePrior = () => new Set([...diagnosticPrior(), ...probeRequired]);
 const policies = () => ({
   revision: { required: requiredFiles, prior: priorFiles(),
     campaign: /^cloudflare-(evaluation|patch|quality|revision).*\.(claim|json)$/,
@@ -49,6 +51,9 @@ const policies = () => ({
   diagnostic: { required: diagnosticRequired, prior: diagnosticPrior(),
     campaign: /^cloudflare-(evaluation|patch|quality|revision|recovery|grounded|nonthinking|diagnostic)/,
     scope: 'diagnostic-two-included-plus-28-210-calls-39-invocations-once' },
+  probe: { required: probeRequired, prior: probePrior(),
+    campaign: /^cloudflare-(evaluation|patch|quality|revision|recovery|grounded|nonthinking|diagnostic|probe)/,
+    scope: 'probe-unknown-cost-once-7-calls-1-invocation-free-only' },
 } as const);
 
 /** Permanent one-shot claim with closed campaign policies, consumed even on preflight failure.

@@ -137,11 +137,13 @@ test('Cloudflare evaluation rejects non-test schema before credentials or admiss
     evaluation: { ...campaign.evaluation!, liveCampaign: 'cloudflare-nonthinking-one-case' } };
   const diagnostic: ProviderContext = { ...campaign,
     evaluation: { ...campaign.evaluation!, liveCampaign: 'cloudflare-diagnostic-30-cases' } };
+  const probe: ProviderContext = { ...campaign,
+    evaluation: { ...campaign.evaluation!, liveCampaign: 'cloudflare-probe-one-case' } };
   const pool = database();
   // All data stays in the helper's disposable test schema. Only the schema
   // metadata query is spoofed; no production schema is opened or modified.
   const scopes = ['public', 'workbench_live', 'test_demo', `test_${'a'.repeat(32)}\n`];
-  for (const candidate of [selected, campaign, grounded, nonthinking, diagnostic]) for (const scope of scopes) {
+  for (const candidate of [selected, campaign, grounded, nonthinking, diagnostic, probe]) for (const scope of scopes) {
     const original = pool.query;
     const query = vi.spyOn(pool, 'query').mockImplementation((...args: unknown[]) => {
       if (args[0] === 'SELECT current_schema() AS name') return Promise.resolve({ rows: [{ name: scope }],
@@ -187,6 +189,9 @@ test('HTTP cannot supply evaluation catalog, faults or provider selectors', () =
     { field: 'diagnostic.liveCampaign', body: { ...payload, liveCampaign: 'cloudflare-diagnostic-30-cases' } },
     { field: 'diagnostic.evaluation', body: { ...payload, evaluation: { liveCampaign: 'cloudflare-diagnostic-30-cases' } } },
     { field: 'diagnostic.forwardedProps', body: { ...payload, forwardedProps: { baseVersion: 1, liveCampaign: 'cloudflare-diagnostic-30-cases' } } },
+    { field: 'probe.liveCampaign', body: { ...payload, liveCampaign: 'cloudflare-probe-one-case' } },
+    { field: 'probe.evaluation', body: { ...payload, evaluation: { liveCampaign: 'cloudflare-probe-one-case' } } },
+    { field: 'probe.forwardedProps', body: { ...payload, forwardedProps: { baseVersion: 1, liveCampaign: 'cloudflare-probe-one-case' } } },
   ];
   for (const { field, body } of overrides) {
     const response = await handleRequest(request(owner.token, trip.id, body), 'http://localhost', selected);
@@ -215,7 +220,8 @@ test('context-only: Cloudflare live evaluation rejects before key while Gemini s
     offlineScenario: undefined, liveLocal: true, quota: { ...selected.quota, priceBasis: 'server-verified' } })).not.toThrow();
 });
 
-test.each(['cloudflare-grounded-30-cases', 'cloudflare-nonthinking-one-case', 'cloudflare-diagnostic-30-cases'] as const)(
+test.each(['cloudflare-grounded-30-cases', 'cloudflare-nonthinking-one-case', 'cloudflare-diagnostic-30-cases',
+  'cloudflare-probe-one-case'] as const)(
   '%s is retired before credentials and admission even in a test schema', marker => withDatabase(async () => {
   const owner = await createSession(), fixture = evaluationInput('unknown-cost');
   const trip = await createTrip(owner.id, fixture.before);

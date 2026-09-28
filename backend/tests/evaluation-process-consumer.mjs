@@ -9,6 +9,7 @@ try {
   await withPythonEvaluation({
     databasePort: Number(process.argv[2]), temporalBinary: process.argv[3],
     accountId: 'a'.repeat(32), priorChargedMicros: 0, synthetic: true,
+    retention: process.argv[4] === 'retain-success' ? 'retain' : 'cleanup',
     loadCredential: async () => { loads += 1; return 'synthetic-not-a-real-key'; },
   }, async ports => {
     const result = await ports.execute('free-afternoon', async signal => {

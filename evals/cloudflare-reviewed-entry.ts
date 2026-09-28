@@ -15,19 +15,27 @@ import type { ReplayBundle } from './replay-bundle';
 
 import type { FiniteCampaignPorts, runFiniteCloudflareCampaign } from './cloudflare-campaign';
 type Report = Parameters<typeof runFiniteCloudflareCampaign>[1];
-type EntryPolicy<R extends Report, B extends object, P extends Report['prior']> = {
-  stem: 'cloudflare-revision' | 'cloudflare-recovery' | 'cloudflare-grounded' | 'cloudflare-nonthinking' | 'cloudflare-diagnostic';
+type BaseEntryPolicy<P extends Report['prior']> = {
+  stem: 'cloudflare-revision' | 'cloudflare-recovery' | 'cloudflare-grounded' | 'cloudflare-nonthinking' | 'cloudflare-diagnostic' | 'cloudflare-probe';
   liveCampaign?: GroundedCloudflareEvaluationCampaign;
   authorizationEnv: string; authorization: string;
   schemas(): readonly string[]; initialReplays: 1 | 2;
   claim(lease: EvaluationLockLease): Promise<(report: unknown) => Promise<void>>;
   readCarry(pools: Pool[], lease: EvaluationLockLease): Promise<P>;
-  runCampaign(ports: FiniteCampaignPorts<R> & { accountId: string; prior: P;
-    checkDispatch(signal: AbortSignal): Promise<void>; reviewPreflight(report: R): Promise<boolean> }): Promise<R>;
+};
+type CampaignEntryPorts<R extends Report, P extends Report['prior']> = FiniteCampaignPorts<R> & {
+  accountId: string; prior: P; checkDispatch(signal: AbortSignal): Promise<void>;
+};
+type EntryPolicy<R extends Report, B extends object, P extends Report['prior']> = BaseEntryPolicy<P> & ({
+  mode?: 'reviewed';
+  runCampaign(ports: CampaignEntryPorts<R, P> & { reviewPreflight(report: R): Promise<boolean> }): Promise<R>;
   reviewBinding(report: R): B;
   waitReview(serialized: string, binding: B, lease: EvaluationLockLease,
     record: (review: unknown, passed: boolean) => Promise<void>): Promise<boolean>;
-};
+} | {
+  mode: 'technical';
+  runCampaign(ports: CampaignEntryPorts<R, P>): Promise<R>;
+});
 
 /** Internal lifecycle shared by fixed one-shot policies, not a public runner or
  * caller-supplied authorization capability. Import alone performs no IO. */
@@ -64,6 +72,7 @@ export async function runReviewedCloudflareEntry<R extends Report, B extends obj
         let replay: ReplayBundle | undefined;
         await withPythonEvaluation({ accountId, priorChargedMicros: prior.chargedMicros,
             databasePort: port, temporalBinary: process.env.DIVE_TRIP_TEMPORAL_BINARY ?? '',
+            retention: policy.mode === 'technical' ? 'retain' : 'cleanup',
             ...(policy.liveCampaign ? { liveCampaign: policy.liveCampaign } : {}),
             captureReplay: bundle => { replay = bundle; },
             loadCredential: async () => {
@@ -72,25 +81,10 @@ export async function runReviewedCloudflareEntry<R extends Report, B extends obj
               await assertEvaluationLock(lease);
               return loadLocalCredential('cloudflare');
             } }, async ports => {
-          const report = await policy.runCampaign({ accountId, prior, now: Date.now,
+          const campaignPorts = { accountId, prior, now: Date.now,
             pause: (ms, signal) => delay(ms, undefined, { signal }),
             checkpoint: report => save({ ...report, startedAt, sourceFingerprint, sourceManifest, replays, preflightReviewReceipt }),
             execute: (caseId, beforeDispatch) => { replay = undefined; return ports.execute(caseId, beforeDispatch); },
-            reviewPreflight: async report => {
-              const binding = policy.reviewBinding(report);
-              const serialized = JSON.stringify({ ...report, startedAt, sourceFingerprint, sourceManifest, replays, preflightReviewReceipt }, null, 2);
-              await assertEvaluationLock(lease);
-              await writeImmutableCheckpoint(`.artifacts/${policy.stem}-preflight.json`, serialized);
-              return policy.waitReview(serialized, binding, lease, async (review, passed) => {
-                await assertEvaluationLock(lease);
-                const file = `${policy.stem}-preflight-receipt.json`;
-                const receipt = JSON.stringify({ sourceFile: `${policy.stem}-preflight.json`,
-                  sourceSha256: createHash('sha256').update(serialized).digest('hex'),
-                  ...binding, review, passed, recordedAt: new Date().toISOString() }, null, 2);
-                await writeImmutableCheckpoint(`.artifacts/${file}`, receipt);
-                preflightReviewReceipt = { file, sha256: createHash('sha256').update(receipt).digest('hex') };
-              });
-            },
             checkDispatch: async signal => {
               await verifyHistory(); // full fixed inventory, not just cached arithmetic
               signal.throwIfAborted();
@@ -111,7 +105,24 @@ export async function runReviewedCloudflareEntry<R extends Report, B extends obj
               }
               return captured;
             },
-          });
+          } satisfies CampaignEntryPorts<R, P>;
+          const report = policy.mode === 'technical'
+            ? await policy.runCampaign(campaignPorts)
+            : await policy.runCampaign({ ...campaignPorts, reviewPreflight: async report => {
+              const binding = policy.reviewBinding(report);
+              const serialized = JSON.stringify({ ...report, startedAt, sourceFingerprint, sourceManifest, replays, preflightReviewReceipt }, null, 2);
+              await assertEvaluationLock(lease);
+              await writeImmutableCheckpoint(`.artifacts/${policy.stem}-preflight.json`, serialized);
+              return policy.waitReview(serialized, binding, lease, async (review, passed) => {
+                await assertEvaluationLock(lease);
+                const file = `${policy.stem}-preflight-receipt.json`;
+                const receipt = JSON.stringify({ sourceFile: `${policy.stem}-preflight.json`,
+                  sourceSha256: createHash('sha256').update(serialized).digest('hex'),
+                  ...binding, review, passed, recordedAt: new Date().toISOString() }, null, 2);
+                await writeImmutableCheckpoint(`.artifacts/${file}`, receipt);
+                preflightReviewReceipt = { file, sha256: createHash('sha256').update(receipt).digest('hex') };
+              });
+            } });
           // Remains within schema lifetime; failed final history audit retains it.
           try { await verifyHistory(); }
           catch {

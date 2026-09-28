@@ -16,6 +16,7 @@ export type PythonEvaluationOptions = {
   databasePort: number; temporalBinary: string;
   accountId: string; priorChargedMicros: number;
   loadCredential(): Promise<string>;
+  retention?: 'cleanup' | 'retain';
   liveCampaign?: GroundedCloudflareEvaluationCampaign;
   captureReplay?: Parameters<typeof collectCase>[1]['captureReplay'];
   /** Private harness selection only; always uses SyntheticGeneration and key. */
@@ -91,7 +92,7 @@ export async function withPythonEvaluation<T>(options: PythonEvaluationOptions,
       },
     };
     const result = await work(ports);
-    await channel.call('finish', { cleanup: true });
+    await channel.call('finish', { cleanup: options.retention !== 'retain' });
     completed = true;
     outcome = { ok: true, value: result };
   } catch (error) {
@@ -106,7 +107,9 @@ export async function withPythonEvaluation<T>(options: PythonEvaluationOptions,
       deadline = setTimeout(() => { child.kill('SIGTERM'); resolveStop(false); }, 115_000);
     })]);
     clearTimeout(deadline);
-    if (!completed || !stopped) console.error('EVALUATION_STORAGE_CHECK_REQUIRED', schema, relative(root, storage));
+    if (!completed || !stopped || options.retention === 'retain') {
+      console.error('EVALUATION_STORAGE_CHECK_REQUIRED', schema, relative(root, storage));
+    }
     if (!stopped) outcome = { ok: false, error: new Error('EVAL_PYTHON_DRAIN_UNVERIFIED') };
   }
   if (!outcome.ok) throw outcome.error;

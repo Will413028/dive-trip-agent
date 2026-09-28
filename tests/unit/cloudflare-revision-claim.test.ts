@@ -9,14 +9,15 @@ import { claimCloudflareCampaign } from '../../evals/cloudflare-campaign-claim';
 import * as checkpoints from '../../evals/checkpoint';
 import * as lock from '../../evals/live-evaluation-lock';
 
-describe.each(['revision', 'recovery', 'grounded', 'nonthinking', 'diagnostic'] as const)('%s one-shot claim', kind => {
+describe.each(['revision', 'recovery', 'grounded', 'nonthinking', 'diagnostic', 'probe'] as const)('%s one-shot claim', kind => {
 const claimCampaign = kind === 'revision' ? claimCloudflareRevisionCampaign : kind === 'recovery'
   ? claimCloudflareRecoveryCampaign : (lease: EvaluationLockLease) => claimCloudflareCampaign(lease, kind);
 const required = ['cloudflare-evaluation-1', 'cloudflare-evaluation-2',
   'cloudflare-patch-verification', 'cloudflare-quality', ...(kind !== 'revision' ? ['cloudflare-revision'] : []),
-  ...(['grounded', 'nonthinking', 'diagnostic'].includes(kind) ? ['cloudflare-recovery'] : []),
-  ...(['nonthinking', 'diagnostic'].includes(kind) ? ['cloudflare-grounded'] : []),
-  ...(kind === 'diagnostic' ? ['cloudflare-nonthinking'] : [])]
+  ...(['grounded', 'nonthinking', 'diagnostic', 'probe'].includes(kind) ? ['cloudflare-recovery'] : []),
+  ...(['nonthinking', 'diagnostic', 'probe'].includes(kind) ? ['cloudflare-grounded'] : []),
+  ...(['diagnostic', 'probe'].includes(kind) ? ['cloudflare-nonthinking'] : []),
+  ...(kind === 'probe' ? ['cloudflare-diagnostic'] : [])]
   .flatMap(stem => [`${stem}.claim`, `${stem}.json`]);
 const sidecars = ['cloudflare-evaluation-1-review.json', 'cloudflare-patch-verification-review.json',
   'cloudflare-quality-review.json', 'cloudflare-quality-diagnostic.json', 'cloudflare-quality-preflight.json',
@@ -26,13 +27,13 @@ const sidecars = ['cloudflare-evaluation-1-review.json', 'cloudflare-patch-verif
 if (kind !== 'revision') sidecars.push('cloudflare-revision-review.json', 'cloudflare-revision-preflight.json',
   'cloudflare-revision-preflight-review.json', 'cloudflare-revision-preflight-receipt.json',
   'cloudflare-revision-101855df-90b1-4479-8db6-99d57b319170.replay.json');
-if (['grounded', 'nonthinking', 'diagnostic'].includes(kind)) sidecars.push('cloudflare-recovery-review.json', 'cloudflare-recovery-preflight.json',
+if (['grounded', 'nonthinking', 'diagnostic', 'probe'].includes(kind)) sidecars.push('cloudflare-recovery-review.json', 'cloudflare-recovery-preflight.json',
   'cloudflare-recovery-preflight-review.json', 'cloudflare-recovery-preflight-receipt.json',
   'cloudflare-recovery-50a70ddd-f054-4f55-8362-9dbc43decc9a.replay.json',
   'cloudflare-recovery-b9be947b-f0b4-4160-84ca-1829e74c9ba8.replay.json');
-if (kind === 'nonthinking' || kind === 'diagnostic') sidecars.push('cloudflare-grounded-review.json',
+if (['nonthinking', 'diagnostic', 'probe'].includes(kind)) sidecars.push('cloudflare-grounded-review.json',
   'cloudflare-grounded-53a2acc8-127e-4c4b-8e6f-9fc42db07532.replay.json');
-if (kind === 'diagnostic') sidecars.push('cloudflare-nonthinking-review.json',
+if (kind === 'diagnostic' || kind === 'probe') sidecars.push('cloudflare-nonthinking-review.json',
   'cloudflare-nonthinking-1c18c417-145e-45ef-8e4a-64931326498f.replay.json');
 const claimName = `cloudflare-${kind}.claim`, reportName = `cloudflare-${kind}.json`;
 const denied = `EVAL_CLOUDFLARE_${kind.toUpperCase()}_ALREADY_CLAIMED`;
@@ -60,7 +61,8 @@ test('claims once with private modes and fixed pending scope; preflight failure 
         : kind === 'recovery' ? 'two-included-preflights-plus-28-once'
           : kind === 'grounded' ? 'grounded-two-included-plus-28-210-calls-39-invocations-once'
             : kind === 'nonthinking' ? 'nonthinking-unknown-cost-once-7-calls-1-start'
-              : 'diagnostic-two-included-plus-28-210-calls-39-invocations-once', textReview: 'pending',
+              : kind === 'diagnostic' ? 'diagnostic-two-included-plus-28-210-calls-39-invocations-once'
+                : 'probe-unknown-cost-once-7-calls-1-invocation-free-only', textReview: 'pending',
       evaluationGatePassed: false, accountingComplete: false, cumulativeTokens: null, records: [],
     });
     for (const name of [claimName, reportName]) expect((await lstat(join(dir, name))).mode & 0o777).toBe(0o600);
@@ -93,7 +95,9 @@ test.each([claimName, reportName, 'cloudflare-evaluation-3.claim', 'cloudflare-e
   ...(kind === 'nonthinking' ? ['cloudflare-nonthinking-preflight-review.json', 'cloudflare-nonthinking-2.claim',
     'cloudflare-grounded-preflight.json', 'cloudflare-grounded-unknown.replay.json', 'cloudflare-nonthinking.partial'] : []),
   ...(kind === 'diagnostic' ? ['cloudflare-diagnostic-preflight-review.json', 'cloudflare-diagnostic-2.claim',
-    'cloudflare-nonthinking-preflight.json', 'cloudflare-nonthinking-unknown.replay.json', 'cloudflare-diagnostic.partial'] : [])])(
+    'cloudflare-nonthinking-preflight.json', 'cloudflare-nonthinking-unknown.replay.json', 'cloudflare-diagnostic.partial'] : []),
+  ...(kind === 'probe' ? ['cloudflare-probe-preflight-review.json', 'cloudflare-probe-2.claim',
+    'cloudflare-diagnostic-preflight.json', 'cloudflare-diagnostic-unknown.replay.json', 'cloudflare-probe.partial'] : [])])(
   'preexisting or unknown %s blocks and remains untouched', name => temporary(async dir => {
     await writeFile(join(dir, name), 'foreign');
     await expect(withEvaluationLock(claimCampaign)).rejects.toThrow(denied);

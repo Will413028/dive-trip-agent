@@ -31,8 +31,8 @@ def temporal_binary():
     return binary
 
 
-@pytest.mark.parametrize("mode", ["cleanup", "retain", "drift"])
-def test_owned_evaluator_process_cleans_success_and_retains_report_failure(
+@pytest.mark.parametrize("mode", ["cleanup", "retain", "retain-success", "drift"])
+def test_owned_evaluator_process_applies_cleanup_policy_and_retains_failures(
     postgres, mode, temporal_binary
 ):
     retain = mode != "cleanup"

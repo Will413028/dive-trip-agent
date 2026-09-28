@@ -17,6 +17,7 @@ const cloudflareCampaignContract = Object.freeze({
   'cloudflare-grounded-30-cases': 'grounded',
   'cloudflare-nonthinking-one-case': 'grounded',
   'cloudflare-diagnostic-30-cases': 'grounded',
+  'cloudflare-probe-one-case': 'grounded',
 } as const);
 type CloudflareEvaluationCampaign = keyof typeof cloudflareCampaignContract;
 export type GroundedCloudflareEvaluationCampaign = {
