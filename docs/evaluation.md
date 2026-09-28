@@ -372,10 +372,18 @@ Provider diagnostics are deliberately limited:
 - A saved `response/length` diagnosis proves truncation, not why the model reached
   the cap. The fixed non-thinking request policy retains the 2048-token cap,
   strict AnswerPlan and no retry; it is not proof of improved real-model quality.
-- The latest recorded non-thinking attempt has generic `AGENT_PROVIDER_ERROR`
+- The earlier recorded non-thinking attempt has generic `AGENT_PROVIDER_ERROR`
   with no usable usage or structured stage/reason and stops on
   `UNKNOWN_USAGE_STOP`. It cannot be relabeled as a proven length failure,
   rate limit or invalid credential. A controlled failure answer is not task success.
+- The 2026-09-29 Python diagnostic stopped after the first included case:
+  one known-usage call completed `validate_changes`, then a second call ended
+  around the local 30-second client limit without usable usage. The native
+  model activity failed, the public run ended `AGENT_INTERRUPTED`, and all
+  remaining 29 slots were skipped by `UNKNOWN_USAGE_STOP`. The original
+  provider response or exception was not retained, so the elapsed time is a
+  timeout clue, not a proven upstream cause. The one-shot claim, private
+  report, isolated DB and Temporal storage remain; no review or retry followed.
 - New private REST diagnostics permit provider plus locally selected
   `request`, `call-start`, `fetch`, `body-read`, `body-json`, `evidence`,
   `response`, `evidence-save`, or `http` with integer status 0–599.
