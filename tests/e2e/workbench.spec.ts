@@ -158,6 +158,7 @@ test('未知費用與地圖降級明示，不宣稱可負擔', async ({ page }) 
   await tab(page, '需求');
   await expect(page.locator('.budget-panel')).toContainText('尚不能確認全程在預算內');
   await expect(page.locator('.budget-panel')).toContainText('待確認費用');
+  await page.unrouteAll({ behavior: 'wait' });
 });
 
 test('展示視窗無水平溢出並保留桌面／手機截圖', async ({ page }, info) => {

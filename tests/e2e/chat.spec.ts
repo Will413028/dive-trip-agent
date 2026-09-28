@@ -1,6 +1,6 @@
 import { test, expect as baseExpect, type Page } from '@playwright/test';
 
-// Each start/resume boots a real ADK child process and PostgreSQL session.
+// Each start/resume uses the real Python API/worker, Temporal and PostgreSQL.
 // UI polling needs a bounded worker-start window, not the default 5s DOM budget.
 // Keep the 30s test deadline; this neither retries requests nor extends agent timeouts.
 const expect = baseExpect.configure({ timeout: 10_000 });
@@ -23,6 +23,29 @@ async function propose(page: Page) {
   await page.getByRole('button', { name: '送出訊息', exact: true }).click();
   await expect(page.getByTestId('proposal-panel')).toBeVisible();
   await expect(page.getByRole('button', { name: '接受修改', exact: true })).toBeEnabled();
+}
+
+for (const status of ['running', 'awaiting_confirmation'] as const) {
+  test(`舊 ADK ${status} 保留唯讀且不阻擋新聊天`, async ({ page }) => {
+    const oldId = '11111111-1111-4111-8111-111111111111';
+    await page.route('**/api/trips/*/runs', async route => {
+      const response = await route.fetch();
+      const body = await response.json();
+      await route.fulfill({ response, json: { runs: [{ id: oldId,
+        tripId: new URL(route.request().url()).pathname.split('/')[3],
+        requestId: 'retired-request', baseVersion: 1, answerContractVersion: 1,
+        executor: 'adk', status, message: '舊版未完成對話', events: [],
+        proposalId: null, interruptId: 'retired-interrupt' }, ...body.runs] } });
+    });
+    await start(page);
+    const old = page.getByTestId(`chat-run-${oldId}`);
+    await expect(old).toHaveAttribute('data-readonly', 'true');
+    await expect(old).toContainText('無法接續、接受或拒絕提案');
+    await expect(page.getByTestId('proposal-panel')).toHaveCount(0);
+    await propose(page);
+    await expect(old).toContainText('唯讀歷史');
+    await page.unrouteAll({ behavior: 'wait' });
+  });
 }
 
 test('聊天提案確認只經 resume，接受前不改行程', async ({ page }) => {

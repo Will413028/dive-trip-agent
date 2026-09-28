@@ -8,7 +8,7 @@ export default defineConfig({
     { name: 'mobile', use: { ...devices['Desktop Chrome'], viewport: { width: 390, height: 844 } } },
   ],
   webServer: {
-    command: `node tests/support/workbench-dev.ts --e2e${process.env.E2E_PRODUCTION === '1' ? ' --production' : ''}`, url: 'http://127.0.0.1:4319',
+    command: `uv run --frozen --no-sync --project backend python -m dive_trip.bootstrap.dev --e2e${process.env.E2E_PRODUCTION === '1' ? ' --production' : ''}`, url: 'http://127.0.0.1:4319',
     reuseExistingServer: false, timeout: 90_000,
     gracefulShutdown: { signal: 'SIGTERM', timeout: 5000 },
   },

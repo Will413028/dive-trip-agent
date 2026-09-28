@@ -17,6 +17,13 @@ vi.mock('../support/database.ts', () => ({
 }));
 beforeEach(() => vi.clearAllMocks());
 
+test.each([['--apply'], ['--apply', '--watch']])('legacy demo writes are retired: %j', async (...flags) => {
+  await expect(runRetention(['--schema=workbench_demo', ...flags])).rejects.toThrow('LEGACY_RETENTION_RETIRED');
+  for (const port of [testDatabaseUrl, makePool, withDatabasePool, expireData, retentionPreview]) {
+    expect(port).not.toHaveBeenCalled();
+  }
+});
+
 test('retention defaults to dry-run, requires one exact local schema, watch requires apply', () => {
   expect(retentionArgs(['--schema=workbench_demo'])).toEqual({ schema: 'workbench_demo', apply: false, watch: false });
   expect(retentionArgs(['--schema=workbench_live'])).toEqual({ schema: 'workbench_live', apply: false, watch: false });

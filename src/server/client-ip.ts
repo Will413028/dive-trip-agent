@@ -1,6 +1,6 @@
 import { createHmac } from 'node:crypto';
 import { isIP } from 'node:net';
-import { DomainError } from '../domain/errors';
+import { DomainError } from '../domain/errors.ts';
 
 function canonicalIp(address: string): string {
   if (isIP(address) === 4) return address;

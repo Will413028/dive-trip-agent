@@ -6,6 +6,7 @@ import { evaluationInput } from '../../evals/fixtures';
 import { createEvidenceReplay, parseAcceptedAnswers, parseHistoricalReplayBundle, parseReplayBundle, type ReplayBundle } from '../../evals/replay-bundle';
 import { buildProposal } from '../../src/domain/proposal';
 import { calculateBudget } from '../../src/domain/budget';
+import { reviewProposal } from '../../src/server/proposal-review';
 import { ANSWER_EVENT_NAME, type AcceptedAnswer } from '../../src/domain/answer';
 import { compileAnswer } from '../../src/agent/answer-compiler';
 import { proposalEvidence, receiptEvidence, toolEvidence, type ValidationEvidence } from '../../src/agent/answer-evidence';
@@ -64,6 +65,28 @@ function resume() {
     resume: [{ interruptId: 'interrupt-1', status: 'resolved', payload: { confirmed: true } }], state: {}, tools: [], context: [] };
 }
 const path = `/api/trips/${tripId}`;
+
+test('server review projections preserve old bundles and reject changed differences or cost', () => {
+  const historical = fixture(), original = JSON.stringify(historical);
+  const replay = createEvidenceReplay(historical);
+  replay.respond('POST', `${path}/agent`, start(historical));
+  const projection = replay.respond('GET', `${path}/runs`).json as ReplayBundle['afterStart']['runs'];
+  const proposal = projection.runs[0].proposal!;
+  expect(proposal.review).toEqual(reviewProposal(proposal.base.snapshot, proposal.draft));
+  expect(JSON.stringify(historical)).toBe(original);
+  const current = structuredClone(historical);
+  for (const checkpoint of [current.afterStart, current.final]) {
+    const run = checkpoint.runs.runs[0]; run.executor = 'temporal-v1';
+    run.proposal!.review = JSON.parse(JSON.stringify(reviewProposal(run.proposal!.base.snapshot, run.proposal!.draft)));
+  }
+  expect(parseReplayBundle(current)).toEqual(current);
+  const wrongCost = structuredClone(current);
+  wrongCost.afterStart.runs.runs[0].proposal!.review!.knownDeltaMinor++;
+  expect(() => parseReplayBundle(wrongCost)).toThrow('REPLAY_PROPOSAL_REVIEW_MISMATCH');
+  const wrongPath = structuredClone(current);
+  wrongPath.afterStart.runs.runs[0].proposal!.review!.differences[0].path = '/entries/stay';
+  expect(() => parseReplayBundle(wrongPath)).toThrow('REPLAY_PROPOSAL_REVIEW_MISMATCH');
+});
 
 test('replay uses actual checkpoints across refresh and only recorded acceptance', () => {
   const b = fixture(), replay = createEvidenceReplay(b);

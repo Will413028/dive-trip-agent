@@ -6,7 +6,7 @@ vi.mock('../../evals/cloudflare-history-profile', async original => ({
 import { createHash } from 'node:crypto';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import type { EvaluationLockLease } from '../../evals/live-evaluation-lock';
-import type { CloudflareCampaignPortsOptions } from '../support/cloudflare-campaign-ports';
+import type { PythonEvaluationOptions as CloudflareCampaignPortsOptions } from '../../evals/python-evaluation';
 import { nonthinkingPrior } from '../support/cloudflare-nonthinking-fixture';
 import { recoveryAccount, recoveryResult } from '../support/cloudflare-recovery-fixture';
 
@@ -26,8 +26,8 @@ vi.mock('../../evals/cloudflare-recovery-carry', () => ({ RECOVERY_CARRY_SCHEMA:
 vi.mock('../../evals/cloudflare-grounded-carry', () => ({ GROUNDED_CARRY_SCHEMA: () => 'grounded_mock', readCloudflareGroundedCarry: m.carry }));
 vi.mock('../../evals/cloudflare-campaign-claim', () => ({ claimCloudflareCampaign: m.claim }));
 vi.mock('../../evals/live-evaluation-lock', () => ({ withEvaluationLock: m.lock, assertEvaluationLock: m.assertLock }));
-vi.mock('../support/database', () => ({ withDatabase: m.database, testDatabaseUrl: m.databaseUrl }));
-vi.mock('../support/cloudflare-campaign-ports', () => ({ createCloudflareCampaignPorts: m.ports }));
+vi.mock('../support/database', () => ({ testDatabaseUrl: m.databaseUrl }));
+vi.mock('../../evals/python-evaluation', () => ({ withPythonEvaluation: m.database }));
 vi.mock('../../src/server/local-credential', () => ({ loadLocalCredential: m.credential }));
 vi.mock('../../evals/cloudflare-preflight-review', () => ({ awaitCloudflarePreflightReview: m.review }));
 vi.mock('../../evals/checkpoint', () => ({ writeImmutableCheckpoint: m.immutable, writeAtomicCheckpoint: m.atomic }));
@@ -48,9 +48,9 @@ beforeEach(() => {
   m.databaseUrl.mockReturnValue('postgresql://postgres@127.0.0.1:15432/dive_trip_test');
   m.carry.mockImplementation(async (...args) => { expect(args).toEqual([...m.pools, m.lease]); return nonthinkingPrior(); });
   m.source.mockImplementation(async () => structuredClone(source));
-  m.database.mockImplementation(async (work, options) => {
-    expect(options).toEqual({ retainOnFailure: true }); m.inDatabase = true;
-    try { await work(); } catch (error) { m.failed = true; throw error; } finally { m.inDatabase = false; }
+  m.database.mockImplementation(async (options, work) => {
+    expect(options.databasePort).toBe(15432); m.inDatabase = true;
+    try { await work(m.ports(options)); } catch (error) { m.failed = true; throw error; } finally { m.inDatabase = false; }
   });
   m.ports.mockImplementation(options => { expect(m.inDatabase).toBe(true); m.options = options; return { execute: m.execute, capture: m.capture }; });
   m.execute.mockImplementation(async (id, beforeDispatch) => {

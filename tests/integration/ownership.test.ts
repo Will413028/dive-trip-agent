@@ -180,14 +180,14 @@ test('migration SQL 失敗不留下半套 DDL 或版本紀錄', () => withDataba
   expect((await database().query('SELECT * FROM schema_migrations')).rowCount).toBe((await loadMigrations()).length);
 }));
 
-test('migration CLI 使用真實子程序可重跑，不需 tsx 或 key', () => withDatabase(async () => {
+test('舊 migration CLI 已退役，不寫入原 migration ledger', () => withDatabase(async () => {
   const schema = (await database().query('SELECT current_schema() AS name')).rows[0].name;
   const url = new URL(testDatabaseUrl()); url.searchParams.set('options', `-c search_path=${schema}`);
-  const result = await promisify(execFile)(process.execPath, ['src/server/migrate.ts'], {
+  const before = (await database().query('SELECT * FROM schema_migrations ORDER BY id')).rows;
+  await expect(promisify(execFile)(process.execPath, ['src/server/migrate.ts'], {
     env: { PATH: process.env.PATH, NODE_ENV: 'test', DATABASE_URL: url.toString() }, timeout: 10_000,
-  });
-  expect(result.stdout).toContain('Database migrations applied.');
-  expect((await database().query('SELECT * FROM schema_migrations')).rowCount).toBe((await loadMigrations()).length);
+  })).rejects.toMatchObject({ code: 1, stderr: expect.stringContaining('LEGACY_MIGRATION_RETIRED') });
+  expect((await database().query('SELECT * FROM schema_migrations ORDER BY id')).rows).toEqual(before);
 }));
 
 test('資料庫無法連線時 fail closed，不以 memory 假成功', async () => {

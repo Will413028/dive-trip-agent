@@ -15,12 +15,12 @@ vi.mock('node:fs/promises', async original => {
 
 async function temporary(work: (root: string) => Promise<void>) {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'source-manifest-')));
-  for (const dir of ['src', 'evals', 'migrations', 'tests/support', 'tests/integration']) {
+  for (const dir of ['src', 'evals', 'migrations', 'tests/support', 'tests/integration', 'backend/src']) {
     await mkdir(join(root, dir), { recursive: true });
     await writeFile(join(root, dir, 'sample.ts'), 'synthetic source');
   }
   await mkdir(join(root, 'data'));
-  for (const file of ['package.json', 'pnpm-lock.yaml', 'tsconfig.json', 'tsconfig.worker.json', 'vitest.config.ts', 'compose.test.yml', 'data/catalog.json']) {
+  for (const file of ['package.json', 'pnpm-lock.yaml', 'tsconfig.json', 'tsconfig.worker.json', 'vitest.config.ts', 'compose.test.yml', 'data/catalog.json', 'backend/pyproject.toml', 'backend/uv.lock', 'backend/.python-version']) {
     await writeFile(join(root, file), 'synthetic config');
   }
   const cwd = vi.spyOn(process, 'cwd').mockReturnValue(root);
@@ -36,6 +36,14 @@ test('manifest is sorted, deterministic and hashes path/content pairs including 
   expect(manifest.sha256).toBe(createHash('sha256').update(JSON.stringify(manifest.files)).digest('hex'));
   expect(await readCloudflareSourceManifest()).toEqual(manifest);
 }));
+test.each(['source', 'project', 'lock', 'runtime'] as const)('Python %s drift changes the manifest', mode => temporary(async root => {
+  const path = { source: 'backend/src/worker.py', project: 'backend/pyproject.toml', lock: 'backend/uv.lock', runtime: 'backend/.python-version' }[mode];
+  await writeFile(join(root, path), 'original');
+  const before = await readCloudflareSourceManifest();
+  expect(before.files.some(file => file.path === path)).toBe(true);
+  await writeFile(join(root, path), 'changed');
+  expect((await readCloudflareSourceManifest()).sha256).not.toBe(before.sha256);
+}));
 test.each(['add', 'remove', 'edit', 'rename', 'config', 'worker-config', 'catalog'] as const)('%s source changes the manifest', mode => temporary(async root => {
   const before = await readCloudflareSourceManifest();
   const path = join(root, 'src', 'sample.ts');
@@ -50,7 +58,7 @@ test.each(['add', 'remove', 'edit', 'rename', 'config', 'worker-config', 'catalo
 }));
 test('credentials, artifacts, builds, docs and installed packages are outside the source set', () => temporary(async root => {
   const before = await readCloudflareSourceManifest();
-  for (const dir of ['.artifacts', '.next', 'secrets', 'docs', 'node_modules', 'src/node_modules', 'src/.private']) {
+  for (const dir of ['.artifacts', '.next', 'secrets', 'docs', 'node_modules', 'src/node_modules', 'src/.private', 'backend/.venv', 'backend/src/__pycache__']) {
     await mkdir(join(root, dir), { recursive: true });
     await writeFile(join(root, dir, 'excluded.json'), 'synthetic excluded marker');
   }

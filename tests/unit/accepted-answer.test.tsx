@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { expect, test } from 'vitest';
-import AcceptedAnswer from '../../src/components/workbench/AcceptedAnswer';
-import { money } from '../../src/components/workbench/client';
+import AcceptedAnswer from '../../src/features/workbench/AcceptedAnswer';
+import { money } from '../../src/lib/presentation';
 import { acceptedAnswerSchema, type AcceptedAnswer as Answer, type BudgetPresentation } from '../../src/domain/answer';
 import { formatTwd } from '../../src/domain/money';
 

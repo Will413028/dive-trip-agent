@@ -6,7 +6,7 @@ vi.mock('../../evals/cloudflare-history-profile', async original => ({
 import { createHash } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import type { RevisionCampaignReport } from '../../evals/cloudflare-revision-campaign';
-import type { CloudflareCampaignPortsOptions } from '../support/cloudflare-campaign-ports';
+import type { PythonEvaluationOptions as CloudflareCampaignPortsOptions } from '../../evals/python-evaluation';
 import type { EvaluationLockLease } from '../../evals/live-evaluation-lock';
 
 type SchedulerPorts = Parameters<typeof import('../../evals/cloudflare-revision-campaign').runCloudflareRevisionCampaign>[0];
@@ -35,8 +35,8 @@ vi.mock('../../evals/cloudflare-carry-forward', () => ({ CARRY_SCHEMA: () => 'fi
 vi.mock('../../evals/cloudflare-carry-forward-2', () => ({ SECOND_CARRY_SCHEMA: () => 'second_mock' }));
 vi.mock('../../evals/cloudflare-revision-claim', () => ({ claimCloudflareRevisionCampaign: m.claim }));
 vi.mock('../../evals/live-evaluation-lock', () => ({ withEvaluationLock: m.lock, assertEvaluationLock: m.assertLock }));
-vi.mock('../support/database', () => ({ withDatabase: m.database, testDatabaseUrl: m.databaseUrl }));
-vi.mock('../support/cloudflare-campaign-ports', () => ({ createCloudflareCampaignPorts: m.ports }));
+vi.mock('../support/database', () => ({ testDatabaseUrl: m.databaseUrl }));
+vi.mock('../../evals/python-evaluation', () => ({ withPythonEvaluation: m.database }));
 vi.mock('../../src/server/local-credential', () => ({ loadLocalCredential: m.credential }));
 vi.mock('../../evals/cloudflare-preflight-review', () => ({ awaitCloudflarePreflightReview: m.review }));
 vi.mock('../../evals/pinned-cloudflare-report', () => ({ readCloudflarePreflightReview: m.pinnedReview }));
@@ -92,10 +92,10 @@ beforeEach(() => {
   m.assertLock.mockImplementation(async (lease: EvaluationLockLease) => {
     expect(lease).toBe(m.lease); m.order.push('lease');
   });
-  m.database.mockImplementation(async (work: () => Promise<void>, options: { retainOnFailure?: boolean }) => {
-    expect(options).toEqual({ retainOnFailure: true });
+  m.database.mockImplementation(async (options: CloudflareCampaignPortsOptions, work: (ports: ReturnType<typeof m.ports>) => Promise<void>) => {
+    expect(options.databasePort).toBe(15432);
     m.inDatabase = true; m.order.push('db:enter');
-    try { await work(); }
+    try { await work(m.ports(options)); }
     catch (error) { expect(m.inDatabase).toBe(true); m.databaseFailure = error; throw error; }
     finally { m.inDatabase = false; m.order.push('db:exit'); }
   });

@@ -216,7 +216,7 @@ test('context-only: Cloudflare live evaluation rejects before key while Gemini s
 });
 
 test.each(['cloudflare-grounded-30-cases', 'cloudflare-nonthinking-one-case', 'cloudflare-diagnostic-30-cases'] as const)(
-  '%s reaches lazy admission only in a test schema; loader denial constructs no model call', marker => withDatabase(async () => {
+  '%s is retired before credentials and admission even in a test schema', marker => withDatabase(async () => {
   const owner = await createSession(), fixture = evaluationInput('unknown-cost');
   const trip = await createTrip(owner.id, fixture.before);
   const selected = context('unknown-cost');
@@ -231,10 +231,9 @@ test.each(['cloudflare-grounded-30-cases', 'cloudflare-nonthinking-one-case', 'c
   const grounded: ProviderContext = { ...live,
     evaluation: { catalog: fixture.catalog, lookupTimeout: false, liveCampaign: marker } };
   const response = await handleRequest(request(owner.token, trip.id, start(trip.id)), 'http://localhost', grounded);
-  expect(response.status).toBe(200);
-  const stream = await response.text();
-  expect(stream).toContain('RUN_ERROR'); expect(stream).not.toContain('SYNTHETIC_DENY');
-  expect(loadCredential).toHaveBeenCalledOnce();
-  expect((await database().query('SELECT count(*)::int AS n FROM model_calls')).rows[0].n).toBe(0);
+  expect(response.status).toBe(503);
+  expect(await response.json()).toEqual({ error: 'SERVICE_UNAVAILABLE' });
+  expect(loadCredential).not.toHaveBeenCalled();
+  await expectNoAdmission();
   expect((await getTrip(owner.id, trip.id))?.snapshot).toEqual(fixture.before);
 }));

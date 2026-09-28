@@ -2,7 +2,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { EventType, type BaseEvent } from '@ag-ui/core';
 import { expect, test } from 'vitest';
-import { EventMessages } from '../../src/components/workbench/ChatPanel';
+import { EventMessages } from '../../src/features/workbench/ChatPanel';
 import { ANSWER_EVENT_NAME, type AcceptedAnswer } from '../../src/domain/answer';
 import { acceptedAnswerFixture } from '../support/accepted-answer-fixture';
 

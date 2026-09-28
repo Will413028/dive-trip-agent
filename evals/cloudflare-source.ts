@@ -8,9 +8,9 @@ import { isDeepStrictEqual } from 'node:util';
  * are represented by package/lock/config inputs, not hashed installed bytes.
  * No environment, credentials, artifacts, docs, build outputs or arbitrary roots.
  */
-const roots = ['src', 'evals', 'migrations', 'tests/support', 'tests/integration'] as const;
-const fixed = ['package.json', 'pnpm-lock.yaml', 'tsconfig.json', 'tsconfig.worker.json', 'vitest.config.ts', 'compose.test.yml', 'data/catalog.json'] as const;
-const sourceFile = /\.(?:ts|tsx|mts|cts|js|jsx|mjs|cjs|json|sql)$/;
+const roots = ['src', 'evals', 'migrations', 'tests/support', 'tests/integration', 'backend/src'] as const;
+const fixed = ['package.json', 'pnpm-lock.yaml', 'tsconfig.json', 'tsconfig.worker.json', 'vitest.config.ts', 'compose.test.yml', 'data/catalog.json', 'backend/pyproject.toml', 'backend/uv.lock', 'backend/.python-version'] as const;
+const sourceFile = /\.(?:ts|tsx|mts|cts|js|jsx|mjs|cjs|json|sql|py)$/;
 const maxFile = 2_000_000, maxTotal = 32_000_000, maxEntries = 2048;
 function fail(): never { throw new Error('EVAL_SOURCE_INVALID'); }
 const identity = (s: Stats) => ({ dev: s.dev, ino: s.ino, size: s.size, mtimeMs: s.mtimeMs, ctimeMs: s.ctimeMs });
@@ -30,7 +30,7 @@ export async function readCloudflareSourceManifest() {
         if (stat.isDirectory() && !requiredFile) {
           directories.push({ path, identity: identity(stat) });
           for (const name of (await readdir(join(root, path))).sort()) {
-            if (name.startsWith('.') || name === 'node_modules') continue;
+            if (name.startsWith('.') || name === 'node_modules' || name === '__pycache__') continue;
             await visit(`${path}/${name}`);
           }
         } else if (stat.isFile()) {

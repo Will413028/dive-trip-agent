@@ -6,14 +6,14 @@ Cloudflare 平台遷移暫停；下方 Render 是歷史候選，尚未選定部�
 
 ## 現有程式的阻擋項
 
-- `pnpm start` 執行 `tests/support/workbench-dev.ts --production`：仍使用 `testDatabaseUrl()`、專用 `dive_trip_test` DB、loopback 與固定 port。`--production` 僅表示 Next production build，**不是公開環境 launcher**。
-- 一般 Next HTTP route 固定使用 fixture；明示 `DIVE_LOCAL_LIVE` 時回 503。舊 loopback live proxy 與 context factory 已移除，真模型只保留另外受控的評估入口；改 host 或 forwarding headers 不會建立公開 ingress。
-- `scripts/expire-data.ts` 僅接受上述本機 DB 的 `workbench_demo`／`workbench_live`，後者只允許dry-run；不能直接作為 hosted DB 的 cron command。
+- `pnpm start` 使用 `dive_trip.bootstrap.local serve --production`，要求明示 loopback PostgreSQL port、已安裝 Temporal binary 與持久 SQLite。`--production` 僅表示 Next production build，不是公開環境 launcher。
+- Next HTTP route 只代理 Python backend，缺設定或明示 `DIVE_LOCAL_LIVE` 時回 503；不退回 ADK。真模型只保留另行受控的私有 evaluator。
+- `pnpm data:expire --database-port <埠>` 只讀 demo backlog；Python worker 擁有持久刪除／TTL。舊 retention apply 已退役，不可拿舊腳本作 hosted cron。
 - 公開 launcher、trusted proxy／IP contract、HTTPS cookie／origin、憑證載入與預算／停用設定介面尚待實作。2026-09-27僅補本機retention及fixture CI防護，不實作public runtime或修改`.env.example`，不提供假的可用production start command／deployment manifest。
 
 ## 候選平台：Render paid Web Service + Render Postgres
 
-此選型適合常駐 Node server、ADK child process 與 PostgreSQL；屬待驗證候選，尚未購買或配置。官方要求 web service 綁定 `0.0.0.0`，建議使用平台 `PORT`，並由 edge 終止 HTTPS。[Web Services](https://render.com/docs/web-services)
+以下是舊 ADK 階段的歷史候選；Python／Temporal 切換後須重新評估服務拓撲與成本，不能直接部署。尚未購買或配置。官方要求 web service 綁定 `0.0.0.0`，建議使用平台 `PORT`，並由 edge 終止 HTTPS。[Web Services](https://render.com/docs/web-services)
 
 | 項目 | 準備要求與尚待驗證事項 |
 | --- | --- |

@@ -10,6 +10,7 @@ import { createTrip, getTrip } from './trip-store';
 import { applyProposal, rejectProposal, restoreVersion, saveProposal } from './version-store';
 import { createShare, getSharePreview, listShares, readShare, revokeShare } from './share-store';
 import { deleteTrip } from './retention';
+import { reviewProposal } from './proposal-review';
 
 const cookieName = 'dive_trip_session';
 const maxBodyBytes = 32 * 1024;
@@ -144,7 +145,8 @@ export async function handleRequest(request: Request, applicationOrigin = new UR
       const draft = buildProposal(trip.snapshot, parsed.changes as Change[], items, 'user');
       // Malformed changes are request errors, not persistent explanatory proposals.
       if (draft.issues.some(issue => issue.code === 'INVALID_CHANGE')) throw new HttpError(400, 'INVALID_PROPOSAL');
-      return json({ proposalId: await saveProposal(owner, tripId, parsed.baseVersion, draft, items), draft });
+      return json({ proposalId: await saveProposal(owner, tripId, parsed.baseVersion, draft, items), draft,
+        review: reviewProposal(trip.snapshot, draft) });
     }
     if (path.length === 3 && path[2] === 'apply' && mutation) {
       const parsed = z.strictObject({ baseVersion: positiveVersion, proposalId: z.uuid(), requestId }).parse(body);

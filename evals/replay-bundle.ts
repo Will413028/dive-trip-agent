@@ -8,6 +8,7 @@ import { parseRequirements } from '../src/domain/schemas.ts';
 import { calculateBudget } from '../src/domain/budget.ts';
 import { acceptedAnswerSchema, ANSWER_EVENT_NAME, type AcceptedAnswer } from '../src/domain/answer.ts';
 import type { TripView } from '../src/domain/types.ts';
+import { reviewProposal } from '../src/server/proposal-review.ts';
 
 // v1 is isolated historical data. Only v2 can enter the core replay transport.
 const id = z.string().min(1).max(128);
@@ -189,7 +190,17 @@ const historicalSchema = z.strictObject({ schemaVersion: z.literal(1), caseId: i
   inputDigest: z.string().regex(/^[a-f0-9]{64}$/), model: id, prompt: z.string().min(1).max(4000),
   catalog: z.unknown().transform(loadCatalog), initial: checkpoint, afterStart: checkpoint, final: checkpoint,
   startEvents: z.array(historicalEvent).min(1), resumeEvents: z.array(historicalEvent) });
-const currentRun = run.extend({ answerContractVersion: z.literal(1), events: z.array(z.strictObject({
+const proposalReview = z.strictObject({
+  differences: z.array(z.strictObject({ path: z.string(), before: z.unknown().optional(), after: z.unknown().optional() })),
+  knownDeltaMinor: z.number().int().min(-Number.MAX_SAFE_INTEGER).max(Number.MAX_SAFE_INTEGER),
+});
+const currentProposal = z.strictObject({ draft, base: trip, review: proposalReview.optional() }).superRefine((value, context) => {
+  if (value.review && !isDeepStrictEqual(value.review,
+    JSON.parse(JSON.stringify(reviewProposal(value.base.snapshot, value.draft))))) {
+    context.addIssue({ code: 'custom', message: 'REPLAY_PROPOSAL_REVIEW_MISMATCH' });
+  }
+});
+const currentRun = run.extend({ answerContractVersion: z.literal(1), executor: z.enum(['adk', 'temporal-v1']).optional(), proposal: currentProposal.optional(), events: z.array(z.strictObject({
   sequence: z.number().int().nonnegative(), event: answerEventSchema })) });
 const currentCheckpoint = checkpoint.extend({ runs: z.strictObject({ runs: z.array(currentRun).max(1) }) });
 const schema = historicalSchema.extend({ schemaVersion: z.literal(2),
@@ -289,6 +300,9 @@ export function createEvidenceReplay(value: unknown) {
         if (path === `${base}/runs`) {
           const projection = structuredClone(bundle[phase].runs);
           for (const run of projection.runs) {
+            if (run.proposal && !run.proposal.review) {
+              run.proposal.review = reviewProposal(run.proposal.base.snapshot, run.proposal.draft);
+            }
             run.requestId = requestIds.get(run.requestId) ?? run.requestId;
             run.events = run.events.map(item => ({ ...item, event: rebindEvent(item.event) }));
           }

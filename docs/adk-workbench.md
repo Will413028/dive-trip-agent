@@ -1,5 +1,7 @@
 # ADK + AG-UI workbench integration
 
+> 歷史 ADK 實作與離線回歸參考。現行產品 runtime 已改為 Python／PydanticAI＋Temporal；回答與產品契約仍保留，啟動及切換狀態見 [README](../README.md) 與 [核心重構](architecture-refactor.md)。
+
 Local, synthetic-data implementation. Gemini is disabled. This is not a booking
 service, a general-language model demo, or a deployable public configuration.
 

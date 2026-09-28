@@ -1,5 +1,7 @@
 # ADK bounded tools and Gemini adapter
 
+> 歷史 ADK 實作與離線回歸參考。現行產品 runtime 已改為 Python／PydanticAI＋Temporal；回答與產品契約仍保留，啟動及切換狀態見 [README](../README.md) 與 [核心重構](architecture-refactor.md)。
+
 ## Current cutover — 2026-09-27 (offline only)
 
 The grounded-answer refactor is implemented. Remaining semantic-quality and

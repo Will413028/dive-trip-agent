@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import type { RecoveryCampaignReport } from '../../evals/cloudflare-recovery-campaign';
 import type { EvaluationLockLease } from '../../evals/live-evaluation-lock';
 import type { ReplayBundle } from '../../evals/replay-bundle';
-import type { CloudflareCampaignPortsOptions } from '../support/cloudflare-campaign-ports';
+import type { PythonEvaluationOptions as CloudflareCampaignPortsOptions } from '../../evals/python-evaluation';
 import cases from '../../evals/cases.json';
 import { evaluationInput } from '../../evals/fixtures';
 import { recoveryPrior, recoveryResult } from '../support/cloudflare-recovery-fixture';
@@ -39,8 +39,8 @@ vi.mock('../../evals/cloudflare-quality-carry', () => ({ QUALITY_CARRY_SCHEMA: (
 vi.mock('../../evals/cloudflare-revision-carry', () => ({ readCloudflareRevisionCarry: m.carry, REVISION_CARRY_SCHEMA: () => 'revision_mock' }));
 vi.mock('../../evals/cloudflare-recovery-claim', () => ({ claimCloudflareRecoveryCampaign: m.claim }));
 vi.mock('../../evals/live-evaluation-lock', () => ({ withEvaluationLock: m.lock, assertEvaluationLock: m.assertLock }));
-vi.mock('../support/database', () => ({ withDatabase: m.database, testDatabaseUrl: m.databaseUrl }));
-vi.mock('../support/cloudflare-campaign-ports', () => ({ createCloudflareCampaignPorts: m.ports }));
+vi.mock('../support/database', () => ({ testDatabaseUrl: m.databaseUrl }));
+vi.mock('../../evals/python-evaluation', () => ({ withPythonEvaluation: m.database }));
 vi.mock('../../src/server/local-credential', () => ({ loadLocalCredential: m.credential }));
 vi.mock('../../evals/cloudflare-recovery-review-wait', () => ({ awaitCloudflareRecoveryReview: m.review }));
 vi.mock('../../evals/checkpoint', () => ({ writeAtomicCheckpoint: m.atomic, writeImmutableCheckpoint: m.immutable }));
@@ -100,10 +100,10 @@ beforeEach(() => {
   m.assertLock.mockImplementation(async (lease: EvaluationLockLease) => {
     expect(lease).toBe(m.lease); m.order.push('lease');
   });
-  m.database.mockImplementation(async (work: () => Promise<void>, options: { retainOnFailure?: boolean }) => {
-    expect(options).toEqual({ retainOnFailure: true });
+  m.database.mockImplementation(async (options: CloudflareCampaignPortsOptions, work: (ports: ReturnType<typeof m.ports>) => Promise<void>) => {
+    expect(options.databasePort).toBe(15432);
     m.inDatabase = true; m.order.push('db:enter');
-    try { await work(); }
+    try { await work(m.ports(options)); }
     catch (error) { m.databaseFailure = error; throw error; }
     finally { m.inDatabase = false; m.order.push('db:exit'); }
   });
@@ -166,7 +166,7 @@ function expectPoolsClosed() {
 }
 function expectRetained() {
   expect(m.databaseFailure).toBeInstanceOf(Error);
-  expect(m.database).toHaveBeenCalledWith(expect.any(Function), { retainOnFailure: true });
+  expect(m.database).toHaveBeenCalledWith(expect.objectContaining({ databasePort: 15432 }), expect.any(Function));
   expectPoolsClosed();
 }
 function expectNoIo() {

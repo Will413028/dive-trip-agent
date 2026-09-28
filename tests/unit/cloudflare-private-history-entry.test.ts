@@ -12,7 +12,8 @@ vi.mock('../../evals/live-evaluation-lock', () => ({
   withEvaluationLock: boundary.lock, assertEvaluationLock: vi.fn(),
 }));
 vi.mock('../../src/server/local-credential', () => ({ loadLocalCredential: boundary.credential }));
-vi.mock('../support/database', () => ({ withDatabase: boundary.database, testDatabaseUrl: boundary.databaseUrl }));
+vi.mock('../support/database', () => ({ testDatabaseUrl: boundary.databaseUrl }));
+vi.mock('../../evals/python-evaluation', () => ({ withPythonEvaluation: boundary.database }));
 vi.mock('pg', () => ({ Pool: boundary.pool }));
 
 import { runCloudflareDiagnosticEntry, DIAGNOSTIC_AUTHORIZATION } from '../../evals/cloudflare-diagnostic-entry';

@@ -1,5 +1,24 @@
 # Toolchain
 
+## Python／Temporal toolchain
+
+Web固定Node26.8.1／pnpm11.2.2。新backend使用Python3.13.13與uv0.7.2；`backend/uv.lock`固定本次解析結果，主要版本為FastAPI0.141.1、Pydantic2.13.5、PydanticAI2.51.0、Temporal SDK1.33.0、psycopg3.3.6／pool3.3.3、httpx2 2.13.1。SDK使用的httpx2與FastAPI測試用httpx分開，不能任意互換型別。
+
+```sh
+# 僅依賴準備步驟可能下載；日常命令使用 --frozen --no-sync。
+uv sync --frozen --project backend
+pnpm lint:backend
+pnpm typecheck:backend
+pnpm contracts:check
+pnpm test:backend
+```
+
+DB測試使用已備妥的`postgres:18-alpine`、固定Docker context、當次唯一container／schema；不接受任意DB URL或環境檔。Temporal測試SDK可能在cache缺少時下載隔離測試工具；persistent launcher則必須明確提供已安裝的CLI1.9.1（server1.32.0／UI2.54.1），缺少或版本不符即拒絕，不下載。SQLite及產品DB须一起保留；任一重置不能靠修改binding接回。SDK／CLI升級須重跑跨程序重啟、history replay與刪除故障驗證。
+
+CI 使用 [官方 setup-uv action](https://github.com/astral-sh/setup-uv/blob/main/README.md) 的固定 commit 安裝 uv 0.7.2／Python 3.13.13，再以 frozen lockfile 安裝。CI workflow 已接 backend lint／mypy／contracts／tests；尚未執行新版遠端 CI。
+
+本節不是整體切換完成宣告；新舊驗證證據依[遷移計畫](architecture-refactor.md)分開記錄。
+
 ## 2026-09-27 Native worker TypeScript 檢查
 
 - `pnpm typecheck` 在 Next typegen／完整 strict typecheck 後，再以 `tsconfig.worker.json` 檢查 production worker 與 offline worker 的 dependency graph，啟用 `erasableSyntaxOnly:true`。共用 transport 的 parameter property 曾通過 Vitest transpilation 與原有 tsc，卻使 Node 原生 `.ts` worker 無法載入；已改為明確 field declaration／constructor assignment。

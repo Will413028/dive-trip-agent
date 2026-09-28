@@ -1,88 +1,87 @@
 # Local retention operations
 
-## Scope and guarantees
+## Python／Temporal cleanup
 
-This is a local synthetic-data portfolio, not a public deployment. No system scheduler
-is installed by the application. Read-time expiry is immediate; physical deletion
-requires a running cleanup process. A stopped/sleeping host cannot guarantee a wall-clock
-deletion deadline. Never advertise “all data is automatically deleted at exactly 30 days”.
+The default launcher uses Python／Temporal; cutover evidence is tracked in the implementation plan.
+User-approved deletion is a persistent operation: return `202 {status:"deleting"}`
+after fencing access to the trip and shares; report `deleted` only after Temporal
+execution/history reads return not-found and product content is removed. Delete RPCs
+are asynchronous, so an ACK alone is insufficient. The application refuses to claim
+completion when Temporal history or visibility archival is enabled. See the
+[Temporal API contract](https://github.com/temporalio/api/blob/master/temporal/api/workflowservice/v1/service.proto).
 
-- Product trip/session expiry is fixed at creation + 30 days; reads do not extend it.
-- Each pass deletes at most 100 expired trips, with their versions, proposals, receipts,
-  events, model-call records, invocations and ADK sessions/events in the same per-trip transaction.
-- Running leases or worker locks defer deletion. Failures roll back that trip, not earlier
-  trips already completed in the pass. Retrying is safe. Never kill unrelated workers to clear locks.
-- At most 100 empty expired owners are then removed. Owners with unexpected ADK sessions/events
-  are protected for investigation and excluded before pagination; they cannot block later owners.
-- At most 1,000 quota receipts are compacted per pass. Eligibility: receipt is at least 30 days
-  old, its lease expired, its Taipei day is past, its owner is absent/expired, and no invocation
-  references it. Until then, metadata survives trip deletion to preserve quotas and replay fences.
-- Compaction atomically deletes identifiers (owner/IP digest/request/payload hash/run ID) and
-  adds only day, reservation count, charged USD microdollars and unknown-usage count to daily totals.
-  Unknown usage retains its conservative charge. The quota global lock serializes settlement,
-  admission and compaction. Late settlement of an already compacted receipt fails closed.
-- Identifier-free daily totals older than 90 Taipei calendar days are removed. Unreferenced
-  quota lock buckets are also removed, without changing the permanent global lock.
+Pending jobs survive owner expiry and retain only identifiers needed for cleanup.
+Completed jobs immediately clear workflow IDs. Their minimal status receipts serve
+the still-valid owner, then become eligible for cleanup once the owner expires or
+no longer exists; pending jobs are never removed by that cleanup. Processing is
+bounded to 100 due jobs and 1,000 due completed receipts per pass, with persisted
+backoff. Quota receipts retain the existing accounting policy. The worker schedules
+expired trip/owner intents, then purges content, removes empty expired owners and
+compacts eligible quota receipts without dropping unknown charges.
 
-The receipt's 30-day period starts at its own reservation, not the owner's creation. An
-expired owner's quota metadata may therefore outlive the trip; it never contains chat content.
-Busy workers, protected orphan data, errors and backlogs can delay physical cleanup. Monitor
-the remaining counts rather than treating a successful invocation as “nothing remains”.
+The retired ADK schema-v1 erasure adapter preserves the existing demo deletion
+contract without loading or running an ADK agent. Its session/history erasure and
+product deletion share the final product transaction; SDK invocation/schema locks
+and version checks reject unsafe cleanup. Unexpected orphan sessions/events protect
+their owners before bounded pagination. The cleanup entry permits only
+`workbench_demo` and newly owned `python_test_<uuid>`/`e2e_<uuid>` schemas; historical
+evaluation `test_<uuid>` schemas and `workbench_live` are rejected before DB access.
+Original claims, reports and retained evaluation evidence are outside this path.
 
-## Commands
+## Scope and operations
 
-Run from the project checkout with the pinned Node toolchain and the dedicated Compose
-PostgreSQL running. Start the normal workbench once to apply migrations through 009.
-The cleanup command never creates schemas, runs migrations or reads an environment file.
-It accepts only `workbench_demo` or `workbench_live` in the dedicated loopback `dive_trip_test` DB.
-Since the grounded-answer cutover, `workbench_live` is historical read-only:
-`--apply` (with or without `--watch`) is rejected before DB discovery/connection.
-Only its dry-run counts remain available; no retention command may remove its
-pending proposal or retained accounting evidence.
-It does not accept a DB URL, arbitrary schema, injected time or provider credential.
+This is a local synthetic-data portfolio, not a public deployment. Read-time expiry
+is immediate; physical deletion requires a running worker. A stopped host cannot
+guarantee a wall-clock deletion deadline. Product trip/session expiry is creation
++ 30 days and reads do not extend it.
+
+The supervised Python worker performs a bounded cleanup pass, then waits five
+seconds. Each pass requests up to 100 expired-trip deletion jobs, processes up to
+100 due jobs, removes up to 100 empty expired owners and compacts up to 1,000
+eligible quota receipts. Job failures preserve progress and retry with persisted
+backoff. A loop failure exits the worker; the local supervisor stops the remaining
+stack instead of leaving an apparently healthy Web with no cleanup worker.
+
+Quota compaction requires a receipt at least 30 days old, an expired lease, a past
+Taipei day, absent/expired owner and no invocation reference. It removes identifying
+metadata and adds reservation count, charged microdollars and unknown count to
+daily totals. Unknown retains its conservative charge. Identifier-free totals
+older than 90 Taipei days expire. Deleting a trip never resets quota.
 
 ```sh
-# Read-only counts. Default; does not delete data.
-pnpm data:expire --schema=workbench_demo
-
-# Destructive: one bounded pass, only after approving the target/preview.
-pnpm data:expire --schema=workbench_demo --apply
-
-# Destructive foreground scheduler: first pass now, then one hour AFTER each pass completes.
-pnpm data:expire --schema=workbench_demo --apply --watch
+# Read-only backlog; no migration, Temporal connection or deletion.
+pnpm data:expire --database-port <dedicated-loopback-PostgreSQL-port>
 ```
 
-Never replace the demo schema with `workbench_live` for apply. Never run apply merely
-to test the script against existing demonstrations; integration tests use fresh isolated schemas.
-`--watch` requires `--apply`. SIGINT/SIGTERM stop further passes and allow current bounded
-work to finish. Passes within one process do not overlap. Separate processes are safe under
-DB locks but waste work; operate one scheduler per schema. An error prints only
-`RETENTION_FAILED`, exits nonzero, and requires investigation/restart. No prompt, token,
-connection string or individual owner/run ID is logged.
+The command accepts only `workbench_demo` and prints expired trip/session and
+pending deletion counts. Cleanup is owned by the running Python worker. The old
+Node `--apply`/`--watch` entry refuses before DB discovery; its historical read-only
+preview remains available to existing audit tooling. Neither path may mutate
+`workbench_live` or protected evaluation schemas. No hosted scheduler, public
+cleanup endpoint or secret loader is configured.
 
-Each applied pass prints deletion/compaction counts, busy-trip count and remaining expired
-trip/session/eligible-receipt counts. Persistent remaining data requires investigation:
-check live leases, schema version, orphan ADK data and backlog. The watch process is not
-installed or enabled automatically; no launchd/cron or public endpoint is created.
+A successful pass does not imply an empty backlog. Check pending jobs, leases,
+Temporal availability, archival configuration and protected ADK orphans. Do not
+kill unrelated workers or clear protected history to make cleanup pass.
 
-## Deployment / backups / rollback
+## Backup and restore
 
-No backup, cloud deployment or system job is configured by this project. Before a public
-release, provide a supervised scheduler, failure/backlog alerting, throughput sizing and
-a documented backup policy. Backups must expire within 30 days, must not be exposed through
-the app, and a restore must reapply expiry/deletion decisions before serving traffic. This
-restore procedure is a release gate, not an implemented claim. External saved pages,
-browser tabs and copies sent to third parties cannot be remotely erased.
+Keep the PostgreSQL and Temporal stores paired. Stop ingress and workers and wait
+for bounded shutdown before backup; retain immutable artifact and migration
+identities. Pre-cutover backups also include the legacy demo ADK schema. Backups
+must remain private and expire within 30 days; hosted encryption, automated expiry,
+RPO/RTO and restore reconciliation are not configured or accepted.
 
-Rollback: stop the foreground scheduler first. Disable cleanup entrypoints while retaining
-009 and all existing data/totals. Never reverse compaction or delete totals to reset quotas.
-Deleted content and compacted receipt identifiers cannot be reconstructed by this application.
-Do not revert to a binary that rejects the newer migration or ignores accumulated costs.
+Never revive deleted content, revoked shares or old quota by blindly restoring an
+older snapshot. Restore to an isolated target, reconcile subsequent deletion,
+revocation and accounting decisions, and verify both stores before serving. If
+reconciliation is incomplete, keep the restored service closed. Do not reset
+Temporal binding or delete quota to force a restore.
 
-## Validation
+## Verification
 
-Run integration tests alone against the dedicated DB, then build and browser tests;
-concurrent suites contend on the SDK schema initialization lock. Tests cover repeated and
-concurrent compaction, unknown-cost preservation, aggregation rollback, current-day/live-owner
-protection, empty-owner cleanup, daily-budget totals and orphan-pagination progress. Real ADK
-deletion, worker fencing and cross-schema rollback are in `tests/integration/retention.test.ts`.
+The backend suites cover durable deletion, immediate access fencing, worker restart,
+Temporal RPC failure, preserved accounting, owner expiry, legacy schema locks and
+orphan protection. The browser suite checks deletion status after reload and
+share/trip inaccessibility. Exact completed commands and limitations live in
+[architecture-refactor](architecture-refactor.md) and [release evidence](release-evidence.md).

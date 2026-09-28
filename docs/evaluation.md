@@ -1,5 +1,13 @@
 # Evaluation contracts and offline regression
 
+## Python／Temporal evaluator（2026-09-29）
+
+現行 reviewed controller 保留永久 claim、完整原始 history／source manifest／owned lease 與 quota gate；執行改用 inherited duplex 連接 Python child。需先安裝 `backend/uv.lock` 固定環境，並明示已安裝且版本相符的 `DIVE_TRIP_TEMPORAL_BINARY`。一般 Web 仍只提供 fixture；此設定不構成 live 授權。
+
+每批新執行使用獨立 PostgreSQL schema 與持久 SQLite Temporal history；不接續舊 ADK run。只有 start admission 後才取得一次 generation capability，resume 為 receipt-only。新 private usage v3 核對產品帳本及 pinned Temporal execution 的完整 native history，不能把下方舊 ADK v1／v2 格式轉換成新成功證據。
+
+Capture 必須等 owned worker 與 SDK 收尾；成功清理前再次查原始歷史，並在 migration lock 與完整 table locks 下比對最終 storage fingerprint。漂移、未知 drain、匯出或保存失敗均保留新 schema／SQLite 及其 metadata。既有原始 claims、reports、unknown 與 retained DB 不變。離線驗證與切換證據見 [核心重構](architecture-refactor.md)；以下既有停止、品質與歷史規則持續適用，ADK 專屬實作段落僅供歷史查核。
+
 This repository provides de-identified offline regression vectors. They exercise
 domain, transport, accounting and review boundaries; numerical correctness does
 not establish real-model understanding, evidence selection or task quality.

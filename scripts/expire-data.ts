@@ -16,6 +16,7 @@ export function retentionArgs(args: string[]) {
 
 export async function runRetention(args: string[]) {
   const options = retentionArgs(args);
+  if (options.apply) throw new Error('LEGACY_RETENTION_RETIRED');
   process.chdir(fileURLToPath(new URL('../', import.meta.url)));
   // Dedicated loopback Compose DB only. No env files, credentials or migrations.
   const pool = makePool(testDatabaseUrl(), options.schema);

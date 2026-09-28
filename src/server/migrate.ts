@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import type { Pool } from 'pg';
-import { database, transaction } from './db.ts';
+import { transaction } from './db.ts';
 
 type Migration = { id: string; sql: string };
 
@@ -37,12 +37,5 @@ export async function migrate(pool: Pool, supplied?: readonly Migration[]): Prom
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const pool = database();
-  try {
-    await migrate(pool);
-    console.log('Database migrations applied.');
-  } catch {
-    console.error('DATABASE_MIGRATION_FAILED');
-    process.exitCode = 1;
-  } finally { await pool.end(); }
+  throw new Error('LEGACY_MIGRATION_RETIRED: use pnpm db:migrate');
 }

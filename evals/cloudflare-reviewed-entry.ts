@@ -8,8 +8,8 @@ import { withEvaluationLock, assertEvaluationLock, type EvaluationLockLease } fr
 import { cloudflareAccountSchema } from '../src/agent/cloudflare-wire';
 import { loadLocalCredential } from '../src/server/local-credential';
 import type { GroundedCloudflareEvaluationCampaign } from '../src/server/agent-policy';
-import { createCloudflareCampaignPorts } from '../tests/support/cloudflare-campaign-ports';
-import { testDatabaseUrl, withDatabase } from '../tests/support/database';
+import { withPythonEvaluation } from './python-evaluation.ts';
+import { testDatabaseUrl } from '../tests/support/database';
 import { writeAtomicCheckpoint, writeImmutableCheckpoint } from './checkpoint';
 import type { ReplayBundle } from './replay-bundle';
 
@@ -61,9 +61,9 @@ export async function runReviewedCloudflareEntry<R extends Report, B extends obj
           if (!isDeepStrictEqual(await readCloudflareSourceManifest(), sourceManifest)) throw new Error('EVAL_SOURCE_CHANGED');
           await assertEvaluationLock(lease);
         };
-        await withDatabase(async () => {
-          let replay: ReplayBundle | undefined;
-          const ports = createCloudflareCampaignPorts({ accountId, priorChargedMicros: prior.chargedMicros,
+        let replay: ReplayBundle | undefined;
+        await withPythonEvaluation({ accountId, priorChargedMicros: prior.chargedMicros,
+            databasePort: port, temporalBinary: process.env.DIVE_TRIP_TEMPORAL_BINARY ?? '',
             ...(policy.liveCampaign ? { liveCampaign: policy.liveCampaign } : {}),
             captureReplay: bundle => { replay = bundle; },
             loadCredential: async () => {
@@ -71,7 +71,7 @@ export async function runReviewedCloudflareEntry<R extends Report, B extends obj
               await assertPrivateCloudflareHistory();
               await assertEvaluationLock(lease);
               return loadLocalCredential('cloudflare');
-            } });
+            } }, async ports => {
           const report = await policy.runCampaign({ accountId, prior, now: Date.now,
             pause: (ms, signal) => delay(ms, undefined, { signal }),
             checkpoint: report => save({ ...report, startedAt, sourceFingerprint, sourceManifest, replays, preflightReviewReceipt }),
@@ -119,7 +119,7 @@ export async function runReviewedCloudflareEntry<R extends Report, B extends obj
             throw new Error('EVAL_HISTORY_CHANGED');
           }
           if (report.stopped) throw new Error('EVAL_CLOUDFLARE_CAMPAIGN_STOPPED');
-        }, { retainOnFailure: true });
+        });
       } finally { await Promise.all(pools.map(pool => pool.end())); }
     });
     });

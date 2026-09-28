@@ -1,6 +1,6 @@
 # Dive Trip Agent
 
-潛旅行程互動作品，透過對話與卡片編輯行程，提供鎖定、差異確認、復原及唯讀分享。使用 Next.js、TypeScript、PostgreSQL、Google ADK TypeScript＋AG-UI。仍在開發中，尚未公開部署，不提供預訂或潛水安全判斷。
+潛旅行程互動作品，透過對話與卡片編輯行程，提供鎖定、差異確認、復原及唯讀分享。使用 Next.js／AG-UI、FastAPI／PydanticAI、Temporal 與 PostgreSQL。仍在開發中，尚未公開部署，不提供預訂或潛水安全判斷。
 
 本 repository 提供去識別化的離線 regression vectors。模型提出結構化意圖與證據引用，由服務端計算、驗證及呈現；數值邊界不證明真模型能理解需求或完成任務。原始不可刪 claims、reports、usage 與歷史資料庫留在 ignored local storage，不能從 public fixtures 重建或重設真實 quota。
 
@@ -8,7 +8,7 @@
 
 作品服務想體驗互動規劃的潛在委託者與休閒潛旅者，不需註冊；市場需求尚未驗證。範圍為小琉球、綠島、墾丁，每趟一個目的地、1–6 人、2–7 天、TWD；超出範圍明示，不截斷需求。程式、資料、帳號及部署獨立，不先建跨專案平台。
 
-- **精選目錄與單一 Agent**：有限資料便於來源查核、重現及成本控制，代價是覆蓋較窄；即時全網探索與多 Agent 的外部依賴、協調及新鮮度成本先不引入。ADK 選工具，Domain 驗證／計價，應用服務在人工確認後保存；受控回答取捨見 [model adapter](docs/model-adapter.md#answer-design-and-rollback)。
+- **精選目錄與單一 Agent**：有限資料便於來源查核、重現及成本控制，代價是覆蓋較窄；即時全網探索與多 Agent 的外部依賴、協調及新鮮度成本先不引入。PydanticAI 選工具，Temporal 保存執行進度，Domain 驗證／計價，應用服務在人工確認後保存；受控回答取捨見 [model adapter](docs/model-adapter.md#answer-design-and-rollback)。
 - **同一份行程**：桌面對話／工作台並列，手機切換時保留草稿與操作狀態；需求卡、目的地比較、每日活動、地圖、預算與提案共用結構化狀態。先提供移日、替換、移除、鎖定，不做拖曳排序。
 - **漸進確認**：只追問影響下一步的人數及潛水／非潛水分配、日期或天數、預算、住宿偏好、步調。日期未定可規劃，須標示未定，不保證當日天氣、開放、價格或可訂；潛水經驗只是自述。地圖只用可核對座標，不假造路線或交通時間。
 - **鎖定與差異**：鎖定涵蓋內容、日期與費用依據，不能藉刪父日期或縮天數繞過；移動／替換前由使用者解鎖。局部修改列出所有連帶影響；改人數重算每人／房晚／固定費用，鎖定住宿容量不足時顯示衝突。提案列出增刪改、費差、鎖定與未解問題，確認前不改行程，拒絕不變更；baseVersion 過期須重算。
@@ -20,6 +20,8 @@
 產品驗收目標及剩餘工作的唯一順序見 [release evidence](docs/release-evidence.md#執行交接)。以上為契約，不代表全部模型品質或 hosted 情境已驗收。
 
 ## 驗證狀態
+
+Python／Temporal 的目前結果見 [核心重構](docs/architecture-refactor.md)。下表是切換前 ADK 的歷史 CI 基線，不能當成新 runtime 已通過。
 
 原始碼 repository 已公開，服務尚未部署。2026-09-27 第一輪 [Fixture CI](https://github.com/Will413028/dive-trip-agent/actions/runs/36317342675) 在 `2a3d3d5` 通過；job 與全部 steps 均成功，耗時 8 分 58 秒，未放寬 timeout 或 assertions。
 
@@ -52,22 +54,26 @@ Unit、typecheck、lint 不需要 API key 或資料庫。`eval:fixture` 執行�
 
 ## 本機行程工作台
 
-先準備下節的專用 Compose 資料庫，再執行：
+預設命令已接 Python／Temporal；完整切換驗收進度見 [核心重構](docs/architecture-refactor.md)。一般工作台只提供固定 scenario 的離線 DEMO，不是 live 模型入口。Web 未配置 backend 時回服務不可用，不會退回 ADK。
+
+備妥 [固定 toolchain](docs/toolchain.md)、專用 `dive_trip_test` PostgreSQL 與已安裝 Temporal CLI 後，明確指定 loopback port 及持久 SQLite 路徑：
 
 ```sh
-pnpm dev
-# 或先完成 production build：
-pnpm build
-pnpm start
+# 先停止同資料集的舊 writer、核對目標並備份；只允許 workbench_demo。
+pnpm db:migrate --database-port <專用PostgreSQL埠>
+pnpm dev --database-port <同一埠> \
+  --temporal-binary <已安裝CLI的絕對路徑> \
+  --temporal-storage <持久SQLite檔案的絕對路徑>
+# production Web：先 pnpm build，再將 dev 換成 start，保留以上三個參數。
 ```
 
-開啟 <http://127.0.0.1:4318/>，點「試玩一般規劃」。一般啟動為固定模型 DEMO，資料保存在 `workbench_demo`，ADK session 在 `workbench_demo_adk`；重啟服務後仍保留。
+遷移與 serve 分離，不讀環境檔或任意 DB URL。服務綁定 PostgreSQL 與 Temporal cluster／namespace 身份；停止保留兩份儲存，更換空 Temporal 不會自動重新綁定。`workbench_live` 與原始評估 schema 不在此入口的允許範圍。
 
-切至「對話」，輸入「第二天下午留白」，檢視差異後接受／拒絕；待確認時可刷新接續。「人數未定」展示固定追問；「查詢目的地」／「試算目前預算」執行唯讀工具；「把行程改為悠閒」先驗證需求再提案。其他文字只說明支援範圍，不宣稱理解任意自然語言。
+開啟 <http://127.0.0.1:4318/>，點「試玩一般規劃」。對話輸入「第二天下午留白」，檢視差異後接受／拒絕；待確認時可刷新接續。確認後直接保存固定 receipt，不再呼模型。其他固定情境包括「人數未定」、「查詢目的地」、「試算目前預算」及「把行程改為悠閒」；不宣稱理解任意自然語言。
 
-每次 start／resume 使用受監管子程序，延續持久化 ADK session。產品交易負責套用；確認後產生固定 receipt，不讀憑證、不再呼叫模型。新核心回答為 AnswerPlan → 服務端 AcceptedAnswer → AG-UI 受控元件，不顯示模型自由正文。詳見 [模型契約](docs/model-adapter.md) 與 [恢復界線](docs/adk-workbench.md)。
+資料與不可變回答保存在 PostgreSQL，執行／等待在 Temporal。舊 ADK session 只保留歷史，不轉譯或接續；既有 AcceptedAnswer 仍讀原投影。`tests/support/workbench-dev.ts` 已退役，原 ADK runtime 只供隔離的離線回歸與歷史查核。
 
-若 4318 被占用，可用 `pnpm start --port=4418` 或 `pnpm dev --port=4418`，不要停止其他服務。`dev`／`start`／`build`／E2E 使用同一 Next build 目錄，須序列執行。
+若 4318 被占用，可在相同命令加 `--port 4418`，不要停止其他服務。`dev`／`start`／`build`／E2E 共用 Next build 目錄，須序列執行。
 
 ```sh
 pnpm test:e2e
@@ -75,9 +81,15 @@ pnpm test:e2e
 E2E_PRODUCTION=1 pnpm test:e2e
 ```
 
-E2E 使用 4319 及當次建立的 `e2e_*` schema，只清理自己的產品與 ADK schema。涵蓋桌面／390px viewport 的確認、刷新、衝突、分享、未知費用與地圖降級；通過證據只適用上列已驗證 revision 與範圍。
+E2E 一律使用 Python backend、4319 及當次建立的 `e2e_*` schema／Temporal；只清理自身資源。涵蓋桌面／390px viewport 的確認、刷新、衝突、分享、持久刪除、未知費用與地圖降級。
 
 離線 launcher 傳入固定 APP_ORIGIN，不信任 Host／Forwarded headers；跳過 `.env.local`，依檔名拒絕其他可載入的 test 環境檔，不讀內容。只傳必要環境變數、停用 telemetry；正式部署不能沿用本機 test mode。
+
+### 備份與回復界線
+
+停入口與 worker、等有界收尾後，成對保存產品 PostgreSQL、Temporal SQLite 與固定版本／migration 清單。首次切換前另保存 demo 的舊 ADK schema，保留原始歷史。備份不可放進 public Git。
+
+新 runtime 尚未寫入前，可在全部 writer 停止時還原完整切換前 demo 備份及對應舊 artifact。已有新版本、刪除或 quota 紀錄後，不可直接還原舊 DB 或啟動舊 ADK writer；須使用相容的新 artifact，並先對帳刪除／撤銷／quota。不可清 binding 或重建空 Temporal 來繞過配對檢查。公開環境的 restore／RPO／RTO 仍是部署 gate。
 
 ## 專用資料庫與回歸隔離
 
@@ -100,7 +112,7 @@ docker compose --env-file /dev/null -f compose.test.yml stop
 
 測試只連所選 Compose project 的 `dive_trip_test`，逐案建立隨機 schema。不讀環境檔或任意 `DATABASE_URL`，失敗不 fallback memory。loopback／trust authentication 僅供本機合成資料，禁止公開部署。停止容器會保留 volume，不用 `down -v` 清除歷史資料。
 
-`pnpm db:migrate` 只對明確設定的 DATABASE_URL 執行，不自動載入環境檔；執行前確認目標。migration checksum 漂移會拒絕啟動，不修改已套用版本。
+`pnpm db:migrate --database-port <埠>` 只接受專用 loopback DB 的 `workbench_demo`，不自動載入環境檔；執行前確認目標。migration checksum 漂移會拒絕啟動，不修改已套用版本。
 
 ## 分享、刪除與留存
 
@@ -108,9 +120,9 @@ docker compose --env-file /dev/null -f compose.test.yml stop
 
 每趟最多 20 個分享連結（含撤銷），有效期不超過原行程與匿名 session，讀取不延長期限。已實作到期拒讀，但不能宣稱到期即已實體清除。
 
-刪除行程須明確確認，由同一交易移除行程、版本、提案、產品與 ADK 對話、分享及修改回執；執行中的 Agent 回 409，沒有自動重試刪除。Quota receipts 不因刪除行程重置；過期且無引用的 receipts 才能壓縮為不含識別碼的每日統計，未知用量仍保守計費。
+刪除行程須明確確認；先提交持久刪除工作、立即封鎖行程與分享，顯示「刪除中」。Worker 撤銷執行資格、清除 Temporal history 及產品內容，全部完成才顯示「已刪除」；失敗保存進度並有界重試，刷新可查回狀態。Quota receipts 不因刪除行程重置；過期且無引用的 receipts 才能壓縮為不含識別碼的每日統計，未知用量仍保守計費。
 
-`pnpm data:expire --schema=workbench_demo` 預設只預覽。永久 apply／前景排程須先確認精確目標及預覽；舊 live 僅允許 dry-run。尚未配置 hosted schedule、backup/restore 與告警。完整界線見 [retention](docs/retention.md)。
+`pnpm data:expire --database-port <埠>` 只讀取 demo 的過期與待刪除數量。運行中的 Python worker 每輪有界處理 TTL、刪除及帳務壓縮；舊 retention apply／watch 已退役。尚未配置 hosted schedule、backup/restore 與告警。完整界線見 [retention](docs/retention.md)。
 
 ## 資料與展示
 

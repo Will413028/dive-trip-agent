@@ -16,6 +16,12 @@ test('delete requires confirmation, invalidates shares and returns home', async 
   await expect(page.getByRole('button', { name: '確認永久刪除', exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: '刪除此行程', exact: true }).click();
   await page.getByRole('button', { name: '確認永久刪除', exact: true }).click();
+  await expect(page).toHaveURL(/\/deletion$/);
+  expect((await page.request.get(tripPath)).status()).toBe(404);
+  expect((await page.request.get(link)).status()).toBe(404);
+  await page.reload();
+  await expect(page.getByRole('heading', { name: '行程已刪除', exact: true })).toBeVisible({ timeout: 10_000 });
+  await page.getByRole('link', { name: '回首頁', exact: true }).click();
   await expect(page).toHaveURL(/\/$/);
   expect((await page.request.get(tripPath)).status()).toBe(404);
   expect((await page.request.get(link)).status()).toBe(404);

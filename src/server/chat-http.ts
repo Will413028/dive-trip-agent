@@ -6,7 +6,7 @@ import { parsePublicAgentEvent } from '../agent/public-events';
 import { publicAgentErrorCode } from './agent-error';
 import { runErrorEvent } from './answer-events';
 import { admitStart, admitResume, accountModelCall, getAdmissionUsage, settleAdmission, settleRejectedToolArguments, type Admission } from './agent-admission';
-import { credential, fixtureClaim, validateAgentContext, isGroundedCloudflareEvaluationCampaign,
+import { credential, fixtureClaim, validateAgentContext,
   FIXTURE_AGENT_CONTEXT, type AgentServerContext } from './agent-policy';
 import { quotaIpKeys } from './client-ip';
 import { maximumProviderModelCost, referenceModelCost, referenceProviderCost } from './model-cost';
@@ -14,6 +14,7 @@ import { calculateBudget } from '../domain/budget';
 import { DomainError } from '../domain/errors';
 import { buildProposal } from '../domain/proposal';
 import { parseSnapshot } from '../domain/snapshot';
+import { reviewProposal } from './proposal-review';
 import type { CatalogItem, ProposalDraft } from '../domain/types';
 import { database } from './db';
 import { catalog } from './demo';
@@ -41,6 +42,7 @@ export async function chatRuns(owner: string, tripId: string): Promise<Response>
     if (!row) throw new DomainError('NOT_FOUND');
     const snapshot = parseSnapshot(row.snapshot);
     return { ...run, proposal: { draft: row.draft,
+      review: reviewProposal(snapshot, row.draft),
       base: { id: tripId, version: run.baseVersion, snapshot, budget: calculateBudget(snapshot) } } };
   }));
   // A read of the projection must not outlive the ownership TTL check.
@@ -58,11 +60,9 @@ export async function chatReplay(owner: string, tripId: string, runId: string): 
 
 export async function chatAgent(request: Request, owner: string, tripId: string, body: unknown,
   context: AgentServerContext = FIXTURE_AGENT_CONTEXT): Promise<Response> {
-  // Ordinary live and consumed campaign contexts stay closed. The new one-shot
-  // evaluator is server-selected, still validated below and test-schema-only.
-  const groundedEvaluation = context.provider === 'cloudflare'
-    && isGroundedCloudflareEvaluationCampaign(context.evaluation?.liveCampaign);
-  if (context.provider !== 'fixture' && !groundedEvaluation && (context.liveLocal || context.offlineScenario === undefined
+  // Legacy HTTP remains only an offline regression oracle. Reviewed live
+  // evaluation now owns a Python process and cannot enter this ADK path.
+  if (context.provider !== 'fixture' && (context.liveLocal || context.offlineScenario === undefined
     || !context.quota.enabled || context.quota.priceBasis !== 'synthetic' || context.evaluation?.liveCampaign !== undefined)) {
     throw new DomainError('AGENT_POLICY_DISABLED');
   }

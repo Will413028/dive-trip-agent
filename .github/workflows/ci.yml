@@ -41,6 +41,18 @@ jobs:
           node scripts/assert-fixture-ci.ts
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile --strict-peer-dependencies
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version: '0.7.2'
+          python-version: '3.13.13'
+          enable-cache: false
+      - name: Install locked backend dependencies
+        run: uv sync --frozen --project backend
+      - name: Backend static checks and generated contracts
+        run: |
+          pnpm lint:backend
+          pnpm typecheck:backend
+          pnpm contracts:check
       - name: Lint
         run: pnpm lint
       - name: Typecheck
@@ -52,9 +64,12 @@ jobs:
       - name: Prepare dedicated test database
         run: |
           docker pull postgres:16-alpine
+          docker pull postgres:18-alpine
           docker compose --env-file /dev/null -f compose.test.yml up -d --wait --wait-timeout 60
       - name: Integration tests (live smoke remains skipped)
         run: pnpm test:integration
+      - name: Backend tests (isolated PostgreSQL and Temporal)
+        run: pnpm test:backend
       - name: Production build (fixture)
         run: pnpm build
       - name: Install CI Chromium

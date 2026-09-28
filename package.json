@@ -9,21 +9,26 @@
     "pnpm": "11.2.2"
   },
   "scripts": {
-    "dev": "node tests/support/workbench-dev.ts",
+    "dev": "uv run --frozen --no-sync --project backend python -m dive_trip.bootstrap.local serve",
     "build": "node tests/support/next-command.ts build",
-    "start": "node tests/support/workbench-dev.ts --production",
+    "start": "uv run --frozen --no-sync --project backend python -m dive_trip.bootstrap.local serve --production",
     "test:e2e": "playwright test",
     "dev:probe": "node tests/support/probe-dev.ts",
     "setup:openrouter": "bash scripts/openrouter-free-setup.sh",
     "test:adk": "node --test tests/adk-spike.test.ts tests/probe-launcher.test.ts",
     "test:unit": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration --maxWorkers=1",
-    "db:migrate": "node src/server/migrate.ts",
-    "data:expire": "node scripts/expire-data.ts",
+    "db:migrate": "uv run --frozen --no-sync --project backend python -m dive_trip.bootstrap.local migrate",
+    "data:expire": "uv run --frozen --no-sync --project backend python -m dive_trip.bootstrap.local retention",
     "catalog:validate": "node scripts/validate-catalog.ts",
     "eval:fixture": "node evals/run.ts --fixture",
     "typecheck": "node tests/support/next-command.ts typegen && tsc --noEmit && tsc --project tsconfig.worker.json --noEmit",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "contracts:generate": "uv run --frozen --no-sync --project backend python -m dive_trip.bootstrap.contracts src/contracts/generated.ts",
+    "contracts:check": "uv run --frozen --no-sync --project backend python -m dive_trip.bootstrap.contracts src/contracts/generated.ts --check",
+    "test:backend": "uv run --frozen --no-sync --project backend pytest backend/tests -q --tb=short",
+    "typecheck:backend": "uv run --frozen --no-sync --project backend mypy --config-file backend/pyproject.toml backend/src",
+    "lint:backend": "uv run --frozen --no-sync --project backend ruff check backend/src backend/tests"
   },
   "dependencies": {
     "@ag-ui/client": "1.0.0",

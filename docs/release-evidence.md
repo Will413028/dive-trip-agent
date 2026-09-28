@@ -2,9 +2,13 @@
 
 Release acceptance 尚未通過，沒有 public deployment。Public repository 提供去識別化的離線 regression vectors；可重現的數值與交易邊界不證明真模型品質，也不代表已取得模型、CI 或部署授權。
 
+2026-09-28 已選 [Python／Temporal 核心重構](architecture-refactor.md)：FastAPI／PydanticAI＋Temporal，沿用潛旅產品契約、Next.js／AG-UI；Auth0 與託管遷移不在本次範圍。2026-09-29 已完成離線驗收、原專案預設切換與本機 demo migration；尚未 commit／push，新版遠端 CI 未執行。
+
 ## 執行交接
 
-本節承接原 Task 1–12 主計畫，為剩餘工作的唯一排序；各項證據在本頁及其連結維護，不新增平行 roadmap。平台遷移維持暫停。已完成項保留里程碑，下一項為 2 的新版真模型品質；文件本身不攜帶執行授權。
+本節承接原 Task 1–12 主計畫，為剩餘工作的唯一排序；各項證據在本頁及其連結維護，不新增平行 roadmap。使用者新選核心重構，先完成下列 0，再回到新版真模型品質；託管平台遷移維持暫停。文件本身不攜帶模型或部署授權。
+
+0. **Python／Temporal 核心重構：已完成本機切換。** 產品等價、帳務／歷史、跨程序故障、完整離線gates及獨立review已通過；原demo備份還原演練、migration與持久重啟已驗證。精確範圍見 [核心重構](architecture-refactor.md)。程式尚未commit／push；不將本機fixture結果當新版真模型品質或遠端CI通過。
 
 1. **Fixture 穩定性：已取得指定版本的完整 gate。** 同次 CI 的結果與 skip 見 Latest checkpoint；舊本機逾時根因及跨環境穩定性未證實。Action runtime deprecation 仍待維護升級與重新驗證；後續程式修改須跑 affected checks，不能沿用舊測試數當新 revision 通過。
 2. **新版真模型品質（Task 11）：未完成。** Diagnostic 入口已備妥，須先通過離線 gate、新一輪有界授權、本機原始歷史與 quota 查核，再依 [evaluation](evaluation.md) 執行同模型／同 case 版本 3×10 與逐案 primary／independent 內容審查。最新單案失敗；不重開停止 claim、不提高預算或抹掉 unknown，不自動重試。
@@ -14,7 +18,7 @@ Release acceptance 尚未通過，沒有 public deployment。Public repository �
 
 **已建立的基礎與依賴**：M1（Task 1–3）toolchain、catalog、精確費用與 domain／patch／鎖定；M2（4–5）PostgreSQL、匿名 ownership、完整版本／冪等／復原；M3（6–7）工作台、ADK confirmation／AG-UI、持久化接續；M4（8–9）三種 provider adapter、有界模型與 quota admission；M5（10）分享／撤銷／TTL／有界 retention；M6（11–12）資料、品質、展示與發布。順序仍為 M1→M2→M3→M4→M5→M6；基礎已實作不代表所有 hosted 操作或真模型品質已通過。
 
-共用型別與 strict schemas 以 `src/domain/types.ts`、`src/domain/schemas.ts` 為準；`src/domain/`／`src/catalog/`／`data/` 管規則與資料，`src/server/`／`migrations/` 管交易與保存，`src/agent/` 管 ADK 與 adapters，`src/components/workbench/`／`src/app/` 管呈現與薄 HTTP，`tests/`／`evals/` 管分層驗證。開工讀 [AGENTS.md](../AGENTS.md) 與受影響契約；離線回歸用獨立 Compose project，不清歷史資料、不加 timeout 或降門檻換綠燈。
+現行規則、strict schemas、交易及 runtime 位於 `backend/src/dive_trip/`；`src/contracts/` 保存生成型別與公開事件驗證，`src/features/`／`src/app/` 負責呈現及薄 proxy。既有 `src/domain/`／`src/server/`／`src/agent/` 保留離線差分 oracle 與歷史查核，不是產品寫入入口。開工讀 [AGENTS.md](../AGENTS.md) 與受影響契約；離線回歸用獨立 Compose project，不清歷史資料、不加 timeout 或降門檻換綠燈。
 
 ## 產品驗收矩陣
 
@@ -40,6 +44,10 @@ Release acceptance 尚未通過，沒有 public deployment。Public repository �
 Domain unit tests 驗費用與規則；真 PostgreSQL integration tests 驗交易、並行與冪等；固定模型 browser E2E 驗互動。真模型的理解、任務完成率、延遲、工具次數、成本及內容 review 另驗：十情境為模糊需求、非潛水同行、降預算鎖住宿、下午留白、改人數、未知費用、日期未定、來源注入、查詢逾時、無法滿足條件。Fixture grader／domain oracle 及 synthetic transport 不冒充模型表現。
 
 ## Latest checkpoint
+
+2026-09-29 Python／Temporal重構的本機完整gates：backend **262 passed**、Web unit **3036 passed**、integration **388 passed／11 live skipped**、production E2E **67 passed／5 skipped**；typecheck、lint、mypy、contracts、actionlint及production build通過。獨立設計／正確性複查已收口，原專案預設與demo migration020已切換，既有資料及受保護歷史指紋不變。命令、耗時、logs與本機重啟證據見 [最終驗收](architecture-refactor.md#2026-09-29-最終驗收與本機切換)。本輪未commit／push或執行遠端CI。
+
+### 2026-09-27 Historical ADK fixture CI
 
 原始碼 repository 已公開。2026-09-27 第一輪 [Fixture CI](https://github.com/Will413028/dive-trip-agent/actions/runs/36317342675) 在 `2a3d3d5d2db6d13bfad7b7ea77f4f876ccba8d02` 全綠；已核對 run、fixture job 及全部 steps 都為 success，沒有 cancelled 或 failed job。使用標準 Ubuntu 24.04 runner、Node 26.8.1、pnpm 11.2.2 與獨立 disposable PostgreSQL，job 耗時 8 分 58 秒。這不是公開部署或真模型品質驗收。
 

@@ -72,7 +72,7 @@ const proposalSchema = z.strictObject({ kind: z.literal('proposal'), interruptId
 // All provider modes retain the dedicated local database boundary.
 export function validateRuntimeConfig(config: AgentRuntimeConfig): void {
   // The retained pre-contract live environment is history, never a new runner.
-  if (config.schema === 'workbench_live_adk') throw new Error('AGENT_LEGACY_READ_ONLY');
+  if (['workbench_live_adk', 'workbench_demo_adk'].includes(config.schema)) throw new Error('AGENT_LEGACY_READ_ONLY');
   if (config.lookupTimeout !== undefined && (config.lookupTimeout !== true || !/^test_[a-f0-9]{32}_adk$/.test(config.schema))) throw new Error('AGENT_OFFLINE_CONFIG');
   if (config.productTripId !== undefined && !z.uuid().safeParse(config.productTripId).success) throw new Error('INVALID_AGENT_IDENTITY');
   if (config.provider !== undefined && !providerSchema.safeParse(config.provider).success) throw new Error('AGENT_PROVIDER_CONFIG');
@@ -105,6 +105,9 @@ export function validateRuntimeExecution(input: AgentExecution, config: AgentRun
       throw new Error('AGENT_GENERATION_DISABLED');
     }
   } else if (config.provider && !config.generation) throw new Error('AGENT_GENERATION_REQUIRED');
+  if (config.generation !== undefined && config.offlineScenario === undefined) {
+    throw new Error('AGENT_LEGACY_READ_ONLY');
+  }
 }
 
 /** ACK follows durable onEvent/onAccounting; both hooks must be bounded.
