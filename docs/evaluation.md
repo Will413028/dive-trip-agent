@@ -385,6 +385,12 @@ Provider diagnostics are deliberately limited:
   ended `AGENT_INTERRUPTED`, and all remaining 29 slots were skipped by
   `UNKNOWN_USAGE_STOP`. The one-shot claim, private
   report, isolated DB and Temporal storage remain; no review or retry followed.
+- A later offline SDK regression reproduced `httpx.ReadTimeout` being wrapped by
+  PydanticAI as `ModelAPIError` and misclassified as an invalid response. New
+  fixed private activity codes distinguish local 30-second deadline,
+  SDK/transport timeout, and observed HTTP 408/504. The original diagnostic
+  retains its ambiguous historical code. Public `RUN_ERROR`, one dispatch per
+  call, unknown usage and the stop policy are unchanged; no new live call was made.
 - New private REST diagnostics permit provider plus locally selected
   `request`, `call-start`, `fetch`, `body-read`, `body-json`, `evidence`,
   `response`, `evidence-save`, or `http` with integer status 0–599.

@@ -1,3 +1,4 @@
+import asyncio
 import json
 
 import httpx2 as httpx
@@ -8,6 +9,7 @@ from pydantic_ai.tools import ToolDefinition
 
 from dive_trip.modules.usage.provider import CLOUDFLARE_MODEL, GEMINI_MODEL
 from dive_trip.modules.usage.public import ProviderBinding
+from dive_trip.platform import provider_sdk
 from dive_trip.platform.errors import DomainError
 from dive_trip.platform.provider_sdk import OfflineSdkGeneration, endpoint
 from dive_trip.platform.provider_wire import ProviderFailure, wire_evidence
@@ -192,6 +194,66 @@ async def test_sdk_cannot_retry_or_leak_upstream_failure(provider, status):
         assert failure.value.usage.usage is None
         assert failure.value.__context__ is None
         assert failure.value.__cause__ is None
+        assert len(calls) == 1
+    finally:
+        await generation.aclose()
+
+
+@pytest.mark.parametrize(
+    "response,expected",
+    [
+        (408, "AGENT_PROVIDER_TIMEOUT_HTTP"),
+        (504, "AGENT_PROVIDER_TIMEOUT_HTTP"),
+        ("read-timeout", "AGENT_PROVIDER_TIMEOUT_TRANSPORT"),
+    ],
+)
+async def test_cloudflare_timeout_source_is_fixed_and_usage_stays_unknown(
+    response, expected
+):
+    calls = []
+
+    def transport(req):
+        calls.append(req)
+        if response == "read-timeout":
+            raise httpx.ReadTimeout("PRIVATE_UPSTREAM_TEXT")
+        return httpx.Response(response, json={"error": "PRIVATE_UPSTREAM_TEXT"})
+
+    generation = OfflineSdkGeneration(
+        binding("cloudflare"),
+        "synthetic-not-a-real-key",
+        httpx.MockTransport(transport),
+    )
+    try:
+        with pytest.raises(ProviderFailure) as failure:
+            await request(generation)
+        assert failure.value.code == expected
+        assert failure.value.usage.usage is None
+        assert failure.value.__context__ is None
+        assert failure.value.__cause__ is None
+        assert "PRIVATE_UPSTREAM_TEXT" not in str(failure.value)
+        assert len(calls) == 1
+    finally:
+        await generation.aclose()
+
+
+async def test_cloudflare_local_deadline_has_fixed_private_classification(monkeypatch):
+    calls = []
+
+    async def transport(req):
+        calls.append(req)
+        await asyncio.Event().wait()
+
+    generation = OfflineSdkGeneration(
+        binding("cloudflare"),
+        "synthetic-not-a-real-key",
+        httpx.MockTransport(transport),
+    )
+    monkeypatch.setattr(provider_sdk, "_MODEL_REQUEST_DEADLINE_SECONDS", 0.01)
+    try:
+        with pytest.raises(ProviderFailure) as failure:
+            await asyncio.wait_for(request(generation), 1)
+        assert failure.value.code == "AGENT_PROVIDER_TIMEOUT_LOCAL"
+        assert failure.value.usage.usage is None
         assert len(calls) == 1
     finally:
         await generation.aclose()

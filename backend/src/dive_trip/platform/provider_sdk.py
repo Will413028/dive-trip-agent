@@ -12,7 +12,7 @@ from dataclasses import dataclass
 import httpx2 as httpx
 from google.genai import Client as GoogleClient
 from google.genai.types import HttpOptions, HttpRetryOptions
-from openai import AsyncOpenAI
+from openai import APITimeoutError, AsyncOpenAI
 from pydantic_ai.messages import ModelMessage, ModelResponse
 from pydantic_ai.models import Model, ModelRequestParameters
 from pydantic_ai.models.google import GoogleModel
@@ -43,6 +43,21 @@ class Capture:
 
 
 _capture: ContextVar[Capture] = ContextVar("provider_wire_capture")
+_MODEL_REQUEST_DEADLINE_SECONDS = 30
+
+
+def _has_transport_timeout(error: BaseException) -> bool:
+    # PydanticAI can wrap OpenAI's APITimeoutError in ModelAPIError. Inspect
+    # only exception types; raw messages and URLs must not enter evidence.
+    current: BaseException | None = error
+    for _ in range(4):
+        if current is None:
+            break
+        if isinstance(current, (APITimeoutError, httpx.TimeoutException)):
+            return True
+        current = current.__cause__
+    return False
+
 
 OPENROUTER_POLICY: OpenRouterProviderConfig = {
     "allow_fallbacks": False,
@@ -123,9 +138,9 @@ class WireTransport(httpx.AsyncBaseTransport):
                     402: "BILLING",
                     403: "PERMISSION",
                     404: "NOT_FOUND",
-                    408: "TIMEOUT",
+                    408: "TIMEOUT_HTTP",
                     429: "RATE_LIMIT",
-                    504: "TIMEOUT",
+                    504: "TIMEOUT_HTTP",
                 }
                 suffix = codes.get(
                     response.status_code,
@@ -243,17 +258,36 @@ class _SdkGeneration:
         token = _capture.set(capture)
         failure = None
         response = None
+        deadline = asyncio.timeout(_MODEL_REQUEST_DEADLINE_SECONDS)
         try:
-            async with asyncio.timeout(30):
+            async with deadline:
                 response = await self.model.request(
                     messages, {"max_tokens": 2048, "temperature": 0}, parameters
                 )
         except DomainError as error:
             failure = error.code
-        except (TimeoutError, httpx.TimeoutException):
-            failure = "AGENT_PROVIDER_TIMEOUT"
-        except Exception:
-            failure = capture.failure or "AGENT_PROVIDER_INVALID_RESPONSE"
+        # These fixed origin codes are private activity failures. The product
+        # still emits its existing fixed RUN_ERROR, with unknown usage preserved.
+        except (APITimeoutError, httpx.TimeoutException):
+            failure = (
+                "AGENT_PROVIDER_TIMEOUT_LOCAL"
+                if deadline.expired()
+                else "AGENT_PROVIDER_TIMEOUT_TRANSPORT"
+            )
+        except TimeoutError:
+            failure = (
+                "AGENT_PROVIDER_TIMEOUT_LOCAL"
+                if deadline.expired()
+                else "AGENT_PROVIDER_TIMEOUT"
+            )
+        except Exception as error:
+            failure = capture.failure or (
+                "AGENT_PROVIDER_TIMEOUT_LOCAL"
+                if deadline.expired()
+                else "AGENT_PROVIDER_TIMEOUT_TRANSPORT"
+                if _has_transport_timeout(error)
+                else "AGENT_PROVIDER_INVALID_RESPONSE"
+            )
         finally:
             _capture.reset(token)
         event = capture.usage or wire_evidence(self.provider, call_id, None)[0]

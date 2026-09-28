@@ -11,7 +11,7 @@ Release acceptance 尚未通過，沒有 public deployment。Public repository �
 0. **Python／Temporal 核心重構：已完成本機切換與遠端 Fixture CI。** 產品等價、帳務／歷史、跨程序故障、完整離線gates及獨立review已通過；原demo備份還原演練、migration與持久重啟已驗證。精確範圍見 [核心重構](architecture-refactor.md)。新版CI同SHA完整gate通過，不代表真模型品質。
 
 1. **Fixture 穩定性：新版指定版本完整 gate 已通過。** `ab80b3f` 同次 CI 的結果與 skip 見 Latest checkpoint；舊本機逾時根因及跨環境穩定性未證實。Action runtime deprecation 仍待維護升級與重新驗證；後續程式修改須跑 affected checks，不能沿用舊測試數當新 revision 通過。
-2. **新版真模型品質（Task 11）：未完成，當次 diagnostic 已停止。** 2026-09-29 固定來源、離線 gate 與本機原始歷史／quota 查核通過後，一次性入口首案第二次模型呼叫出現未知用量，依政策停於 `UNKNOWN_USAGE_STOP`；1 案失敗、29 案未送，未進入內容雙審。Claim 已消耗，私有報告與隔離儲存保留；詳下方 Latest checkpoint。不得重開停止 claim、提高預算、抹掉 unknown 或自動重試。新的模型品質實驗須先用保留證據釐清故障邊界，再另定範圍與授權。
+2. **新版真模型品質（Task 11）：未完成，當次 diagnostic 已停止。** 2026-09-29 固定來源、離線 gate 與本機原始歷史／quota 查核通過後，一次性入口首案第二次模型呼叫出現未知用量，依政策停於 `UNKNOWN_USAGE_STOP`；1 案失敗、29 案未送，未進入內容雙審。Claim 已消耗，私有報告與隔離儲存保留；詳下方 Latest checkpoint。已在離線 SDK 補上未來逾時來源的固定分類，無法回溯當次原始原因。不得重開停止 claim、提高預算、抹掉 unknown 或自動重試；新的模型品質實驗須另定範圍與授權。
 3. **獨立版控與遠端 CI：新版基線已完成。** Repository 已公開，`ab80b3f` 的 [新版fixture job及全部steps](https://github.com/Will413028/dive-trip-agent/actions/runs/36460356520) success；公開原始碼與CI不代表部署。維持 [public fixture／私有歷史契約](evaluation.md#closed-world-history-integrity)，原始證據仍在ignored local storage。
 4. **公開部署與維運（Task 12）：未完成。** 完成下方 Public release 待填欄位：正式啟動、public URL、可信 ingress/proxy/IP、secret／預算設定、清理排程／告警、備份還原、kill-switch／rollback，取得部署授權後才開放。來源真實性、價格有效期、素材授權及 hosted runtime 須另驗，不能以本機腳本或景點座標查核代替。
 5. **新版真模型展示（Task 12）：未完成。** 沿用同次有界驗收證據，不為影片額外發送，不把 fixture／舊 replay 改標 live。維持一般規劃、鎖住宿但預算不足、查詢失敗／費用待確認三組 demo；重設只影響目前展示 session。案例頁說明本人貢獻、系統界線、示範資料、架構、測試與失敗處理，影片不取代公開 demo。
@@ -52,6 +52,10 @@ Domain unit tests 驗費用與規則；真 PostgreSQL integration tests 驗交�
 同一程式來源的離線 fixture、固定原始歷史與 quota 雙輪唯讀查核通過後，按一次性 diagnostic 入口執行。首案 `unknown-cost` 失敗，其餘 29 案未 dispatch；首案兩次模型呼叫中，第一次有完整用量並完成 `validate_changes`，第二次約 30 秒後沒有可結算用量，native model activity 失敗，公開事件為 `AGENT_INTERRUPTED`。整批依 `UNKNOWN_USAGE_STOP` 停止，`evaluationGatePassed=false`；首兩案未完成，沒有 preflight 內容審查或後續案的品質結論。
 
 保留的 Temporal history 有固定 `AGENT_PROVIDER_TIMEOUT` 失敗分類；程式對本地逾時及上游 HTTP 408／504 都使用此代碼。第二次呼叫約 30 秒，但原始 HTTP 狀態與例外未保存，尚不能判定哪一種觸發或上游根因。行程 snapshot 未變，未建立提案或確認；原始受保護歷史及來源在事後重查仍一致。一次性 claim、完整私有報告、保守帳務、隔離 PostgreSQL schema 與 Temporal 儲存已保留；精確身份與 ledger 留在 ignored local storage，不以公開摘要重建或重跑本次結果。
+
+### 2026-09-29 Offline timeout diagnostic follow-up
+
+合成 `MockTransport` 重現 `httpx.ReadTimeout` 經 PydanticAI 包裝後被誤列為 `AGENT_PROVIDER_INVALID_RESPONSE`。後端 SDK 現以固定私有活動失敗碼區分本地 30 秒 deadline、SDK／transport timeout、已觀察到的 HTTP 408／504；只比對例外型別，不保存上游文字。公開錯誤、單次 dispatch、未知用量保守結算、停止規則與 30 秒上限均未改。受影響的 provider／evaluation generation 測試 **29 passed**、Ruff 通過、strict mypy **84 source files** 通過；未執行新的 live 呼叫，當次已停止證據不重新分類。
 
 ### 2026-09-27 Historical ADK fixture CI
 
