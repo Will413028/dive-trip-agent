@@ -21,7 +21,7 @@
 
 ## 驗證狀態
 
-Python／Temporal 的目前結果見 [核心重構](docs/architecture-refactor.md)。下表是切換前 ADK 的歷史 CI 基線，不能當成新 runtime 已通過。
+Python／Temporal 已在 `ab80b3f` 通過 [新版 Fixture CI](https://github.com/Will413028/dive-trip-agent/actions/runs/36460356520)：3036 unit、388 integration／11 live skip、262 backend、67 production browser／5 skip；lint、typecheck、contracts、build 與測試資料庫清理亦通過。範圍見 [核心重構](docs/architecture-refactor.md)。下表保留切換前 ADK 的歷史 CI 基線。
 
 原始碼 repository 已公開，服務尚未部署。2026-09-27 第一輪 [Fixture CI](https://github.com/Will413028/dive-trip-agent/actions/runs/36317342675) 在 `2a3d3d5` 通過；job 與全部 steps 均成功，耗時 8 分 58 秒，未放寬 timeout 或 assertions。
 

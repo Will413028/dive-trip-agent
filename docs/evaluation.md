@@ -21,7 +21,9 @@ their synthetic identities, hashes and values cannot authenticate a private run,
 establish remaining quota, or reset history. A real-model entry needs separate
 explicit bounded authorization and a fresh check of original local history.
 
-## Latest verification boundary
+2026-09-29 新版Python／Temporal [Fixture CI](https://github.com/Will413028/dive-trip-agent/actions/runs/36460356520) 在 `ab80b3f` 的唯一job及全部steps通過：3036 unit、388 integration／11 live skipped、262 backend、67 production browser／5 skipped，另含靜態檢查、build及隔離DB清理。這是離線驗證；模型呼叫數與內容品質仍待獨立驗收。
+
+## Historical ADK fixture CI boundary
 
 The same CI run completed **3308 unit passed, 388 integration passed / 11 live
 skipped, and 63 production Chromium E2E passed / 5 skipped**. Lint, strict

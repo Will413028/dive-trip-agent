@@ -1,6 +1,6 @@
 # Python／Temporal 核心重構
 
-狀態：**2026-09-29 已完成 B 的核心重構、離線驗收與本機 demo 切換；尚未 commit／push**。基線 `ac21cb2`；參考專案的架構／T00 骨架提供設計參照，其業務 Agent、帳號與部署並非已驗收範本。本頁記本次重構細項，主優先順序仍在 [release evidence](release-evidence.md)。使用者選擇「核心架構對齊：Python 後端＋Temporal，沿用潛旅產品契約」，並授權本輪必要依賴與隔離測試工具下載。
+狀態：**2026-09-29 已完成 B 的核心重構、離線驗收、本機 demo 切換與新版 Fixture CI**。基線 `ac21cb2`；參考專案的架構／T00 骨架提供設計參照，其業務 Agent、帳號與部署並非已驗收範本。本頁記本次重構細項，主優先順序仍在 [release evidence](release-evidence.md)。使用者選擇「核心架構對齊：Python 後端＋Temporal，沿用潛旅產品契約」，並授權本輪必要依賴與隔離測試工具下載。
 
 ## 選擇與前提
 
@@ -132,12 +132,13 @@ Provider wire 重新評估（2026-09-28）：
 
 ### 2026-09-29 最終驗收與本機切換
 
-- 核心實作已同步回原專案；以 `git diff --name-only -z HEAD` 加 `git ls-files --others --exclude-standard -z` 建立轉移清單，238個路徑逐檔比對一致。只覆蓋本輪既有草稿，沒有 git add／commit／push。
+- 核心 commit `02d461c` 與 CI 工具鏈修正 `c4c1ddb`／`ab80b3f` 已正常 fast-forward 推送到 `main`。新版 [Fixture CI run 36460356520](https://github.com/Will413028/dive-trip-agent/actions/runs/36460356520) 在 `ab80b3f` 的唯一 job 與全部步驟 success（15分50秒）：3036 unit／103 files、388 integration／11 live skip、262 backend、67 browser／5 skip，另有lint／typecheck／mypy／contracts／build及disposable DB清理。首兩次CI只在Python安裝前失敗；setup-uv的`python-version`只設定`UV_PYTHON`，固定uv0.7.2也沒有3.13.13的Linux下載清單。最終以固定`setup-python` commit安裝Python並確認uv可找到，沒有修改Python、uv、lockfile或測試門檻。CI不驗真模型品質。
+- 核心實作已同步回原專案；以 `git diff --name-only -z HEAD` 加 `git ls-files --others --exclude-standard -z` 建立轉移清單，238個路徑逐檔比對一致。同步當時只覆蓋本輪既有草稿；後續commit／push見上列CI證據。
 - 最終完整命令：`pnpm test:backend` **262 passed（182.71秒）**；`pnpm test:unit` **3036 passed／103 files（75.68秒）**；`pnpm test:integration` **388 passed／11 live skipped（487.10秒）**；`E2E_PRODUCTION=1 pnpm test:e2e` **67 passed／5既有skip（3.0分鐘）**。使用固定toolchain、Docker colima及獨立Compose project；沒有提高timeout或合併局部重跑。Logs分別為`/tmp/dive-trip-backend-checkpoint-29.log`、`/tmp/dive-trip-final-unit.log`、`/tmp/dive-trip-final-integration.log`、`/tmp/dive-trip-final-browser.log`。
 - Web typecheck／ESLint／production build、Python Ruff／strict mypy（84 source files）、contracts freshness、fixture boundary及actionlint通過；primary另做frozen uv sync與production build通過。完整核心及切換fresh design-review均無finding；最後correctness finding已修復並複查解除。
 - 原demo先custom dump，再於owned隔離PostgreSQL成功還原及升級。實際只對`workbench_demo`套014–020；migration前無其他DB連線。唯讀完整表指紋確認**354張既有表的原欄位rows不變，其中337張非產品demo表（含受保護原始歷史）完全不變**。新表與新欄位依migration新增，ledger由13變20；原live不套migration。
 - 原專案已以同一PostgreSQL及持久Temporal SQLite啟動、停止再啟動成功；`GET /api/agent-mode`為fixture，新用例可讀3趟既有行程／4個舊run。初次啟動收尾後再次核對原資料指紋不變。舊ADK run唯讀，不可接續；新runtime只接受temporal-v1。
-- 備份、表指紋、source transfer與runtime查核結果保存於ignored本機storage。回滾須遵守[README備份與回復界線](../README.md#備份與回復界線)的停止writer、成對保存DB／Temporal程序，不可直接讓ADK寫入已切換資料。新版遠端CI、真模型品質與public deployment未執行，仍由Task11–12另驗。
+- 備份、表指紋、source transfer與runtime查核結果保存於ignored本機storage。回滾須遵守[README備份與回復界線](../README.md#備份與回復界線)的停止writer、成對保存DB／Temporal程序，不可直接讓ADK寫入已切換資料。真模型品質與public deployment仍由Task11–12另驗。
 
 以下checkpoint按當時狀態保留，不能把較早的「待接線／未切換」當成目前狀態。
 
