@@ -5,6 +5,7 @@ import { assertEvaluationLock, type EvaluationLockLease } from './live-evaluatio
 import { writeAtomicCheckpoint } from './checkpoint.ts';
 import { withBoundedArtifactDirectory } from './bounded-artifact-file.ts';
 import { diagnosticReplayFromReport } from './cloudflare-diagnostic-replay.ts';
+import { probeReplayFromReport } from './cloudflare-probe-replay.ts';
 
 const requiredFiles = ['cloudflare-evaluation-1', 'cloudflare-evaluation-2',
   'cloudflare-patch-verification', 'cloudflare-quality'].flatMap(stem => [`${stem}.claim`, `${stem}.json`]);
@@ -37,6 +38,8 @@ const diagnosticPrior = () => new Set([...nonthinkingPrior(), ...diagnosticRequi
   `cloudflare-nonthinking-${historyIdentity('nonthinking_carry_runId_1')}.replay.json`]);
 const probeRequired = [...diagnosticRequired, 'cloudflare-diagnostic.claim', 'cloudflare-diagnostic.json'];
 const probePrior = () => new Set([...diagnosticPrior(), ...probeRequired]);
+const probe2Required = [...probeRequired, 'cloudflare-probe.claim', 'cloudflare-probe.json'];
+const probe2Prior = () => new Set([...probePrior(), ...probe2Required]);
 const policies = () => ({
   revision: { required: requiredFiles, prior: priorFiles(),
     campaign: /^cloudflare-(evaluation|patch|quality|revision).*\.(claim|json)$/,
@@ -56,6 +59,9 @@ const policies = () => ({
   probe: { required: probeRequired, prior: probePrior(),
     campaign: /^cloudflare-(evaluation|patch|quality|revision|recovery|grounded|nonthinking|diagnostic|probe)/,
     scope: 'probe-unknown-cost-once-7-calls-1-invocation-free-only' },
+  probe2: { required: probe2Required, prior: probe2Prior(),
+    campaign: /^cloudflare-(evaluation|patch|quality|revision|recovery|grounded|nonthinking|diagnostic|probe)/,
+    scope: 'probe-2-unknown-cost-once-7-calls-1-invocation-free-only' },
 } as const);
 
 /** Permanent one-shot claim with closed campaign policies, consumed even on preflight failure.
@@ -69,8 +75,9 @@ export async function claimCloudflareCampaign(lease: EvaluationLockLease, kind: 
   await assertEvaluationLock(lease);
   const dir = resolve('.artifacts');
   const names = await readdir(dir);
+  const stem = kind === 'probe2' ? 'cloudflare-probe-2' : `cloudflare-${kind}`;
   let probeReplay: string | undefined;
-  if (kind === 'probe' && policy.required.every(name => names.includes(name))) {
+  if ((kind === 'probe' || kind === 'probe2') && policy.required.every(name => names.includes(name))) {
     try {
       probeReplay = await withBoundedArtifactDirectory([resolve('.'), dir], async directory => {
         const report = await directory.read('cloudflare-diagnostic.json', { minBytes: 1, maxBytes: 2_000_000 });
@@ -79,16 +86,27 @@ export async function claimCloudflareCampaign(lease: EvaluationLockLease, kind: 
       policy.prior.add(probeReplay);
     } catch { fail(); }
   }
+  let priorProbeReplay: string | undefined;
+  if (kind === 'probe2' && policy.required.every(name => names.includes(name))) {
+    try {
+      priorProbeReplay = await withBoundedArtifactDirectory([resolve('.'), dir], async directory => {
+        const report = await directory.read('cloudflare-probe.json', { minBytes: 1, maxBytes: 2_000_000 });
+        return probeReplayFromReport(JSON.parse(report.bytes.toString('utf8'))).file;
+      });
+      policy.prior.add(priorProbeReplay);
+    } catch { fail(); }
+  }
   if (policy.required.some(name => !names.includes(name))
-    || (kind === 'probe' && (!probeReplay || !names.includes(probeReplay)))
+    || ((kind === 'probe' || kind === 'probe2') && (!probeReplay || !names.includes(probeReplay)))
+    || (kind === 'probe2' && (!priorProbeReplay || !names.includes(priorProbeReplay)))
     || names.some(name => policy.campaign.test(name) && !policy.prior.has(name))) fail();
   for (const name of names.filter(name => policy.prior.has(name))) {
     if (!(await lstat(resolve(dir, name))).isFile()) fail();
   }
   await assertEvaluationLock(lease);
-  const claim = await open(resolve(dir, `cloudflare-${kind}.claim`), 'wx', 0o600);
+  const claim = await open(resolve(dir, `${stem}.claim`), 'wx', 0o600);
   try { await claim.sync(); } finally { await claim.close(); }
-  const path = resolve(dir, `cloudflare-${kind}.json`);
+  const path = resolve(dir, `${stem}.json`);
   const checkpoint = async (report: unknown) => {
     await assertEvaluationLock(lease);
     // Atomic replacement must not silently replace a symlink or special file.

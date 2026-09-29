@@ -415,12 +415,30 @@ Provider diagnostics are deliberately limited:
   model step's tool arguments were rejected, and Temporal retained
   `AGENT_TOOL_ARGUMENTS_REJECTED`. The claim, report, PostgreSQL schema and
   Temporal SQLite remain; no new unknown usage or quality pass was recorded.
+- The next Free-only `cloudflare-probe-2` entry is a distinct one-shot technical
+  scope for `unknown-cost`, one start and at most seven model calls. Its pinned
+  private carry includes the failed first probe's exact report/replay, all 22
+  retained PostgreSQL tables and the Temporal execution/argument marker, as
+  well as the preceding nine scopes. A failed preflight still consumes its
+  claim; an attempted run retains its own DB and Temporal evidence. Even a
+  technically complete result leaves the thirty-case quality gate false.
+
 - New private REST diagnostics permit provider plus locally selected
   `request`, `call-start`, `fetch`, `body-read`, `body-json`, `evidence`,
   `response`, `evidence-save`, or `http` with integer status 0–599.
   Strict decoding is bounded to 512 characters. URLs, headers, keys, prompts,
   bodies, upstream text and exception details remain excluded. Public errors
   keep fixed codes. This cannot retroactively diagnose old generic failures.
+
+For this one-case extension, the carry-over decisions are:
+
+| Mechanism | If designed afresh today | Current constraint and decision | Reconsider when |
+| --- | --- | --- | --- |
+| One-shot local claim before preflight | On one trusted host, exclusive file creation and sync of a permanent claim | Earlier claims and protected reports are a fixed trusted-local inventory; keep the same mechanism with a new scope | Multiple hosts or untrusted artifact writers require a coordinated ledger |
+| Digest-pinned private history profile | Under the same local trust boundary, a fixed digest and bounded immutable reads | One retained local scope and closed-world identity binding; pin a new digest, never reinterpret the stopped report | Independent verifiers or untrusted storage require signed or transactional provenance |
+| Two complete read-only captures | For immutable scopes, two linear captures and full raw-row equality; use an exported DB snapshot if writers return | Retained scopes are immutable and the owned lease covers cooperating runners; keep two-pass drift detection | Historical schemas can be written again or cross-schema atomicity becomes required |
+| Server transport marker and technical scheduler | Separate server-only transport authority from claim, admission and run budget checks | Keep distinct checks; the marker alone never grants dispatch or credentials, even for one local runner | Hosted or multi-run evaluation may change representation, not the authorization boundary |
+| Retained evidence and replay sidecar | Preserve an attempted technical run's immutable report and replay plus bound PostgreSQL/Temporal storage | The first failed probe remains available for complete historical comparison; the next technical attempt retains its own storage | Retention policy or storage backend changes under an explicit evidence migration |
 
 Fixed offline malformed-JSON/invalid-tool scenarios verify the real
 worker→ADK→HTTP persistence/privacy path without a provider request.

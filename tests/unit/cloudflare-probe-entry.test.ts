@@ -28,6 +28,10 @@ vi.mock('../../evals/cloudflare-python-diagnostic-carry', async original => ({
   ...await original<typeof import('../../evals/cloudflare-python-diagnostic-carry')>(),
   readCloudflarePythonDiagnosticCarry: m.carry,
 }));
+vi.mock('../../evals/cloudflare-python-probe-carry', async original => ({
+  ...await original<typeof import('../../evals/cloudflare-python-probe-carry')>(),
+  readCloudflarePythonProbeCarry: m.carry,
+}));
 vi.mock('../../evals/cloudflare-campaign-claim', () => ({ claimCloudflareCampaign: m.claim }));
 vi.mock('../../evals/live-evaluation-lock', () => ({ withEvaluationLock: m.lock, assertEvaluationLock: m.assertLock }));
 vi.mock('../support/database', () => ({ testDatabaseUrl: m.databaseUrl }));
@@ -35,6 +39,7 @@ vi.mock('../../evals/python-evaluation', () => ({ withPythonEvaluation: m.databa
 vi.mock('../../src/server/local-credential', () => ({ loadLocalCredential: m.credential }));
 vi.mock('../../evals/checkpoint', () => ({ writeImmutableCheckpoint: m.immutable, writeAtomicCheckpoint: m.atomic }));
 import { PROBE_AUTHORIZATION, runCloudflareProbeEntry } from '../../evals/cloudflare-probe-entry.ts';
+import { PROBE_2_AUTHORIZATION, runCloudflareProbe2Entry } from '../../evals/cloudflare-probe-2-entry.ts';
 
 const hash = (s: string) => createHash('sha256').update(s).digest('hex');
 const prior = () => ({ sourceSha256: hash('synthetic stopped Python report'), historyConsistent: true,
@@ -42,6 +47,11 @@ const prior = () => ({ sourceSha256: hash('synthetic stopped Python report'), hi
   historicalUnknownReceipts: 5, invocations: 44, modelCalls: 63, chargedMicros: 948999,
   observedTokens: 279171, totalTokens: null, remainingInvocationCeiling: 56,
   remainingReferenceMicros: 2051001 });
+const probe2Prior = () => ({ sourceSha256: hash('synthetic stopped first probe report'), historyConsistent: true,
+  dispatchAuthorized: false, accountingComplete: false, evaluationGatePassed: false,
+  historicalUnknownReceipts: 5, invocations: 45, modelCalls: 67, chargedMicros: 949683,
+  observedTokens: 285297, totalTokens: null, remainingInvocationCeiling: 55,
+  remainingReferenceMicros: 2050317 });
 const source = { sha256: hash('synthetic probe source'), files: [{ path: 'backend/src/worker.py', sha256: hash('worker') }] };
 
 beforeEach(() => {
@@ -101,4 +111,26 @@ test.each(['claim', 'history', 'source', 'lease'])('%s denial precedes credentia
   await expect(runCloudflareProbeEntry()).rejects.toThrow();
   expect(m.credential).not.toHaveBeenCalled();
   expect(m.pools.every(p => p.end.mock.calls.length === 1)).toBe(true);
+});
+
+test('new technical entry requires its own grant and claim before loading credentials', async () => {
+  await expect(runCloudflareProbe2Entry()).rejects.toThrow('EVAL_AUTHORIZATION_REQUIRED');
+  expect(m.claim).not.toHaveBeenCalled();
+  vi.stubEnv('DIVE_TRIP_CLOUDFLARE_PROBE_2_AUTHORIZATION', PROBE_2_AUTHORIZATION);
+  m.claim.mockImplementation(async (lease, kind) => { expect(lease).toBe(m.lease); expect(kind).toBe('probe2'); return m.save; });
+  m.carry.mockImplementation(async (pools, lease) => {
+    expect(pools).toEqual(m.pools); expect(lease).toBe(m.lease); return probe2Prior();
+  });
+  await expect(runCloudflareProbe2Entry()).resolves.toBeUndefined();
+  expect(m.claim).toHaveBeenCalledExactlyOnceWith(m.lease, 'probe2');
+  expect(m.pools).toHaveLength(8);
+  expect(m.options).toMatchObject({ accountId: recoveryAccount, priorChargedMicros: 949683,
+    liveCampaign: 'cloudflare-probe-2-one-case', retention: 'retain' });
+  expect(m.execute).toHaveBeenCalledExactlyOnceWith('unknown-cost', expect.any(Function));
+  expect(m.credential).toHaveBeenCalledExactlyOnceWith('cloudflare');
+  expect(m.carry).toHaveBeenCalledTimes(3);
+  expect(m.source).toHaveBeenCalledTimes(3);
+  expect(m.save.mock.calls.at(-1)![0]).toMatchObject({ stopped: null,
+    diagnosticComplete: true, invocations: 1, maxInvocations: 1, maxModelCalls: 7,
+    evaluationGatePassed: false });
 });

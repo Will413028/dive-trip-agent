@@ -9,10 +9,10 @@ import { z } from 'zod';
 import { withBoundedArtifactDirectory } from './bounded-artifact-file.ts';
 import { assertEvaluationLock, type EvaluationLockLease } from './live-evaluation-lock.ts';
 import { assertPrivateCloudflareHistory, historyIdentity } from './cloudflare-history-profile.ts';
-import { captureCloudflareNonthinkingHistory, compareCloudflareNonthinkingHistory } from './cloudflare-nonthinking-carry.ts';
-import { nonthinkingCarrySchema } from './cloudflare-nonthinking-carry-schema.ts';
-import { diagnosticReplayFromReport } from './cloudflare-diagnostic-replay.ts';
+import { captureCloudflarePythonDiagnosticHistory, compareCloudflarePythonDiagnosticHistory,
+  pythonDiagnosticCarrySchema } from './cloudflare-python-diagnostic-carry.ts';
 import { capturePythonRetainedDatabase } from './cloudflare-python-retained-database.ts';
+import { probeReplayFromReport } from './cloudflare-probe-replay.ts';
 import { CLOUDFLARE_MODEL } from '../src/agent/cloudflare-wire.ts';
 import { CAMPAIGN_BUDGET_MICROS, CAMPAIGN_INVOCATION_LIMIT } from './campaign-policy.ts';
 
@@ -23,75 +23,74 @@ const profileSchema = z.strictObject({
   retainedSchema: z.string().regex(/^python_test_[a-f0-9]{32}$/),
   storageDir: z.string().regex(/^python-evaluation-[A-Za-z0-9]{6,32}$/),
   contextSha256: digest, temporalSha256: digest, storageFingerprint: digest,
-  runId: uuid, tripId: uuid, ownerId: uuid, executionRunId: uuid, workflowId: z.string().min(1).max(128),
+  runId: uuid, tripId: uuid, ownerId: uuid, executionRunId: uuid,
+  workflowId: z.string().min(1).max(128),
 });
-export type PythonDiagnosticProfile = z.infer<typeof profileSchema>;
-export const pythonDiagnosticCarrySchema = () => z.strictObject({
+export type PythonProbeProfile = z.infer<typeof profileSchema>;
+export const pythonProbeCarrySchema = () => z.strictObject({
   sourceSha256: digest, historyConsistent: z.literal(true), dispatchAuthorized: z.literal(false),
   accountingComplete: z.literal(false), evaluationGatePassed: z.literal(false),
-  historicalUnknownReceipts: z.literal(5), invocations: z.literal(44), modelCalls: z.literal(63),
-  chargedMicros: z.literal(948999), observedTokens: z.literal(279171), totalTokens: z.null(),
-  remainingInvocationCeiling: z.literal(56), remainingReferenceMicros: z.literal(2051001),
+  historicalUnknownReceipts: z.literal(5), invocations: z.literal(45), modelCalls: z.literal(67),
+  chargedMicros: z.literal(949683), observedTokens: z.literal(285297), totalTokens: z.null(),
+  remainingInvocationCeiling: z.literal(55), remainingReferenceMicros: z.literal(2050317),
 });
 
-// A new fixed profile adds the Python-era stopped scope without changing any
-// of the eight original private history anchors. Re-pin only after an audited
-// read-only capture; this hash is not an authorization or a quota reset.
-const PRIVATE_PYTHON_DIAGNOSTIC_PROFILE_SHA256 = '010854d8b01e9814175deff4e63cbffbfdab732ef5f200bdb4303764b2de7558';
+// Filled only after the stopped probe's original report, every retained row,
+// and Temporal history are audited. This private pin is not a dispatch grant.
+const PRIVATE_PYTHON_PROBE_PROFILE_SHA256 = 'cca7f4e2e0618c3a9da844643e8607a5deb7b0b54a05d0a669dc5ecc781fa72c';
 const root = resolve(fileURLToPath(new URL('../', import.meta.url)));
 const artifacts = join(root, '.artifacts');
-const invalid = (): never => { throw new Error('CLOUDFLARE_PYTHON_DIAGNOSTIC_CARRY_INVALID'); };
+const invalid = (): never => { throw new Error('CLOUDFLARE_PYTHON_PROBE_CARRY_INVALID'); };
 const sha256 = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex');
-
-type OldCarry = z.infer<ReturnType<typeof nonthinkingCarrySchema>>;
+type OldCarry = z.infer<ReturnType<typeof pythonDiagnosticCarrySchema>>;
 type CapturedDb = Awaited<ReturnType<typeof capturePythonRetainedDatabase>>;
 
-/** A pure comparison of the pinned stopped report, full DB fingerprint, and
- * identity-bearing rows. It never regrades old model output or clears unknown. */
-export function comparePythonDiagnosticCarry(
+/** The first probe is failed evidence, never a quality pass or a fresh quota. */
+export function comparePythonProbeCarry(
   old: OldCarry, profileInput: unknown, reportInput: unknown,
   database: Pick<CapturedDb, 'fingerprint' | 'runs' | 'trips' | 'invocations' | 'calls' | 'reservations'>,
-  temporal: { workflowMatches: number; executionMatches: number; timeoutMarkers: number },
+  temporal: { workflowMatches: number; executionMatches: number; argumentMarkers: number },
 ) {
   try {
     const profile = profileSchema.parse(profileInput);
     const report = z.object({
       schemaVersion: z.literal(2), model: z.literal(CLOUDFLARE_MODEL),
       accountId: z.literal(historyIdentity('accountId_1')),
-      prior: nonthinkingCarrySchema(), stopped: z.literal('UNKNOWN_USAGE_STOP'),
+      prior: pythonDiagnosticCarrySchema(), stopped: z.literal('FAILED_RUN_STOP'),
       accountingComplete: z.literal(false), dispatchAuthorized: z.literal(false),
-      evaluationGatePassed: z.literal(false), historicalUnknownReceipts: z.literal(4),
-      invocations: z.literal(1), modelCalls: z.literal(2), chargedMicros: z.literal(183505),
-      cumulativeInvocations: z.literal(44), cumulativeModelCalls: z.literal(63),
-      cumulativeChargedMicros: z.literal(948999), totalTokens: z.null(), cumulativeTokens: z.null(),
+      evaluationGatePassed: z.literal(false), diagnosticComplete: z.literal(false),
+      historicalUnknownReceipts: z.literal(5), invocations: z.literal(1), modelCalls: z.literal(4),
+      chargedMicros: z.literal(684), totalTokens: z.literal(6126),
+      cumulativeInvocations: z.literal(45), cumulativeModelCalls: z.literal(67),
+      cumulativeChargedMicros: z.literal(949683), cumulativeTokens: z.null(),
       sourceFingerprint: digest, sourceManifest: z.object({ sha256: digest }),
-      records: z.array(z.unknown()).length(31),
+      records: z.array(z.unknown()).length(2),
     }).parse(reportInput);
-    const replayRef = diagnosticReplayFromReport(reportInput);
+    const replayRef = probeReplayFromReport(reportInput);
     if (!isDeepStrictEqual(report.prior, old) || report.sourceFingerprint !== profile.sourceSha256
-      || report.sourceManifest.sha256 !== profile.sourceSha256
-      || replayRef.runId !== profile.runId
+      || report.sourceManifest.sha256 !== profile.sourceSha256 || replayRef.runId !== profile.runId
       || old.invocations + report.invocations !== report.cumulativeInvocations
       || old.modelCalls + report.modelCalls !== report.cumulativeModelCalls
       || old.chargedMicros + report.chargedMicros !== report.cumulativeChargedMicros) invalid();
-
+    const eventTypes = ['RUN_STARTED', 'TOOL_CALL_START', 'TOOL_CALL_END', 'TOOL_CALL_RESULT',
+      'TOOL_CALL_START', 'TOOL_CALL_END', 'TOOL_CALL_RESULT', 'TOOL_CALL_START',
+      'TOOL_CALL_END', 'TOOL_CALL_RESULT', 'CUSTOM', 'RUN_ERROR'];
     const attempt = z.object({ schemaVersion: z.literal(2), round: z.literal(1),
       caseId: z.literal('unknown-cost'), outcome: z.literal('failed'),
       evidence: z.object({ runId: z.literal(profile.runId), usageRunId: z.literal(profile.runId),
-        model: z.literal(CLOUDFLARE_MODEL), modelCalls: z.literal(2), usageComplete: z.literal(false),
-        costMicros: z.null(), runStatus: z.literal('failed') }),
-      events: z.array(z.object({ type: z.string() })).length(6),
+        model: z.literal(CLOUDFLARE_MODEL), modelCalls: z.literal(4), toolCount: z.literal(3),
+        usageComplete: z.literal(true), costMicros: z.literal(684), runStatus: z.literal('failed') }),
+      events: z.array(z.object({ type: z.string() })).length(12),
     }).parse(report.records[0]);
     const audit = z.object({ kind: z.literal('durable-audit'), schemaVersion: z.literal(3),
       executor: z.literal('temporal-v1'), round: z.literal(1), caseId: z.literal('unknown-cost'),
       retainedSchema: z.literal(profile.retainedSchema),
       temporalStorage: z.literal(`.artifacts/${profile.storageDir}/temporal.sqlite`),
-      storageFingerprint: z.literal(profile.storageFingerprint),
-      chargedMicros: z.literal(183505), modelCalls: z.literal(2),
-      privateUsageComplete: z.literal(true), quiescent: z.literal(true),
+      storageFingerprint: z.literal(profile.storageFingerprint), chargedMicros: z.literal(684),
+      modelCalls: z.literal(4), privateUsageComplete: z.literal(true), quiescent: z.literal(true),
       runs: z.array(z.object({ id: z.literal(profile.runId), trip_id: z.literal(profile.tripId),
         status: z.literal('failed') })).length(1),
-      events: z.array(z.object({ run_id: z.literal(profile.runId), sequence: z.number().int().positive() })).length(6),
+      events: z.array(z.object({ run_id: z.literal(profile.runId), sequence: z.number().int().positive() })).length(12),
       privateUsage: z.array(z.object({ schemaVersion: z.literal(3), executor: z.literal('temporal-v1'),
         execution_run_id: z.literal(profile.executionRunId), status: z.literal('failed'),
         run: z.object({ runId: z.literal(profile.runId), tripId: z.literal(profile.tripId),
@@ -99,33 +98,31 @@ export function comparePythonDiagnosticCarry(
         provider: z.object({ provider: z.literal('cloudflare'), model: z.literal(CLOUDFLARE_MODEL),
           accountId: z.literal(historyIdentity('accountId_1')) }),
         invocations: z.array(z.object({ id: uuid, reservation_id: uuid, kind: z.literal('start'),
-          status: z.literal('settled'), charged_cost_micros: z.literal(183505),
-          actual_cost_micros: z.null() })).length(1),
-        calls: z.tuple([z.object({ invocation_id: uuid, status: z.literal('completed'),
-          event: z.object({ callId: z.string().min(1), usage: z.object({ totalTokens: z.number().int().positive() }) }) }),
-        z.object({ invocation_id: uuid, status: z.literal('completed'),
-          event: z.object({ callId: z.string().min(1), usage: z.null() }) })]),
+          status: z.literal('settled'), charged_cost_micros: z.literal(684),
+          actual_cost_micros: z.literal(684) })).length(1),
+        calls: z.array(z.object({ invocation_id: uuid, status: z.literal('completed'),
+          event: z.object({ callId: z.string().min(1), usage: z.object({ totalTokens: z.number().int().positive() }) }) })).length(4),
+        steps: z.array(z.object({ ordinal: z.number().int().positive(), completed: z.boolean(),
+          arguments_rejected: z.boolean() })).length(4),
+        tools: z.array(z.object({ name: z.literal('validate_changes'), completed: z.literal(true) })).length(3),
       })).length(1),
       nativeHistory: z.array(z.object({ workflow_id: z.literal(profile.workflowId),
         execution_run_id: z.literal(profile.executionRunId), terminal: z.literal('failed'),
-        models: z.tuple([z.object({ terminal: z.literal('completed') }),
-          z.object({ terminal: z.literal('failed') })]) })).length(1),
+        models: z.array(z.object({ terminal: z.string() })).length(4) })).length(1),
     }).parse(report.records[1]);
-    if (!isDeepStrictEqual(attempt.events.map(value => value.type),
-      ['RUN_STARTED', 'TOOL_CALL_START', 'TOOL_CALL_END', 'TOOL_CALL_RESULT', 'CUSTOM', 'RUN_ERROR'])) invalid();
-    if (audit.events.some((row, index) => row.sequence !== index + 1)) invalid();
-    if (report.records.slice(2).some((value, index) => {
-      const parsed = z.object({ round: z.number().int(), caseId: z.string(),
-        outcome: z.literal('skipped'), reason: z.literal('UNKNOWN_USAGE_STOP') }).safeParse(value);
-      return !parsed.success || index >= 29;
-    })) invalid();
     const usage = audit.privateUsage[0];
-    if (usage.calls[0].invocation_id !== usage.invocations[0].id
-      || usage.calls[1].invocation_id !== usage.invocations[0].id
-      || usage.calls[0].event.callId === usage.calls[1].event.callId
+    if (!isDeepStrictEqual(attempt.events.map(value => value.type), eventTypes)
+      || audit.events.some((row, index) => row.sequence !== index + 1)
+      || !isDeepStrictEqual(usage.steps.map(row => [row.ordinal, row.completed, row.arguments_rejected]),
+        [[1, true, false], [2, true, false], [3, true, false], [4, true, true]])
+      || !isDeepStrictEqual(audit.nativeHistory[0].models.map(row => row.terminal),
+        ['completed', 'completed', 'completed', 'failed'])
+      || usage.calls.some(row => row.invocation_id !== usage.invocations[0].id)
+      || new Set(usage.calls.map(row => row.event.callId)).size !== 4
+      || usage.calls.reduce((sum, row) => sum + row.event.usage.totalTokens, 0) !== 6126
       || database.fingerprint !== profile.storageFingerprint
       || database.runs.length !== 1 || database.trips.length !== 1
-      || database.invocations.length !== 1 || database.calls.length !== 2
+      || database.invocations.length !== 1 || database.calls.length !== 4
       || database.reservations.length !== 1
       || database.runs[0].id !== profile.runId || database.runs[0].trip_id !== profile.tripId
       || database.runs[0].status !== 'failed' || database.trips[0].id !== profile.tripId
@@ -138,20 +135,18 @@ export function comparePythonDiagnosticCarry(
       || database.invocations[0].reservation_id !== usage.invocations[0].reservation_id
       || database.reservations[0].id !== usage.invocations[0].reservation_id
       || database.reservations[0].logical_run_id !== profile.runId
-      || database.reservations[0].charged_cost_micros !== '183505'
-      || database.reservations[0].actual_cost_micros !== null
+      || database.reservations[0].charged_cost_micros !== '684'
+      || database.reservations[0].actual_cost_micros !== '684'
       || database.calls.some((row, index) => row.run_id !== profile.runId
         || row.invocation_id !== usage.invocations[0].id
-        || row.call_id !== usage.calls[index].event.callId
-        || (row.usage === null) !== (index === 1))
+        || row.call_id !== usage.calls[index].event.callId || row.usage === null)
       || temporal.workflowMatches !== 1 || temporal.executionMatches !== 1
-      || temporal.timeoutMarkers !== 1) invalid();
+      || temporal.argumentMarkers !== 1) invalid();
     return Object.freeze({ sourceSha256: profile.reportSha256, historyConsistent: true as const,
       dispatchAuthorized: false as const, accountingComplete: false as const,
       evaluationGatePassed: false as const, historicalUnknownReceipts: 5 as const,
       invocations: report.cumulativeInvocations, modelCalls: report.cumulativeModelCalls,
-      chargedMicros: report.cumulativeChargedMicros,
-      observedTokens: old.observedTokens + usage.calls[0].event.usage.totalTokens,
+      chargedMicros: report.cumulativeChargedMicros, observedTokens: old.observedTokens + report.totalTokens,
       totalTokens: null, remainingInvocationCeiling: CAMPAIGN_INVOCATION_LIMIT - report.cumulativeInvocations,
       remainingReferenceMicros: CAMPAIGN_BUDGET_MICROS - report.cumulativeChargedMicros });
   } catch { return invalid(); }
@@ -161,28 +156,29 @@ async function readProfile(lease: EvaluationLockLease) {
   await assertPrivateCloudflareHistory();
   await assertEvaluationLock(lease);
   return withBoundedArtifactDirectory([root, artifacts], async directory => {
-    const file = await directory.read('cloudflare-python-diagnostic-history.json', { minBytes: 1, maxBytes: 8192 });
-    if (sha256(file.bytes) !== PRIVATE_PYTHON_DIAGNOSTIC_PROFILE_SHA256) invalid();
+    const file = await directory.read('cloudflare-python-probe-history.json', { minBytes: 1, maxBytes: 8192 });
+    if (sha256(file.bytes) !== PRIVATE_PYTHON_PROBE_PROFILE_SHA256) invalid();
     return { profile: profileSchema.parse(JSON.parse(file.bytes.toString('utf8'))),
       directory: directory.snapshot, file: file.snapshot };
   });
 }
 
-async function captureFiles(profile: PythonDiagnosticProfile, lease: EvaluationLockLease) {
+async function captureFiles(profile: PythonProbeProfile, lease: EvaluationLockLease) {
   await assertEvaluationLock(lease);
   const report = await withBoundedArtifactDirectory([root, artifacts], async directory => {
-    const claim = await directory.read('cloudflare-diagnostic.claim', { minBytes: 0, maxBytes: 0 });
-    const file = await directory.read('cloudflare-diagnostic.json', { minBytes: 1, maxBytes: 2_000_000 });
+    const claim = await directory.read('cloudflare-probe.claim', { minBytes: 0, maxBytes: 0 });
+    const file = await directory.read('cloudflare-probe.json', { minBytes: 1, maxBytes: 2_000_000 });
     if (sha256(file.bytes) !== profile.reportSha256) invalid();
     const value = JSON.parse(file.bytes.toString('utf8')) as unknown;
-    const replayRef = diagnosticReplayFromReport(value);
+    const replayRef = probeReplayFromReport(value);
     if (replayRef.runId !== profile.runId) invalid();
-    const expected = ['cloudflare-diagnostic.claim', 'cloudflare-diagnostic.json', replayRef.file].sort();
-    const names = (await readdir(artifacts)).filter(name => name.startsWith('cloudflare-diagnostic')).sort();
-    if (!isDeepStrictEqual(names, expected)) invalid();
+    const oldName = (name: string) => name.startsWith('cloudflare-probe')
+      && !/^cloudflare-probe-2(?:\.|-)/.test(name);
+    const expected = ['cloudflare-probe.claim', 'cloudflare-probe.json', replayRef.file].sort();
+    if (!isDeepStrictEqual((await readdir(artifacts)).filter(oldName).sort(), expected)) invalid();
     const replay = await directory.read(replayRef.file, { minBytes: 1, maxBytes: 2_000_000 });
     if (sha256(replay.bytes) !== replayRef.sha256
-      || !isDeepStrictEqual((await readdir(artifacts)).filter(name => name.startsWith('cloudflare-diagnostic')).sort(), expected)) invalid();
+      || !isDeepStrictEqual((await readdir(artifacts)).filter(oldName).sort(), expected)) invalid();
     return { value, claim: claim.snapshot, file: file.snapshot, replay: replay.snapshot,
       directory: directory.snapshot };
   });
@@ -203,7 +199,7 @@ async function captureFiles(profile: PythonDiagnosticProfile, lease: EvaluationL
       const nodes = db.prepare('SELECT data FROM history_node').all() as { data: Uint8Array }[];
       const native = { workflowMatches: executions.filter(row => row.workflow_id === profile.workflowId).length,
         executionMatches: executions.filter(row => Buffer.from(row.run_id).equals(Buffer.from(profile.executionRunId.replaceAll('-', ''), 'hex'))).length,
-        timeoutMarkers: nodes.filter(row => Buffer.from(row.data).includes(Buffer.from('AGENT_PROVIDER_TIMEOUT'))).length };
+        argumentMarkers: nodes.filter(row => Buffer.from(row.data).includes(Buffer.from('AGENT_TOOL_ARGUMENTS_REJECTED'))).length };
       return { native, context: context.snapshot, sqlite: sqlite.snapshot, directory: directory.snapshot };
     } finally { db.close(); }
   });
@@ -211,39 +207,32 @@ async function captureFiles(profile: PythonDiagnosticProfile, lease: EvaluationL
   return { report, temporal };
 }
 
-/** One linear read of the eight ADK scopes and the stopped Python diagnostic. */
-export async function captureCloudflarePythonDiagnosticHistory(pools: Pool[], lease: EvaluationLockLease) {
-  if (pools.length !== 8) invalid();
-  const pinned = await readProfile(lease);
-  const history = await captureCloudflareNonthinkingHistory(pools[0], pools[1], pools[2], pools[3],
-    pools[4], pools[5], pools[6], pools[7], lease);
-  const files = await captureFiles(pinned.profile, lease);
-  const pool = new Pool({ host: '127.0.0.1', port: pools[0].options.port,
-    database: 'dive_trip_test', user: 'postgres', password: 'offline-placeholder-not-a-credential',
-    ssl: false, connectionTimeoutMillis: 2000, statement_timeout: 2000, max: 1,
-    options: `-c search_path=${pinned.profile.retainedSchema}` });
+/** Two full read-only captures of all ten stopped/retained historical scopes. */
+export async function readCloudflarePythonProbeCarry(pools: Pool[], lease: EvaluationLockLease) {
   try {
-    const database = await capturePythonRetainedDatabase(pool, pinned.profile, 2);
-    await assertEvaluationLock(lease);
-    return { pinned, history, files, database };
-  } finally { await pool.end(); }
-}
-
-export function compareCloudflarePythonDiagnosticHistory(
-  value: Awaited<ReturnType<typeof captureCloudflarePythonDiagnosticHistory>>) {
-  return pythonDiagnosticCarrySchema().parse(comparePythonDiagnosticCarry(
-    compareCloudflareNonthinkingHistory(value.history), value.pinned.profile,
-    value.files.report.value, value.database, value.files.temporal.native));
-}
-
-/** Exactly two complete linear captures; no nested two-pass reader. */
-export async function readCloudflarePythonDiagnosticCarry(pools: Pool[], lease: EvaluationLockLease) {
-  try {
-    const before = await captureCloudflarePythonDiagnosticHistory(pools, lease);
-    compareCloudflarePythonDiagnosticHistory(before);
-    const after = await captureCloudflarePythonDiagnosticHistory(pools, lease);
+    if (pools.length !== 8) invalid();
+    const capture = async () => {
+      const pinned = await readProfile(lease);
+      const history = await captureCloudflarePythonDiagnosticHistory(pools, lease);
+      const files = await captureFiles(pinned.profile, lease);
+      const pool = new Pool({ host: '127.0.0.1', port: pools[0].options.port,
+        database: 'dive_trip_test', user: 'postgres', password: 'offline-placeholder-not-a-credential',
+        ssl: false, connectionTimeoutMillis: 2000, statement_timeout: 2000, max: 1,
+        options: `-c search_path=${pinned.profile.retainedSchema}` });
+      try {
+        const database = await capturePythonRetainedDatabase(pool, pinned.profile, 4);
+        await assertEvaluationLock(lease);
+        return { pinned, history, files, database };
+      } finally { await pool.end(); }
+    };
+    const compare = (value: Awaited<ReturnType<typeof capture>>) => pythonProbeCarrySchema().parse(
+      comparePythonProbeCarry(compareCloudflarePythonDiagnosticHistory(value.history), value.pinned.profile,
+        value.files.report.value, value.database, value.files.temporal.native));
+    const before = await capture();
+    compare(before);
+    const after = await capture();
     if (!isDeepStrictEqual(before, after)) invalid();
-    const result = compareCloudflarePythonDiagnosticHistory(after);
+    const result = compare(after);
     await assertPrivateCloudflareHistory();
     await assertEvaluationLock(lease);
     return result;

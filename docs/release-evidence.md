@@ -75,6 +75,12 @@ Python runtime 新增有界私有工具參數診斷：Pydantic 拒絕時只保�
 
 程式 SHA `a4fc385` 的 [Fixture CI run 36590117428](https://github.com/Will413028/dive-trip-agent/actions/runs/36590117428) 唯一 job 及全部 steps success：**3121 unit／106 files、389 integration／12 live skipped、272 backend、67 production browser／5 skipped**；固定工具鏈、Ruff、mypy、contracts、前端 lint／typecheck、build 與當次 disposable DB 清理也成功。這輪沒有 live 模型測試或品質通過結論。
 
+### 2026-09-30 第二次 Free-only 單案技術 probe（準備中）
+
+本輪授權範圍固定為合成 `unknown-cost`，最多 **1 invocation／7 model calls**，只用 Cloudflare Workers AI Free 額度；不算 Task 11 的 30 案品質通過。新入口 `cloudflare-probe-2` 使用獨立永久 claim，先對帳原九範圍與已停止的第一個 probe、source manifest、quota、owned lease，再讀 generation capability。舊 claim、report、unknown、schema 與 Temporal history 不回填或重試。
+
+目前只完成新入口與私有歷史 profile 的準備：第一個 probe 的完整 22 表及 Temporal 歷史經兩輪唯讀比對，累計 **45 invocations／67 model calls／5 historical unknown receipts**。此數值來自當次 `readCloudflarePythonProbeCarry`，不是雲端剩餘 Free 額度。新 claim 尚未建立、沒有新模型呼叫；正式 dispatch 以前仍需固定 revision 的完整 Fixture CI、Free 方案查核及再次完整歷史 preflight。來源／沿用判斷見 [evaluation](evaluation.md#closed-world-history-integrity)。
+
 ### 2026-09-27 Historical ADK fixture CI
 
 原始碼 repository 已公開。2026-09-27 第一輪 [Fixture CI](https://github.com/Will413028/dive-trip-agent/actions/runs/36317342675) 在 `2a3d3d5d2db6d13bfad7b7ea77f4f876ccba8d02` 全綠；已核對 run、fixture job 及全部 steps 都為 success，沒有 cancelled 或 failed job。使用標準 Ubuntu 24.04 runner、Node 26.8.1、pnpm 11.2.2 與獨立 disposable PostgreSQL，job 耗時 8 分 58 秒。這不是公開部署或真模型品質驗收。

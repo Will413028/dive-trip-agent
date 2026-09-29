@@ -79,26 +79,35 @@ export function compareCloudflareNonthinkingCarry(reportInput: unknown, priorInp
   } catch { return fail(); }
 }
 
+/** One linear capture through the eight historical scopes. */
+export async function captureCloudflareNonthinkingHistory(workbench: Pool, first: Pool, second: Pool, quality: Pool,
+  revision: Pool, recovery: Pool, grounded: Pool, nonthinking: Pool, lease: EvaluationLockLease) {
+  assertCloudflareAuditPools([workbench, first, second, quality, revision, recovery, grounded, nonthinking]);
+  const history = await captureCloudflareGroundedHistory(workbench, first, second, quality, revision, recovery, grounded, lease);
+  const report = await readPinnedCloudflareReport('nonthinking', lease);
+  const inventory = await captureCloudflareCampaignInventory('nonthinking', nonthinking);
+  await assertEvaluationLock(lease);
+  return { history, report, inventory };
+}
+
+export function compareCloudflareNonthinkingHistory(value: Awaited<ReturnType<typeof captureCloudflareNonthinkingHistory>>) {
+  return nonthinkingCarrySchema().parse({ ...compareCloudflareNonthinkingCarry(
+    value.report, compareCloudflareGroundedHistory(value.history), value.inventory.snapshot),
+  sourceSha256: NONTHINKING_REPORT_SHA256() });
+}
+
 /** Exactly two linear captures through all eight readonly scopes. Complete raw
  * rows participate in equality; this is not a cross-pool atomic snapshot. */
 export async function readCloudflareNonthinkingCarry(workbench: Pool, first: Pool, second: Pool, quality: Pool,
   revision: Pool, recovery: Pool, grounded: Pool, nonthinking: Pool, lease: EvaluationLockLease) {
   try {
-    assertCloudflareAuditPools([workbench, first, second, quality, revision, recovery, grounded, nonthinking]);
-    const capture = async () => {
-      const history = await captureCloudflareGroundedHistory(workbench, first, second, quality, revision, recovery, grounded, lease);
-      const report = await readPinnedCloudflareReport('nonthinking', lease);
-      const inventory = await captureCloudflareCampaignInventory('nonthinking', nonthinking);
-      await assertEvaluationLock(lease);
-      return { history, report, inventory };
-    };
-    const compare = (value: Awaited<ReturnType<typeof capture>>) => compareCloudflareNonthinkingCarry(
-      value.report, compareCloudflareGroundedHistory(value.history), value.inventory.snapshot);
+    const capture = () => captureCloudflareNonthinkingHistory(workbench, first, second, quality,
+      revision, recovery, grounded, nonthinking, lease);
     const before = await capture();
-    compare(before);
+    compareCloudflareNonthinkingHistory(before);
     const after = await capture();
     if (!isDeepStrictEqual(before, after)) fail();
-    const result = nonthinkingCarrySchema().parse({ ...compare(after), sourceSha256: NONTHINKING_REPORT_SHA256() });
+    const result = compareCloudflareNonthinkingHistory(after);
     await assertEvaluationLock(lease);
     return result;
   } catch { return fail(); }
