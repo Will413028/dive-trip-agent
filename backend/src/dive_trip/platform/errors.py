@@ -9,7 +9,8 @@ class DomainError(Exception):
 class ToolArgumentsRejected(DomainError):
     """Raised only after rejecting a declared tool's strict argument schema."""
 
-    def __init__(self) -> None:
+    def __init__(self, diagnostic: object | None = None) -> None:
+        self.diagnostic = diagnostic
         super().__init__("AGENT_TOOL_ARGUMENTS_REJECTED")
 
 

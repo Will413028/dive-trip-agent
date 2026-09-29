@@ -67,6 +67,12 @@ Domain unit tests 驗費用與規則；真 PostgreSQL integration tests 驗交�
 
 新 claim、私有報告、22 張表的隔離 PostgreSQL schema 與 Temporal SQLite history 均保留；四筆當次帳務與 provider binding 完整，既有 unknown 仍保守保留。執行後舊歷史與來源重查相符，owned lease 已釋放。不得重送這個已停止的 probe；完整 30 案及獨立內容審查仍缺，新的真模型 dispatch 須另定範圍與授權。
 
+### 2026-09-29 Offline tool argument diagnostic follow-up
+
+Python runtime 新增有界私有工具參數診斷：Pydantic 拒絕時只保留固定工具名、批次內序位、去重後的 issue code 與白名單 path；與 `arguments_rejected` 同交易記入 model step journal，私有 usage evidence 可讀。公開事件、Temporal 固定失敗碼、整批拒絕與帳務結算規則維持原契約。migration021 為 nullable 新欄位，歷史列不回填；前述停止案例沒有原始參數或此新增診斷，不能倒推根因。本次只使用合成資料驗證，沒有新真模型 dispatch。
+
+本機最後同次 `pnpm test:backend` **272 passed**；Ruff、strict mypy（85 個 source files）、`contracts:check` 與 `git diff --check` 通過。整合反例確認同交易保存的診斷不含模型值、任意欄位名或公開事件，既有未知用量結算仍保守。獨立設計複查的兩項發現已修正：安全投影先去重再截斷，並加候選工具序位。執行前核對 `dive_trip_test.workbench_demo` 為 migration020、無活動 writer，完成 ignored local custom dump 並驗證 archive 可讀，才套 migration021；事後 ledger 為 21 筆、欄位為 nullable JSONB，demo model step 為 0 筆。這是本機離線驗證，固定版本遠端 Fixture CI 結果另列。
+
 ### 2026-09-27 Historical ADK fixture CI
 
 原始碼 repository 已公開。2026-09-27 第一輪 [Fixture CI](https://github.com/Will413028/dive-trip-agent/actions/runs/36317342675) 在 `2a3d3d5d2db6d13bfad7b7ea77f4f876ccba8d02` 全綠；已核對 run、fixture job 及全部 steps 都為 success，沒有 cancelled 或 failed job。使用標準 Ubuntu 24.04 runner、Node 26.8.1、pnpm 11.2.2 與獨立 disposable PostgreSQL，job 耗時 8 分 58 秒。這不是公開部署或真模型品質驗收。

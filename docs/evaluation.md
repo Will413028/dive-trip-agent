@@ -370,6 +370,13 @@ Provider diagnostics are deliberately limited:
 - `AGENT_TOOL_ARGUMENTS` retains only bounded allowlisted tool/issue/path metadata
   in private ADK events, never argument values. Absent original values cannot be
   reconstructed from a field path.
+- Python／Temporal 新執行的 `AGENT_TOOL_ARGUMENTS_REJECTED` 將同類診斷綁在
+  `planning_model_steps` 的 activity，與拒絕標記同一交易保存。只記固定工具名、
+  批次內序位、最多八種去重後的固定 issue code 與各最多八段白名單路徑；
+  索引記 `*`，未知欄位記 `?`，
+  不記參數值、Pydantic message 或任意欄位名。私有 usage evidence 的 v3 step
+  增加可選欄位；舊 row 維持 null，公開事件與 Temporal failure 仍用固定代碼。
+  migration021 只新增 nullable 欄位，不回填或重新解讀已停止的評估。
 - A saved `response/length` diagnosis proves truncation, not why the model reached
   the cap. The fixed non-thinking request policy retains the 2048-token cap,
   strict AnswerPlan and no retry; it is not proof of improved real-model quality.

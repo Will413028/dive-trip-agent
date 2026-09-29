@@ -1,7 +1,7 @@
 """Strict provider-independent tool arguments and whole-candidate validation."""
 
 import json
-from typing import Annotated, Any, Literal, TypedDict
+from typing import Annotated, Any, Literal, TypedDict, cast
 from uuid import UUID
 
 from pydantic import ConfigDict, Field, ValidationError, model_validator, with_config
@@ -23,6 +23,11 @@ from dive_trip.platform.schema import (
 )
 
 from .answer_contract import AnswerPlan
+from .argument_diagnostic import (
+    ToolName,
+    from_validation_error,
+    identifier_rejection,
+)
 
 
 @with_config(ConfigDict(strict=True, extra="forbid"))
@@ -109,7 +114,7 @@ def validate_candidate(
         raise DomainError("AGENT_TOOL_LIMIT")
     parsed: list[ToolInvocation] = []
     seen = prior_ids.copy()
-    for value in raw:
+    for candidate_ordinal, value in enumerate(raw, start=1):
         call = ToolInvocation.model_validate(value)
         if call.name not in TOOL_ARGUMENTS:
             raise DomainError("AGENT_TOOL_NOT_ALLOWED")
@@ -122,17 +127,28 @@ def validate_candidate(
                 .model_validate(call.args)
                 .model_dump(mode="json")
             )
-        except ValidationError:
+        except ValidationError as error:
             if call.name == "final_answer":
                 raise DomainError("AGENT_ANSWER_SCHEMA") from None
-            raise ToolArgumentsRejected() from None
-        for change in args.get("changes", []):
+            raise ToolArgumentsRejected(
+                from_validation_error(
+                    cast(ToolName, call.name), candidate_ordinal, error
+                )
+            ) from None
+        for index, change in enumerate(args.get("changes", [])):
             identifiers = change.get("entry", change)
             for key in ("id", "entryId", "catalogId"):
                 if key in identifiers and (
                     len(identifiers[key]) > 128 or "\0" in identifiers[key]
                 ):
-                    raise ToolArgumentsRejected()
+                    path: tuple[object, ...] = ("changes", index)
+                    if "entry" in change:
+                        path += ("entry",)
+                    raise ToolArgumentsRejected(
+                        identifier_rejection(
+                            cast(ToolName, call.name), candidate_ordinal, (*path, key)
+                        )
+                    )
         if call.name == "final_answer" and len(raw) != 1:
             raise DomainError("AGENT_ANSWER_SCHEMA")
         if call.name == "propose_changes" and (proposed or len(raw) != 1):

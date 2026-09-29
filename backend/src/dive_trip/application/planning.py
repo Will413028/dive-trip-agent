@@ -10,6 +10,7 @@ from dive_trip.modules.catalog.public import CatalogItem, load_catalog
 from dive_trip.modules.identity.public import require_owner
 from dive_trip.modules.planning import transactions as planning
 from dive_trip.modules.planning.answer_contract import AnswerPlan, EvidencePlan
+from dive_trip.modules.planning.argument_diagnostic import ArgumentDiagnostic
 from dive_trip.modules.planning.compiler import (
     compile_answer,
     compile_failure,
@@ -205,6 +206,7 @@ class PlanningService:
 
     def complete_model(self, binding: Binding, activity_id: str, calls: Any) -> None:
         rejected = False
+        diagnostic: ArgumentDiagnostic | None = None
         with self.scope(binding) as (connection, row, _):
             previous = planning.tool_calls(connection, binding.runId)
             try:
@@ -214,8 +216,11 @@ class PlanningService:
                     row["tool_steps"],
                     proposed=row["proposal_id"] is not None,
                 )
-            except ToolArgumentsRejected:
+            except ToolArgumentsRejected as error:
                 parsed, rejected = [], True
+                if not isinstance(error.diagnostic, ArgumentDiagnostic):
+                    raise DomainError("AGENT_MODEL_RESPONSE") from None
+                diagnostic = error.diagnostic
             # Reserve the whole validated batch in model order before the SDK sees it.
             for call in parsed:
                 if call.name == "final_answer":
@@ -235,7 +240,11 @@ class PlanningService:
                 connection, binding.tripId, binding.runId, activity_id
             )
             if rejected:
-                planning.mark_argument_rejection(connection, binding.runId, activity_id)
+                if diagnostic is None:
+                    raise DomainError("AGENT_MODEL_RESPONSE")
+                planning.mark_argument_rejection(
+                    connection, binding.runId, activity_id, diagnostic
+                )
         if rejected:
             raise ToolArgumentsRejected()
 

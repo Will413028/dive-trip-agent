@@ -1,3 +1,5 @@
+import json
+
 import pytest
 
 from dive_trip.modules.planning.tool_contract import validate_candidate
@@ -42,6 +44,101 @@ def test_partial_patch_rejects_invalid_fields(patch):
             set(),
             0,
         )
+
+
+def test_rejected_arguments_keep_only_bounded_allowlisted_private_diagnostic():
+    raw = {
+        "changes": [
+            {"kind": "requirements", "value": {"private_field": "SECRET_VALUE"}}
+            for _ in range(12)
+        ]
+        + [{"kind": "requirements", "value": {"days": "5"}}]
+    }
+    with pytest.raises(ToolArgumentsRejected) as caught:
+        validate_candidate([call("validate_changes", raw)], set(), 0)
+    diagnostic = caught.value.diagnostic
+    assert diagnostic is not None
+    assert diagnostic.tool == "validate_changes"
+    assert diagnostic.candidate_ordinal == 1
+    assert len(diagnostic.issues) == 2
+    assert diagnostic.issues[0].model_dump() == {
+        "code": "extra_forbidden",
+        "path": ["changes", "*", "requirements", "value", "?"],
+    }
+    assert diagnostic.issues[1].model_dump() == {
+        "code": "invalid_value",
+        "path": ["changes", "*", "requirements", "value", "days"],
+    }
+    serialized = json.dumps(diagnostic.model_dump(mode="json"))
+    assert "private_field" not in serialized
+    assert "SECRET_VALUE" not in serialized
+    assert str(caught.value) == "AGENT_TOOL_ARGUMENTS_REJECTED"
+
+
+def test_rejected_known_field_reports_fixed_error_class_and_path():
+    with pytest.raises(ToolArgumentsRejected) as caught:
+        validate_candidate(
+            [
+                call(
+                    "validate_changes",
+                    {"changes": [{"kind": "requirements", "value": {"days": "5"}}]},
+                )
+            ],
+            set(),
+            0,
+        )
+    assert caught.value.diagnostic.issues[0].model_dump() == {
+        "code": "invalid_value",
+        "path": ["changes", "*", "requirements", "value", "days"],
+    }
+
+
+def test_extra_field_is_redacted_even_when_its_name_exists_in_another_tool():
+    with pytest.raises(ToolArgumentsRejected) as caught:
+        validate_candidate(
+            [call("calculate_budget", {"id": "SECRET_VALUE"})], set(), 0
+        )
+    assert caught.value.diagnostic.issues[0].model_dump() == {
+        "code": "extra_forbidden",
+        "path": ["?"],
+    }
+
+
+def test_duplicate_tool_names_identify_rejected_candidate_by_batch_ordinal():
+    with pytest.raises(ToolArgumentsRejected) as caught:
+        validate_candidate(
+            [
+                call("calculate_budget"),
+                call("calculate_budget", {"private_field": "SECRET"}, "second"),
+            ],
+            set(),
+            0,
+        )
+    assert caught.value.diagnostic.candidate_ordinal == 2
+    assert "second" not in caught.value.diagnostic.model_dump_json()
+
+
+def test_identifier_guard_uses_same_private_diagnostic_without_identifier_value():
+    with pytest.raises(ToolArgumentsRejected) as caught:
+        validate_candidate(
+            [
+                call(
+                    "validate_changes",
+                    {
+                        "changes": [
+                            {"kind": "remove", "entryId": "SECRET\0IDENTIFIER"}
+                        ]
+                    },
+                )
+            ],
+            set(),
+            0,
+        )
+    assert caught.value.diagnostic.issues[0].model_dump() == {
+        "code": "invalid_value",
+        "path": ["changes", "*", "entryId"],
+    }
+    assert "SECRET" not in caught.value.diagnostic.model_dump_json()
 
 
 def test_partial_patch_preserves_omission_and_explicit_null():

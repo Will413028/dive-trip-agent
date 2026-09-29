@@ -498,8 +498,29 @@ def test_rejection_journal_alone_cannot_release_unknown_reservation(database, re
         service.complete_model(
             binding,
             "model-1",
-            [{"id": "invalid", "name": "calculate_budget", "args": {"extra": True}}],
+            [
+                {
+                    "id": "invalid",
+                    "name": "calculate_budget",
+                    "args": {"private_field": "SECRET_VALUE"},
+                }
+            ],
         )
+    with database.transaction() as connection:
+        step = connection.execute(
+            "SELECT completed,arguments_rejected,argument_diagnostic "
+            "FROM planning_model_steps WHERE run_id=%s AND activity_id='model-1'",
+            (binding.runId,),
+        ).fetchone()
+    assert step == {
+        "completed": True,
+        "arguments_rejected": True,
+        "argument_diagnostic": {
+            "tool": "calculate_budget",
+            "candidate_ordinal": 1,
+            "issues": [{"code": "extra_forbidden", "path": ["?"]}],
+        },
+    }
     with pytest.raises(DomainError, match="MODEL_GENERATION_DISABLED"):
         service.begin_model(binding, "must-not-retry")
     if reason == "expired":
@@ -515,7 +536,19 @@ def test_rejection_journal_alone_cannot_release_unknown_reservation(database, re
         if reason == "missing-activity-completion"
         else "model-1",
     )
+    evidence = read_usage_evidence(database, binding, provider)
+    assert evidence.steps[0].argument_diagnostic is not None
+    assert evidence.steps[0].argument_diagnostic.model_dump(mode="json") == step[
+        "argument_diagnostic"
+    ]
+    assert "private_field" not in evidence.model_dump_json()
+    assert "SECRET_VALUE" not in evidence.model_dump_json()
     with database.transaction() as connection:
+        events = connection.execute(
+            "SELECT event FROM agent_run_events WHERE run_id=%s", (binding.runId,)
+        ).fetchall()
+        assert "private_field" not in json.dumps(events)
+        assert "SECRET_VALUE" not in json.dumps(events)
         assert (
             connection.execute("SELECT count(*) AS n FROM model_calls").fetchone()["n"]
             == 1

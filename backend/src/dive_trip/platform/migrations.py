@@ -27,6 +27,7 @@ MIGRATIONS = (
     "018-temporal-execution-identity",
     "019-evaluation-fault",
     "020-active-executor",
+    "021-tool-argument-diagnostic",
 )
 
 

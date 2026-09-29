@@ -6,6 +6,7 @@ from uuid import UUID
 
 from pydantic import AwareDatetime, Field, model_validator
 
+from dive_trip.modules.planning.argument_diagnostic import ArgumentDiagnostic
 from dive_trip.modules.planning.evidence import Binding
 from dive_trip.modules.usage.provider import (
     ModelUsageEvent,
@@ -78,6 +79,13 @@ class StepEvidence(WireModel):
     ordinal: Annotated[int, Field(ge=1, le=7)]
     completed: bool
     arguments_rejected: bool
+    argument_diagnostic: ArgumentDiagnostic | None = None
+
+    @model_validator(mode="after")
+    def valid_diagnostic(self) -> Self:
+        if self.argument_diagnostic is not None and not self.arguments_rejected:
+            raise ValueError("UNBOUND_ARGUMENT_DIAGNOSTIC")
+        return self
 
 
 class ToolEvidence(WireModel):
@@ -245,7 +253,8 @@ def read_usage_evidence(
             (binding.runId, binding.runId),
         ).fetchall()
         steps = connection.execute(
-            "SELECT activity_id,ordinal,completed,arguments_rejected "
+            "SELECT activity_id,ordinal,completed,arguments_rejected,"
+            "argument_diagnostic "
             "FROM planning_model_steps WHERE run_id=%s ORDER BY ordinal LIMIT 8",
             (binding.runId,),
         ).fetchall()

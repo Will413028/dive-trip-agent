@@ -11,6 +11,7 @@ from dive_trip.modules.catalog.public import CatalogItem
 from dive_trip.platform.errors import DomainError
 
 from .answer_contract import AcceptedAnswer
+from .argument_diagnostic import ArgumentDiagnostic
 from .evidence import hash_tuple
 from .public_events import parse_event
 
@@ -381,12 +382,16 @@ def complete_model_step(
 
 
 def mark_argument_rejection(
-    connection: ConnectionType, run_id: str, activity_id: str
+    connection: ConnectionType,
+    run_id: str,
+    activity_id: str,
+    diagnostic: ArgumentDiagnostic,
 ) -> None:
     result = connection.execute(
-        "UPDATE planning_model_steps SET arguments_rejected=true "
+        "UPDATE planning_model_steps SET arguments_rejected=true, "
+        "argument_diagnostic=%s "
         "WHERE run_id=%s AND activity_id=%s AND completed RETURNING activity_id",
-        (run_id, activity_id),
+        (Jsonb(diagnostic.model_dump(mode="json")), run_id, activity_id),
     ).fetchone()
     if result is None:
         raise DomainError("MODEL_DISPATCH_CONFLICT")
