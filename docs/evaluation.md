@@ -426,7 +426,11 @@ Provider diagnostics are deliberately limited:
   at `FAILED_RUN_STOP`: the first `validate_changes` candidate was rejected
   before any tool completed. The new bounded private diagnostic says
   `invalid_value` at `changes.*` for candidate ordinal 1; it contains no raw
-  argument value and cannot identify the model's exact mistake. The new claim,
+  argument value and cannot identify the model's exact mistake. Offline
+  synthetic validation reproduces this same safe code/path for a missing or
+  unsupported change `kind`; an empty requirements patch has a deeper path.
+  This narrows the next offline check to discriminator handling without
+  rewriting the original evidence. The new claim,
   report/replay, PostgreSQL schema and Temporal history remain. A two-pass
   read-only post-run audit matched all 22 raw-row tables, replay hash, execution
   Run ID and Temporal rejection marker. No new unknown or quality pass arose.

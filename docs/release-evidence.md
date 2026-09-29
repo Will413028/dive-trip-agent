@@ -11,7 +11,7 @@ Release acceptance 尚未通過，沒有 public deployment。Public repository �
 0. **Python／Temporal 核心重構：已完成本機切換與遠端 Fixture CI。** 產品等價、帳務／歷史、跨程序故障、完整離線gates及獨立review已通過；原demo備份還原演練、migration與持久重啟已驗證。精確範圍見 [核心重構](architecture-refactor.md)。新版CI同SHA完整gate通過，不代表真模型品質。
 
 1. **Fixture 穩定性：新版指定版本完整 gate 已通過。** `bfaafdc` 同次 CI 的結果與 skip 見 Latest checkpoint；舊本機逾時根因及跨環境穩定性未證實。Action runtime deprecation 仍待維護升級與重新驗證；後續程式修改須跑 affected checks，不能沿用舊測試數當新 revision 通過。
-2. **新版真模型品質（Task 11）：未完成，原 30 案入口及兩次獨立單案 probe 均已停止。** 原入口首案第二次模型呼叫出現未知用量，停於 `UNKNOWN_USAGE_STOP`；1 案失敗、29 案未送。首個 Free-only probe 在 4 次已知用量呼叫後工具參數被拒；第二個在首呼叫即被拒，均停於 `FAILED_RUN_STOP`，均不計入 30 案品質驗收。三個 claim 與原始證據均保留，未進入內容雙審；詳下方 Latest checkpoint。不得重開停止 claim、抹掉 unknown 或自動重試；下一步先離線分析固定診斷與工具契約，再另定真模型實驗範圍與授權。
+2. **新版真模型品質（Task 11）：未完成，原 30 案入口及兩次獨立單案 probe 均已停止。** 原入口首案第二次模型呼叫出現未知用量，停於 `UNKNOWN_USAGE_STOP`；1 案失敗、29 案未送。首個 Free-only probe 在 4 次已知用量呼叫後工具參數被拒；第二個在首呼叫即被拒，均停於 `FAILED_RUN_STOP`，均不計入 30 案品質驗收。三個 claim 與原始證據均保留，未進入內容雙審；詳下方 Latest checkpoint。離線合成對照已把第二次的固定診斷縮到 change kind 辨識；下一步評估是否細分不含原值的私有診斷與合成契約測試，再另定真模型實驗範圍與授權，不重開停止 claim 或抹掉 unknown。
 3. **獨立版控與遠端 CI：新版基線已完成。** Repository 已公開，`bfaafdc` 的 [fixture job 及全部 steps](https://github.com/Will413028/dive-trip-agent/actions/runs/36610177552) success；公開原始碼與 CI 不代表部署。維持 [public fixture／私有歷史契約](evaluation.md#closed-world-history-integrity)，原始證據仍在 ignored local storage。
 4. **公開部署與維運（Task 12）：未完成。** 完成下方 Public release 待填欄位：正式啟動、public URL、可信 ingress/proxy/IP、secret／預算設定、清理排程／告警、備份還原、kill-switch／rollback，取得部署授權後才開放。來源真實性、價格有效期、素材授權及 hosted runtime 須另驗，不能以本機腳本或景點座標查核代替。
 5. **新版真模型展示（Task 12）：未完成。** 沿用同次有界驗收證據，不為影片額外發送，不把 fixture／舊 replay 改標 live。維持一般規劃、鎖住宿但預算不足、查詢失敗／費用待確認三組 demo；重設只影響目前展示 session。案例頁說明本人貢獻、系統界線、示範資料、架構、測試與失敗處理，影片不取代公開 demo。
@@ -82,6 +82,8 @@ Python runtime 新增有界私有工具參數診斷：Pydantic 拒絕時只保�
 程式 `bfaafdc` 的 [Fixture CI run 36610177552](https://github.com/Will413028/dive-trip-agent/actions/runs/36610177552) 唯一 job 與 **27 steps 全 success**：3196 unit／108 files、390 integration／13 live skipped、272 backend、67 production browser／5 skipped；靜態檢查、build 與 CI disposable DB 清理成功。本機受影響 integration 11 passed／1 live skipped；完整本機 integration 曾因 5 秒期限逾時，沒有拿局部重跑冒充整批通過。正式 dispatch 前兩輪唯讀查核第一個 probe 的完整 22 表及 Temporal 歷史，累計 **45 invocations／67 model calls／5 historical unknown receipts**；source manifest、owned lease 與新 claim 空缺查核通過。Cloudflare 帳戶顯示 Workers Free active，dispatch 前今日用量 **801.11／10,000 Neurons**；[官方 Free 規則](https://developers.cloudflare.com/workers-ai/platform/pricing/) 超額會拒絕而非計費。
 
 實際只送 **1 invocation／1 model call**，用量完整（**1313 tokens**、帳本參考成本 **165 micros**），沒有新增 unknown；當次累計變為 **46 invocations／68 model calls**，原有 5 筆 unknown 仍保守保留。第一個 model step 的 `validate_changes` 候選 1 在接受工具前被拒：私有固定診斷為 `invalid_value`、白名單路徑 `changes.*`，不保存原始參數；Temporal 保留 `AGENT_TOOL_ARGUMENTS_REJECTED`，工具完成數為 0。run 失敗並停於 `FAILED_RUN_STOP`，`diagnosticComplete=false`、`evaluationGatePassed=false`；診斷只能定位到變更項目，不能倒推出模型產生的值或根因。Cloudflare 事後 dashboard 為 **816.06／10,000 Neurons**，仍在 Free 額度內。
+
+事後只用合成參數重現同一個固定診斷：`changes` 項目缺 `kind` 與 `kind` 不受支援都會落在 `invalid_value changes.*`；空的 requirements patch 則有更深的路徑。因此可把離線檢查聚焦在 change kind 辨識，仍無法判定這次模型實際輸出哪一種，也不能回填舊證據。
 
 新永久 claim、私有 report／replay、隔離 PostgreSQL schema 與 Temporal SQLite 均保留；事後在 owned lease 下兩輪唯讀重查：舊歷史一致，新 run 的 **22 表完整 row fingerprint**、replay hash、Temporal execution Run ID 與拒絕 marker 均相符，source manifest 未漂移。這個 claim 已消耗，不再重送；完整 30 案與獨立內容審查仍缺。來源／沿用判斷見 [evaluation](evaluation.md#closed-world-history-integrity)。
 
