@@ -415,13 +415,21 @@ Provider diagnostics are deliberately limited:
   model step's tool arguments were rejected, and Temporal retained
   `AGENT_TOOL_ARGUMENTS_REJECTED`. The claim, report, PostgreSQL schema and
   Temporal SQLite remain; no new unknown usage or quality pass was recorded.
-- The next Free-only `cloudflare-probe-2` entry is a distinct one-shot technical
+- The second Free-only `cloudflare-probe-2` entry is a distinct one-shot technical
   scope for `unknown-cost`, one start and at most seven model calls. Its pinned
   private carry includes the failed first probe's exact report/replay, all 22
   retained PostgreSQL tables and the Temporal execution/argument marker, as
   well as the preceding nine scopes. A failed preflight still consumes its
   claim; an attempted run retains its own DB and Temporal evidence. Even a
-  technically complete result leaves the thirty-case quality gate false.
+  technically complete result leaves the thirty-case quality gate false. The
+  2026-09-30 attempt used one invocation and one known-usage call, then stopped
+  at `FAILED_RUN_STOP`: the first `validate_changes` candidate was rejected
+  before any tool completed. The new bounded private diagnostic says
+  `invalid_value` at `changes.*` for candidate ordinal 1; it contains no raw
+  argument value and cannot identify the model's exact mistake. The new claim,
+  report/replay, PostgreSQL schema and Temporal history remain. A two-pass
+  read-only post-run audit matched all 22 raw-row tables, replay hash, execution
+  Run ID and Temporal rejection marker. No new unknown or quality pass arose.
 
 - New private REST diagnostics permit provider plus locally selected
   `request`, `call-start`, `fetch`, `body-read`, `body-json`, `evidence`,

@@ -10,9 +10,9 @@ Release acceptance 尚未通過，沒有 public deployment。Public repository �
 
 0. **Python／Temporal 核心重構：已完成本機切換與遠端 Fixture CI。** 產品等價、帳務／歷史、跨程序故障、完整離線gates及獨立review已通過；原demo備份還原演練、migration與持久重啟已驗證。精確範圍見 [核心重構](architecture-refactor.md)。新版CI同SHA完整gate通過，不代表真模型品質。
 
-1. **Fixture 穩定性：新版指定版本完整 gate 已通過。** `a4fc385` 同次 CI 的結果與 skip 見 Latest checkpoint；舊本機逾時根因及跨環境穩定性未證實。Action runtime deprecation 仍待維護升級與重新驗證；後續程式修改須跑 affected checks，不能沿用舊測試數當新 revision 通過。
-2. **新版真模型品質（Task 11）：未完成，兩次獨立 diagnostic 均已停止。** 原 30 案入口首案第二次模型呼叫出現未知用量，停於 `UNKNOWN_USAGE_STOP`；1 案失敗、29 案未送。另經授權的 Free-only 單案 probe 在 4 次用量完整的模型呼叫後，因工具參數被拒而停於 `FAILED_RUN_STOP`；它不計入 30 案品質驗收。兩個 claim 及原始證據均保留，均未進入內容雙審；詳下方 Latest checkpoint。不得重開停止 claim、抹掉 unknown 或自動重試；新的模型品質實驗須另定範圍與授權。
-3. **獨立版控與遠端 CI：新版基線已完成。** Repository 已公開，`a4fc385` 的 [fixture job 及全部 steps](https://github.com/Will413028/dive-trip-agent/actions/runs/36590117428) success；公開原始碼與 CI 不代表部署。維持 [public fixture／私有歷史契約](evaluation.md#closed-world-history-integrity)，原始證據仍在 ignored local storage。
+1. **Fixture 穩定性：新版指定版本完整 gate 已通過。** `bfaafdc` 同次 CI 的結果與 skip 見 Latest checkpoint；舊本機逾時根因及跨環境穩定性未證實。Action runtime deprecation 仍待維護升級與重新驗證；後續程式修改須跑 affected checks，不能沿用舊測試數當新 revision 通過。
+2. **新版真模型品質（Task 11）：未完成，原 30 案入口及兩次獨立單案 probe 均已停止。** 原入口首案第二次模型呼叫出現未知用量，停於 `UNKNOWN_USAGE_STOP`；1 案失敗、29 案未送。首個 Free-only probe 在 4 次已知用量呼叫後工具參數被拒；第二個在首呼叫即被拒，均停於 `FAILED_RUN_STOP`，均不計入 30 案品質驗收。三個 claim 與原始證據均保留，未進入內容雙審；詳下方 Latest checkpoint。不得重開停止 claim、抹掉 unknown 或自動重試；下一步先離線分析固定診斷與工具契約，再另定真模型實驗範圍與授權。
+3. **獨立版控與遠端 CI：新版基線已完成。** Repository 已公開，`bfaafdc` 的 [fixture job 及全部 steps](https://github.com/Will413028/dive-trip-agent/actions/runs/36610177552) success；公開原始碼與 CI 不代表部署。維持 [public fixture／私有歷史契約](evaluation.md#closed-world-history-integrity)，原始證據仍在 ignored local storage。
 4. **公開部署與維運（Task 12）：未完成。** 完成下方 Public release 待填欄位：正式啟動、public URL、可信 ingress/proxy/IP、secret／預算設定、清理排程／告警、備份還原、kill-switch／rollback，取得部署授權後才開放。來源真實性、價格有效期、素材授權及 hosted runtime 須另驗，不能以本機腳本或景點座標查核代替。
 5. **新版真模型展示（Task 12）：未完成。** 沿用同次有界驗收證據，不為影片額外發送，不把 fixture／舊 replay 改標 live。維持一般規劃、鎖住宿但預算不足、查詢失敗／費用待確認三組 demo；重設只影響目前展示 session。案例頁說明本人貢獻、系統界線、示範資料、架構、測試與失敗處理，影片不取代公開 demo。
 
@@ -75,11 +75,15 @@ Python runtime 新增有界私有工具參數診斷：Pydantic 拒絕時只保�
 
 程式 SHA `a4fc385` 的 [Fixture CI run 36590117428](https://github.com/Will413028/dive-trip-agent/actions/runs/36590117428) 唯一 job 及全部 steps success：**3121 unit／106 files、389 integration／12 live skipped、272 backend、67 production browser／5 skipped**；固定工具鏈、Ruff、mypy、contracts、前端 lint／typecheck、build 與當次 disposable DB 清理也成功。這輪沒有 live 模型測試或品質通過結論。
 
-### 2026-09-30 第二次 Free-only 單案技術 probe（準備中）
+### 2026-09-30 第二次 Free-only 單案技術 probe（已停止）
 
 本輪授權範圍固定為合成 `unknown-cost`，最多 **1 invocation／7 model calls**，只用 Cloudflare Workers AI Free 額度；不算 Task 11 的 30 案品質通過。新入口 `cloudflare-probe-2` 使用獨立永久 claim，先對帳原九範圍與已停止的第一個 probe、source manifest、quota、owned lease，再讀 generation capability。舊 claim、report、unknown、schema 與 Temporal history 不回填或重試。
 
-目前只完成新入口與私有歷史 profile 的準備：第一個 probe 的完整 22 表及 Temporal 歷史經兩輪唯讀比對，累計 **45 invocations／67 model calls／5 historical unknown receipts**。此數值來自當次 `readCloudflarePythonProbeCarry`，不是雲端剩餘 Free 額度。新 claim 尚未建立、沒有新模型呼叫；正式 dispatch 以前仍需固定 revision 的完整 Fixture CI、Free 方案查核及再次完整歷史 preflight。來源／沿用判斷見 [evaluation](evaluation.md#closed-world-history-integrity)。
+程式 `bfaafdc` 的 [Fixture CI run 36610177552](https://github.com/Will413028/dive-trip-agent/actions/runs/36610177552) 唯一 job 與 **27 steps 全 success**：3196 unit／108 files、390 integration／13 live skipped、272 backend、67 production browser／5 skipped；靜態檢查、build 與 CI disposable DB 清理成功。本機受影響 integration 11 passed／1 live skipped；完整本機 integration 曾因 5 秒期限逾時，沒有拿局部重跑冒充整批通過。正式 dispatch 前兩輪唯讀查核第一個 probe 的完整 22 表及 Temporal 歷史，累計 **45 invocations／67 model calls／5 historical unknown receipts**；source manifest、owned lease 與新 claim 空缺查核通過。Cloudflare 帳戶顯示 Workers Free active，dispatch 前今日用量 **801.11／10,000 Neurons**；[官方 Free 規則](https://developers.cloudflare.com/workers-ai/platform/pricing/) 超額會拒絕而非計費。
+
+實際只送 **1 invocation／1 model call**，用量完整（**1313 tokens**、帳本參考成本 **165 micros**），沒有新增 unknown；當次累計變為 **46 invocations／68 model calls**，原有 5 筆 unknown 仍保守保留。第一個 model step 的 `validate_changes` 候選 1 在接受工具前被拒：私有固定診斷為 `invalid_value`、白名單路徑 `changes.*`，不保存原始參數；Temporal 保留 `AGENT_TOOL_ARGUMENTS_REJECTED`，工具完成數為 0。run 失敗並停於 `FAILED_RUN_STOP`，`diagnosticComplete=false`、`evaluationGatePassed=false`；診斷只能定位到變更項目，不能倒推出模型產生的值或根因。Cloudflare 事後 dashboard 為 **816.06／10,000 Neurons**，仍在 Free 額度內。
+
+新永久 claim、私有 report／replay、隔離 PostgreSQL schema 與 Temporal SQLite 均保留；事後在 owned lease 下兩輪唯讀重查：舊歷史一致，新 run 的 **22 表完整 row fingerprint**、replay hash、Temporal execution Run ID 與拒絕 marker 均相符，source manifest 未漂移。這個 claim 已消耗，不再重送；完整 30 案與獨立內容審查仍缺。來源／沿用判斷見 [evaluation](evaluation.md#closed-world-history-integrity)。
 
 ### 2026-09-27 Historical ADK fixture CI
 
@@ -124,8 +128,8 @@ Skip 不算 pass：11 項 integration 為真模型 opt-in；5 項 browser 為兩
 | 固定 runtime | 已指定版本 | Node 26.8.1、pnpm 11.2.2；hosted runtime 未驗證，見 [toolchain](toolchain.md) |
 | 核心回答契約 | 已完成離線接線 | AnswerPlan → compiler → AcceptedAnswer；交易後固定 receipt、零模型 resume、不可變 replay，見 [model adapter](model-adapter.md) |
 | 本機展示 | CI 的 production fixture browser 通過 | [Demo 腳本](demo-script.md)；影片／單案 smoke 不作完整品質證明 |
-| Fixture CI | Passed at `09d339b` | [本輪 Run](https://github.com/Will413028/dive-trip-agent/actions/runs/36488396679) 的唯一 job 及全部 steps 成功；範圍與 skip 見上方 |
-| Live quality | 未通過；兩次 diagnostic 均已停止 | 原 30 案入口首案新增未知用量；獨立單案 probe 四筆用量已知但工具參數被拒。兩個 claim 均已消耗；仍需完整 3×10、獨立任務／內容 review 與已知 usage，見 [evaluation](evaluation.md#coverage-and-acceptance) |
+| Fixture CI | Passed at `bfaafdc` | [本輪 Run](https://github.com/Will413028/dive-trip-agent/actions/runs/36610177552) 的唯一 job 及全部 27 steps 成功；範圍與 skip 見上方 |
+| Live quality | 未通過；原入口與兩次單案 probe 均已停止 | 原 30 案入口首案新增未知用量；兩次單案 probe 用量已知但工具參數被拒。三個 claim 均已消耗；仍需完整 3×10、獨立任務／內容 review 與已知 usage，見 [evaluation](evaluation.md#coverage-and-acceptance) |
 | Public runtime | Blocker | Hosted startup、可信 ingress/proxy/IP、secret loader、budget、kill-switch 未驗收，見 [deployment](deployment.md) |
 | Retention operations | Blocker | 有本機有界 cleanup；hosted adapter、supervised schedule、告警與 backlog 證據不足 |
 | Backup / restore | Blocker | 未有公開環境 backup policy、restore 演練及刪除／撤銷／成本 reconciliation 證據 |
