@@ -10,9 +10,9 @@ Release acceptance 尚未通過，沒有 public deployment。Public repository �
 
 0. **Python／Temporal 核心重構：已完成本機切換與遠端 Fixture CI。** 產品等價、帳務／歷史、跨程序故障、完整離線gates及獨立review已通過；原demo備份還原演練、migration與持久重啟已驗證。精確範圍見 [核心重構](architecture-refactor.md)。新版CI同SHA完整gate通過，不代表真模型品質。
 
-1. **Fixture 穩定性：新版指定版本完整 gate 已通過。** `09d339b` 同次 CI 的結果與 skip 見 Latest checkpoint；舊本機逾時根因及跨環境穩定性未證實。Action runtime deprecation 仍待維護升級與重新驗證；後續程式修改須跑 affected checks，不能沿用舊測試數當新 revision 通過。
+1. **Fixture 穩定性：新版指定版本完整 gate 已通過。** `a4fc385` 同次 CI 的結果與 skip 見 Latest checkpoint；舊本機逾時根因及跨環境穩定性未證實。Action runtime deprecation 仍待維護升級與重新驗證；後續程式修改須跑 affected checks，不能沿用舊測試數當新 revision 通過。
 2. **新版真模型品質（Task 11）：未完成，兩次獨立 diagnostic 均已停止。** 原 30 案入口首案第二次模型呼叫出現未知用量，停於 `UNKNOWN_USAGE_STOP`；1 案失敗、29 案未送。另經授權的 Free-only 單案 probe 在 4 次用量完整的模型呼叫後，因工具參數被拒而停於 `FAILED_RUN_STOP`；它不計入 30 案品質驗收。兩個 claim 及原始證據均保留，均未進入內容雙審；詳下方 Latest checkpoint。不得重開停止 claim、抹掉 unknown 或自動重試；新的模型品質實驗須另定範圍與授權。
-3. **獨立版控與遠端 CI：新版基線已完成。** Repository 已公開，`09d339b` 的 [fixture job 及全部 steps](https://github.com/Will413028/dive-trip-agent/actions/runs/36488396679) success；公開原始碼與 CI 不代表部署。維持 [public fixture／私有歷史契約](evaluation.md#closed-world-history-integrity)，原始證據仍在 ignored local storage。
+3. **獨立版控與遠端 CI：新版基線已完成。** Repository 已公開，`a4fc385` 的 [fixture job 及全部 steps](https://github.com/Will413028/dive-trip-agent/actions/runs/36590117428) success；公開原始碼與 CI 不代表部署。維持 [public fixture／私有歷史契約](evaluation.md#closed-world-history-integrity)，原始證據仍在 ignored local storage。
 4. **公開部署與維運（Task 12）：未完成。** 完成下方 Public release 待填欄位：正式啟動、public URL、可信 ingress/proxy/IP、secret／預算設定、清理排程／告警、備份還原、kill-switch／rollback，取得部署授權後才開放。來源真實性、價格有效期、素材授權及 hosted runtime 須另驗，不能以本機腳本或景點座標查核代替。
 5. **新版真模型展示（Task 12）：未完成。** 沿用同次有界驗收證據，不為影片額外發送，不把 fixture／舊 replay 改標 live。維持一般規劃、鎖住宿但預算不足、查詢失敗／費用待確認三組 demo；重設只影響目前展示 session。案例頁說明本人貢獻、系統界線、示範資料、架構、測試與失敗處理，影片不取代公開 demo。
 
@@ -72,6 +72,8 @@ Domain unit tests 驗費用與規則；真 PostgreSQL integration tests 驗交�
 Python runtime 新增有界私有工具參數診斷：Pydantic 拒絕時只保留固定工具名、批次內序位、去重後的 issue code 與白名單 path；與 `arguments_rejected` 同交易記入 model step journal，私有 usage evidence 可讀。公開事件、Temporal 固定失敗碼、整批拒絕與帳務結算規則維持原契約。migration021 為 nullable 新欄位，歷史列不回填；前述停止案例沒有原始參數或此新增診斷，不能倒推根因。本次只使用合成資料驗證，沒有新真模型 dispatch。
 
 本機最後同次 `pnpm test:backend` **272 passed**；Ruff、strict mypy（85 個 source files）、`contracts:check` 與 `git diff --check` 通過。整合反例確認同交易保存的診斷不含模型值、任意欄位名或公開事件，既有未知用量結算仍保守。獨立設計複查的兩項發現已修正：安全投影先去重再截斷，並加候選工具序位。執行前核對 `dive_trip_test.workbench_demo` 為 migration020、無活動 writer，完成 ignored local custom dump 並驗證 archive 可讀，才套 migration021；事後 ledger 為 21 筆、欄位為 nullable JSONB，demo model step 為 0 筆。這是本機離線驗證，固定版本遠端 Fixture CI 結果另列。
+
+程式 SHA `a4fc385` 的 [Fixture CI run 36590117428](https://github.com/Will413028/dive-trip-agent/actions/runs/36590117428) 唯一 job 及全部 steps success：**3121 unit／106 files、389 integration／12 live skipped、272 backend、67 production browser／5 skipped**；固定工具鏈、Ruff、mypy、contracts、前端 lint／typecheck、build 與當次 disposable DB 清理也成功。這輪沒有 live 模型測試或品質通過結論。
 
 ### 2026-09-27 Historical ADK fixture CI
 
