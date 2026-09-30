@@ -295,6 +295,14 @@ Design-review累積ledger：B replay kind ladder＝改，以fixed policy／order
 
 下一步先離線檢視NON_TOOL_PARTS的可觀測邊界與既有tests，評估是否需要不保存原值的固定parts類別，再決定有界實驗；不自動建下一probe、不放寬strict AnswerPlan或上限、不用已消耗grant重開。
 
+### 非工具 parts 固定分類（2026-10-01）
+
+probe-7舊NON_TOOL_PARTS只證明非空parts且沒有ToolCallPart，不回填其內容種類。原始值保存／固定類別／直接prompt修改三種取捨後，採用SDK型別固定分類：NON_TOOL_TEXT、NON_TOOL_THINKING、NON_TOOL_TEXT_THINKING、NON_TOOL_OTHER。OTHER優先、順序不影響結果；text空字串仍依型別分類，不讀文字、metadata或provider detail。mixed／non-tool共用同一型別分類器，前綴僅由固定boolean分支決定；empty優先、純text仍拒絕，不將文字當final_answer。
+
+新增純分類回歸先7 failed；保留native Temporal／DB整合測試驗證private固定碼、public AGENT_FAILED、不保存原值、未知成本不回填、零提案／版本改動。首份完整affected103案例結果102 passed／1 failed：既有duplicate案Temporal dev server啟動超過原5秒期限，尚未執行Agent，保留log、不宣稱通過。相同完整命令第二輪仍102 passed／1 failed：既有mixed-other案同樣Temporal啟動5秒期限，尚未執行Agent；兩輪完整命令均非通過，不拼湊102+102，新增分類案例均通過，不再重跑或放寬期限。Ruff與strict mypy85source通過；獨立correctness／privacy review無findings，`git grep -n AGENT_MODEL_RESPONSE_NON_TOOL_PARTS -- backend/src backend/tests` 無結果（exit1），tracked source/tests沒有該固定consumer，既有planning DIAGNOSTIC_INVALID守門不受影響。
+
+本輪零真模型呼叫、零新claim。新分類不能證明probe-7舊回覆的語義，也未授權新的dispatch；新來源完整CI仍待驗證；通過後才評估是否準備新有界入口。
+
 ## P6 CI Actions runtime 維護
 
 等待上述 CI 期間已做唯讀來源盤點，未修改 workflow。官方候選版本為 [checkout v7.0.1](https://github.com/actions/checkout/releases/tag/v7.0.1)、[setup-node v7.0.0](https://github.com/actions/setup-node/releases/tag/v7.0.0)、[pnpm/action-setup v6.1.0](https://github.com/pnpm/action-setup/releases/tag/v6.1.0)，其 tag 對應的 `action.yml` 均宣告 Node 24。對應 commit 為 `3d3c42e5aac5ba805825da76410c181273ba90b1`、`820762786026740c76f36085b0efc47a31fe5020`、`ea17c68df8912ef543352723c149a84f56e3d413`（pnpm annotated tag 已解至 commit）；實際升級前仍查核當下版本、完整差異與 runner 支援。現行固定 setup-python／setup-uv 已宣告 Node 24，runtime 邊界已有保護，無需為此換版。

@@ -282,8 +282,11 @@ def fixture_response(messages: list[ModelMessage], info: AgentInfo) -> ModelResp
     )
 
 
-def mixed_response_code(response: ModelResponse) -> str:
+def response_parts_code(response: ModelResponse, *, has_tools: bool) -> str:
     """Classify rejected SDK parts without inspecting contents or provider metadata."""
+    prefix = (
+        "AGENT_MODEL_RESPONSE_MIXED" if has_tools else "AGENT_MODEL_RESPONSE_NON_TOOL"
+    )
     text = False
     thinking = False
     for part in response.parts:
@@ -294,14 +297,22 @@ def mixed_response_code(response: ModelResponse) -> str:
         elif isinstance(part, ThinkingPart):
             thinking = True
         else:
-            return "AGENT_MODEL_RESPONSE_MIXED_OTHER"
+            return f"{prefix}_OTHER"
     if text and thinking:
-        return "AGENT_MODEL_RESPONSE_MIXED_TEXT_THINKING"
+        return f"{prefix}_TEXT_THINKING"
     if text:
-        return "AGENT_MODEL_RESPONSE_MIXED_TEXT"
+        return f"{prefix}_TEXT"
     if thinking:
-        return "AGENT_MODEL_RESPONSE_MIXED_THINKING"
+        return f"{prefix}_THINKING"
     return "AGENT_MODEL_RESPONSE_DIAGNOSTIC_INVALID"
+
+
+def mixed_response_code(response: ModelResponse) -> str:
+    return response_parts_code(response, has_tools=True)
+
+
+def non_tool_response_code(response: ModelResponse) -> str:
+    return response_parts_code(response, has_tools=False)
 
 
 class GuardedFixtureModel(WrapperModel):
@@ -361,7 +372,7 @@ class GuardedFixtureModel(WrapperModel):
         if not response.parts:
             raise DomainError("AGENT_MODEL_RESPONSE_EMPTY_PARTS")
         if not any(isinstance(part, ToolCallPart) for part in response.parts):
-            raise DomainError("AGENT_MODEL_RESPONSE_NON_TOOL_PARTS")
+            raise DomainError(non_tool_response_code(response))
         if any(not isinstance(part, ToolCallPart) for part in response.parts):
             if any(
                 not isinstance(part, (ToolCallPart, TextPart))

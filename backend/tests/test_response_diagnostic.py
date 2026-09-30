@@ -32,7 +32,10 @@ from dive_trip.modules.usage.provider import GEMINI_MODEL, ProviderBinding
     ("mode", "code", "calls"),
     [
         ("empty", "AGENT_MODEL_RESPONSE_EMPTY_PARTS", 1),
-        ("text", "AGENT_MODEL_RESPONSE_NON_TOOL_PARTS", 1),
+        ("text", "AGENT_MODEL_RESPONSE_NON_TOOL_TEXT", 1),
+        ("non-tool-thinking", "AGENT_MODEL_RESPONSE_NON_TOOL_THINKING", 1),
+        ("non-tool-both", "AGENT_MODEL_RESPONSE_NON_TOOL_TEXT_THINKING", 1),
+        ("non-tool-other", "AGENT_MODEL_RESPONSE_NON_TOOL_OTHER", 1),
         ("mixed-invalid", "AGENT_TOOL_ARGUMENTS_REJECTED", 1),
         ("thinking", "AGENT_MODEL_RESPONSE_MIXED_THINKING", 1),
         ("both", "AGENT_MODEL_RESPONSE_MIXED_TEXT_THINKING", 1),
@@ -92,6 +95,19 @@ async def test_private_response_codes_do_not_escape_or_authorize_settlement(
             return ModelResponse(parts=[])
         if mode == "text":
             return ModelResponse(parts=[TextPart("SECRET_RESPONSE_VALUE")])
+        if mode.startswith("non-tool-"):
+            parts = {
+                "non-tool-thinking": [ThinkingPart("SECRET_RESPONSE_VALUE")],
+                "non-tool-both": [
+                    TextPart("SECRET_RESPONSE_VALUE"),
+                    ThinkingPart("SECRET_RESPONSE_VALUE"),
+                ],
+                "non-tool-other": [
+                    TextPart("SECRET_RESPONSE_VALUE"),
+                    CompactionPart("SECRET_RESPONSE_VALUE"),
+                ],
+            }[mode]
+            return ModelResponse(parts=parts)
         if mode == "mixed-invalid":
             return ModelResponse(
                 parts=[
@@ -305,3 +321,34 @@ async def test_mixed_text_runs_validated_tools_without_persisting_or_reusing_pro
                 == trip.version
             )
         assert result is not None
+
+
+@pytest.mark.parametrize(
+    ("parts", "code"),
+    [
+        ([TextPart("SECRET_RESPONSE_VALUE")], "AGENT_MODEL_RESPONSE_NON_TOOL_TEXT"),
+        ([TextPart("")], "AGENT_MODEL_RESPONSE_NON_TOOL_TEXT"),
+        (
+            [ThinkingPart("SECRET_RESPONSE_VALUE")],
+            "AGENT_MODEL_RESPONSE_NON_TOOL_THINKING",
+        ),
+        (
+            [TextPart(""), ThinkingPart("")],
+            "AGENT_MODEL_RESPONSE_NON_TOOL_TEXT_THINKING",
+        ),
+        (
+            [CompactionPart("SECRET_RESPONSE_VALUE")],
+            "AGENT_MODEL_RESPONSE_NON_TOOL_OTHER",
+        ),
+        (
+            [ThinkingPart(""), TextPart(""), CompactionPart("")],
+            "AGENT_MODEL_RESPONSE_NON_TOOL_OTHER",
+        ),
+        ([], "AGENT_MODEL_RESPONSE_DIAGNOSTIC_INVALID"),
+    ],
+)
+def test_non_tool_classification_uses_only_known_types(parts, code):
+    response = ModelResponse(parts=parts)
+    assert agent_runtime.non_tool_response_code(response) == code
+    response.parts.reverse()
+    assert agent_runtime.non_tool_response_code(response) == code

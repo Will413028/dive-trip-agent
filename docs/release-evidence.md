@@ -109,6 +109,10 @@ Design-review的replay kind ladder已改成fixed policy descriptor共用bounded-
 
 無提案／decision／版本或snapshot變更、品質gate=false；claim消耗、不重試，原始report／replay／DB22表／Temporal保留。完整事後雙輪rows／replay／paired execution／source相符，原十六scopes仍一致。含本次累計52invocations／89calls／10unknown，reference charged1867661、observed318609tokens；不是Free餘額。下一步唯讀／離線評估NON_TOOL_PARTS的固定診斷邊界，詳[P5單案結果](release-completion-plan.md#probe-7-當次單案結果2026-10-01)。
 
+### 2026-10-01 非工具 parts 離線分類
+
+在不保存原值下將新的非工具回覆分為固定TEXT／THINKING／TEXT_THINKING／OTHER；OTHER優先，與順序無關。舊probe-7泛碼不回填；接受條件、mixed行為、empty優先、公開事件、unknown／quota／重試不變。新增回歸先7 failed，Ruff／strict mypy85source與獨立privacy／correctness review通過；首份完整affected102 passed／1 failed（Temporal dev server啟動5秒期限，未進Agent），同份第二輪亦102 passed／1 failed（另一既有mixed-other案同樣啟動5秒期限）。兩輪都不算完整通過，不拼湊局部結果、不放寬期限；新增分類案例均通過。零真模型呼叫，完整來源CI仍需新revision驗證；詳[P5](release-completion-plan.md#非工具-parts-固定分類2026-10-01)。
+
 ### 2026-09-29 Free-only one-case probe stop
 
 獨立授權的 `unknown-cost` 技術 probe 以固定上限 **1 invocation／7 model calls** 執行。首個啟動嘗試在 claim 前發現舊 diagnostic 合法 replay sidecar 未納入唯一檔案清單，未送模型；修正並經 `09d339b` 完整 CI 後才建立新 claim。Free 方案查核及完整舊九範圍歷史、來源指紋、quota 的雙輪唯讀 preflight 通過。
