@@ -7,7 +7,7 @@ const invalid = (): never => { throw new Error('CLOUDFLARE_PYTHON_STORAGE_INVALI
 /** A single complete bounded raw-row capture. The caller pins the fingerprint
  * and its own expected call count; one extra selected call detects overflow. */
 export async function capturePythonRetainedDatabase(pool: Pool, profile: { retainedSchema: string },
-  expectedCalls: 1 | 2 | 4 | 7) {
+  expectedCalls: 1 | 2 | 4 | 6 | 7) {
   assertCloudflareAuditPool(pool);
   let client: PoolClient | undefined;
   try {

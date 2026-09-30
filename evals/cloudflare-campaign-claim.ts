@@ -54,9 +54,11 @@ const probe6Required = [...probe5Required, 'cloudflare-probe-5.claim', 'cloudfla
 const probe6Prior = () => new Set([...probe5Prior(), ...probe6Required]);
 const probe7Required = [...probe6Required, 'cloudflare-probe-6.claim', 'cloudflare-probe-6.json', 'cloudflare-python-probe-6-history.json'];
 const probe7Prior = () => new Set([...probe6Prior(), ...probe7Required]);
+const probe8Required = [...probe7Required, 'cloudflare-probe-7.claim', 'cloudflare-probe-7.json', 'cloudflare-python-probe-7-history.json'];
+const probe8Prior = () => new Set([...probe7Prior(), ...probe8Required]);
 const priorReplayStems = ['cloudflare-diagnostic', 'cloudflare-probe',
   'cloudflare-probe-2', 'cloudflare-probe-3', 'cloudflare-python-quality',
-  'cloudflare-probe-4', 'cloudflare-probe-5', 'cloudflare-probe-6'] as const;
+  'cloudflare-probe-4', 'cloudflare-probe-5', 'cloudflare-probe-6', 'cloudflare-probe-7'] as const;
 
 function describe<const P extends { stem: string; required: readonly string[];
   prior: Set<string>; campaign: RegExp; scope: string }>(policy: P) {
@@ -104,6 +106,9 @@ const policies = () => ({
   probe7: describe({ stem: 'cloudflare-probe-7', required: probe7Required, prior: probe7Prior(),
     campaign: /^cloudflare-(evaluation|patch|quality|revision|recovery|grounded|nonthinking|diagnostic|probe|python-quality|python-probe)/,
     scope: 'probe-7-unknown-cost-once-7-calls-1-invocation-free-only' }),
+  probe8: describe({ stem: 'cloudflare-probe-8', required: probe8Required, prior: probe8Prior(),
+    campaign: /^cloudflare-(evaluation|patch|quality|revision|recovery|grounded|nonthinking|diagnostic|probe|python-quality|python-probe)/,
+    scope: 'probe-8-unknown-cost-once-7-calls-1-invocation-free-only' }),
 } as const);
 
 /** Permanent one-shot claim with closed campaign policies, consumed even on preflight failure.

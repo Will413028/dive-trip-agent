@@ -301,7 +301,30 @@ probe-7舊NON_TOOL_PARTS只證明非空parts且沒有ToolCallPart，不回填其
 
 新增純分類回歸先7 failed；保留native Temporal／DB整合測試驗證private固定碼、public AGENT_FAILED、不保存原值、未知成本不回填、零提案／版本改動。首份完整affected103案例結果102 passed／1 failed：既有duplicate案Temporal dev server啟動超過原5秒期限，尚未執行Agent，保留log、不宣稱通過。相同完整命令第二輪仍102 passed／1 failed：既有mixed-other案同樣Temporal啟動5秒期限，尚未執行Agent；兩輪完整命令均非通過，不拼湊102+102，新增分類案例均通過，不再重跑或放寬期限。Ruff與strict mypy85source通過；獨立correctness／privacy review無findings，`git grep -n AGENT_MODEL_RESPONSE_NON_TOOL_PARTS -- backend/src backend/tests` 無結果（exit1），tracked source/tests沒有該固定consumer，既有planning DIAGNOSTIC_INVALID守門不受影響。
 
-本輪零真模型呼叫、零新claim。新分類不能證明probe-7舊回覆的語義，也未授權新的dispatch；新來源完整CI仍待驗證；通過後才評估是否準備新有界入口。
+本輪零真模型呼叫、零新claim。新分類不能證明probe-7舊回覆的語義，也未授權新的dispatch；來源 `0232f21131ba1c0300ada0a741659b23351c006a` 完整CI `36753103333`／唯一job `110016432836` 全27steps success。本機兩輪失敗仍保留，不由CI回填為本機通過。
+
+### probe-8 最後一次單案診斷入口準備（2026-10-01）
+
+使用者選定準備新入口，並確認只再做probe-8；取得結果後停止新增診斷入口，轉向修正prompt／工具策略或評估模型。準備不授權模型／credential呼叫；固定Free-only、Gemma4、synthetic unknown-cost，最多1 invocation／7calls，品質gate維持false。
+
+| 沿用機制 | 原始必要條件 | 今日從零設計 | 決定與重評條件 |
+| --- | --- | --- | --- |
+| 永久claim／獨立grant與fixed descriptor | 每次授權有界、停止不可重開、封閉inventory | 固定新scope與共用lifecycle | probe-8薄wrapper；不用已消耗claim，授權政策改變才重評 |
+| 原始profile pin／22表／Temporal pairedexecution | 本機單一信任邊界、歷史不可變、固定工具鏈 | bounded讀取＋不可變digest與專用版本adapter | 保存probe-7原泛碼；layout或Temporal格式改變需另定相容方案，不改pin |
+| 十七scopes兩輪完整capture／owned lease | 多pool、合作writer鎖、原始retained scopes | 全量雙輪核對、逐dispatch重查 | 沿用；不宣稱跨schema原子快照，歷史可寫時重評一致快照 |
+| quota與private failure分類 | 六工具七模型、usage先保存、unknown保守 | 原生迴圈＋固定SDK part type分類 | 不新增retry或parser fallback；診斷結果後轉策略，不再加入口 |
+| tool_choice required／enable_thinking false | 已固定SDK profile、strict output | 明確request參數與wire regression | already protected：provider_sdk與synthetic native-loop test驗證required；不重複補開關，provider能力改變再評 |
+
+- [x] probe-7 report／replay／raw22表／execution／原始6666248source雙輪一致，exclusive create ignored profile；不讀generation credential。
+- [x] 新fixed grant／claim／replay registry與campaign authority consumers；上限1／7，先完整歷史後generation。
+- [x] 完整十七scopes reader雙輪一致：52invocations／89calls／10unknown、1867661charged reference micros／318609observed tokens；剩48invocations／1132339reference micros，不是Free餘額。actual inventory dry接受且未建claim/report；profile-7 omission mutation預期1 failed／14 controls passed／841 deselected。
+- [x] focused996、完整 `pnpm test:unit --maxWorkers=1` 3938 passed／122files（109.84秒）、typecheck／lint；獨立隔離collector integration18 passed／1 live skip，容器停止、volumes保留。design-review無findings；獨立correctness／privacy review無blocker。
+- [ ] 新入口來源完整Fixture CI。
+- [ ] 當次模型授權＋當下Free／完整歷史查核後才執行一次；unknown／限流／技術／安全／任務失敗即停。
+
+原始profile bootstrap `/tmp/dive-trip-pin-probe7-history.mjs` exclusive create只執行一次，不可重跑。新reader `/tmp/dive-trip-probe8-carry-audit.mjs --verify`；inventory dry `/tmp/dive-trip-probe8-inventory-dry.mjs` 在候選claim open(wx)前攔截。profile omission在Vite程序內變異，不修改tracked source；rawprofile與身份不搬入public fixture。所有工具／quota／unknown與公開事件契約維持，本輪零generation credential讀取、零真模型呼叫、零新claim/report。
+
+指令檔對帳：`git ls-files '*AGENTS*' '*CLAUDE*'` 僅tracked AGENTS.md，產品規則未變；ignored current context新增1處probe-8準備pointer與停止新增入口規則。design-review：NO DESIGN FINDINGS，改0／記0／提0／駁回0，已檢查固定claim、adapter、完整rawrows、雙輪capture、quota、execution與authority。
 
 ## P6 CI Actions runtime 維護
 
