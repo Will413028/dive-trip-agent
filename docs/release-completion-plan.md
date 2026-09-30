@@ -276,14 +276,24 @@ probe-6 仍只有原 AGENT_TOOL_LIMIT，舊證據不回填，不由 synthetic �
 - [x] 新 grant／永久 claim／capability 與所有 consumers；required inventory 包含歷代 profiles、claim／report／replay。
 - [x] descriptor修正後actual inventory dry在claim open(wx)前攔截；清單接受，前後claim／report不存在，沒有讀generation credential。
 - [x] focused898；descriptor修正後完整 `pnpm test:unit --maxWorkers=1` 為3816 passed／120 files，原timeout不變。typecheck／lint、隔離integration17 passed／1 live skip及獨立design／correctness review通過。
-- [ ] exact source 完整 Fixture CI。
-- [ ] 當次模型授權與 Free／完整歷史查核後，才執行一次；新 unknown／限流／技術／安全／任務失敗即停。
+- [x] exact source `6666248a7d4f10ae36f1204d6ad4d226d5b6c640` 完整 Fixture CI `36747798681`／唯一job `109998322207` 全27steps success。
+- [x] 取得當次最多1 invocation／7 calls授權，token唯讀Free／完整歷史查核後只執行一次；按UNKNOWN_USAGE_STOP停止，claim已消耗。
 
 新 profile required omission 的程序內 mutation：1 failed／13 controls passed／757 deselected，tracked source未改；新入口會辨認缺少profile-6。首次focused因沿用舊exception assertion而20 failed／878 passed，修正test assertion後同一五檔898 passed。首份全unit為2 failed／3814 passed／120 files：既有SDK子程序命令失敗及tools declaration案5000ms timeout；根因未證實，保留log、不拼成通過。新descriptor完成後，整份unit以原timeout與單一worker重驗為3816 passed／120 files（211.45秒）；不拼湊局部結果，首輪根因未證實。typecheck／lint通過，當次唯一Compose的collector integration 17 passed／1 live skip；容器停止、volumes保留，未觸碰原始history DB。
 
 Design-review累積ledger：B replay kind ladder＝改，以fixed policy／ordered replay descriptors共用bounded reader，所有舊scope仍有正向／缺漏／額外／file-type控制；A歷史格式耦合漏列＝記入盤點表。複查無新findings，改1／記1／提0／駁回0。獨立correctness review無actionable bug；完整raw fingerprint／pins／outer雙輪capture對局部compare欄位已有保護（already protected），不重複造驗證。指令檔對帳只更新ignored新入口current pointer，產品規則不變。
 
 原始 profile bootstrap `node /tmp/dive-trip-pin-probe6-history.mjs` 只執行一次，不可重跑；原始結果以 ignored report定位，不能把public vectors當私有歷史。唯讀完整 reader：`node /tmp/dive-trip-probe7-carry-audit.mjs --verify`。舊claims均不重開；完整carry、inventory、quota保護不因只做一案省略。
+
+### probe-7 當次單案結果（2026-10-01）
+
+使用者授權上述單案上限，另明示以既有token查Free證據。瀏覽器工具故障後改為Cloudflare官方API唯讀查核：完整subscriptions回200，1頁／1筆，只有R2；沒有Workers Paid subscription。這是由完整subscription inventory推論Workers無付費方案，並非dashboard明示Free Active標籤；Workers default_usage_model=standard不能單獨證明Free。GraphQL當日UTC aggregate totalNeurons=315.0977996795655；官方每日免費10,000 Neurons、00:00 UTC重置。證據保存於ignored `provider-free-preflight-probe7.json`，不保存token；當次launcher驗日期／15分鐘時效與exact CI。
+
+來源CI全部27steps成功後，固定入口只執行1 invocation／6 model calls，按UNKNOWN_USAGE_STOP停止，沒有重試。前五次calculate_budget完成，第六模型activity固定碼 `AGENT_MODEL_RESPONSE_NON_TOOL_PARTS`：response.parts非空，但沒有ToolCallPart；尚未到tool-limit候選分類，不能由此反推文字內容或其他parts種類。原始模型內容未保存。六筆call tokens為1290／1417／1528／1653／1778／2007，合計9673；invocation actual cost仍null，保守charged183505reference micros，不回填unknown。
+
+無提案／decision／行程版本或snapshot變更，worker quiescent、evaluation lock釋放，品質gate=false。永久claim／report／replay、retained PostgreSQL22表與Temporal SQLite保留。完整雙輪事後查核raw rows／replay／pairedexecution／exact source相符，原十六scopes reader仍51 invocations／83calls／9unknown。納入本次累計52invocations／89calls／10unknown，charged1867661reference micros、observed318609tokens；剩餘48invocations／1132339reference micros，不能當provider剩餘Free額度。
+
+下一步先離線檢視NON_TOOL_PARTS的可觀測邊界與既有tests，評估是否需要不保存原值的固定parts類別，再決定有界實驗；不自動建下一probe、不放寬strict AnswerPlan或上限、不用已消耗grant重開。
 
 ## P6 CI Actions runtime 維護
 

@@ -101,7 +101,13 @@ Domain unit tests 驗費用與規則；真 PostgreSQL integration tests 驗交�
 
 新入口使用固定工具上限候選分類，仍只准synthetic unknown-cost、Cloudflare Free-only、固定Gemma 4、最多1 invocation／7 calls；準備不授權generation。原probe-6完整source／report／replay／22表／paired Temporal execution雙輪一致後，exclusive create保存ignored profile；完整十六scopes reader雙輪一致，累計51 invocations／83 calls、9 unknown保留，成本null不回填。actual inventory dry在claim open(wx)前攔截、零claim／report／generation credential；profile-6 omission mutation為1 failed／13 controls passed。
 
-Design-review的replay kind ladder已改成fixed policy descriptor共用bounded-reader迴圈，歷史版本adapter／DB與Temporal格式耦合記入盤點；改1／記1／提0／駁回0，複查無新findings。獨立correctness無actionable bug，ignored指令僅新增current pointer。focused898通過；首份全unit2 failed／3814 passed，既有SDK子程序與tools declaration失敗，根因未定。descriptor修正後完整 `pnpm test:unit --maxWorkers=1` **3816 passed／120 files**，原timeout不變；typecheck／lint通過，當次唯一Compose collector integration **17 passed／1 live skip**，只停止當次容器、volumes保留。沒有新模型呼叫；新入口來源完整CI待驗證，實際執行需當次明確授權、Free與完整歷史再查核。唯一順序見 [P5](release-completion-plan.md#probe-7-單案入口準備2026-10-01)。
+Design-review的replay kind ladder已改成fixed policy descriptor共用bounded-reader迴圈，歷史版本adapter／DB與Temporal格式耦合記入盤點；改1／記1／提0／駁回0，複查無新findings。獨立correctness無actionable bug，ignored指令僅新增current pointer。focused898通過；首份全unit2 failed／3814 passed，既有SDK子程序與tools declaration失敗，根因未定。descriptor修正後完整 `pnpm test:unit --maxWorkers=1` **3816 passed／120 files**，原timeout不變；typecheck／lint通過，當次唯一Compose collector integration **17 passed／1 live skip**，只停止當次容器、volumes保留。準備階段沒有新模型呼叫。來源 `6666248a7d4f10ae36f1204d6ad4d226d5b6c640` 的[完整CI36747798681](https://github.com/Will413028/dive-trip-agent/actions/runs/36747798681)唯一job `109998322207`、全27steps success。唯一順序見 [P5](release-completion-plan.md#probe-7-單案入口準備2026-10-01)。
+
+### 2026-10-01 probe-7 已停止
+
+當次單案授權與token唯讀查核後執行1 invocation／6 model calls，按UNKNOWN_USAGE_STOP停止。完整subscription inventory只有R2、無Workers Paid，Free判定為API清單推論；當日UTC Neurons約315.10／10000。前五次calculate_budget完成，第六模型activity固定碼 `AGENT_MODEL_RESPONSE_NON_TOOL_PARTS`：非空parts沒有ToolCallPart，原始內容未保存，尚未觸及tool-limit新分類。六筆call用量共9673tokens完整保存；invocation actual cost仍null、保守charge183505reference micros。
+
+無提案／decision／版本或snapshot變更、品質gate=false；claim消耗、不重試，原始report／replay／DB22表／Temporal保留。完整事後雙輪rows／replay／paired execution／source相符，原十六scopes仍一致。含本次累計52invocations／89calls／10unknown，reference charged1867661、observed318609tokens；不是Free餘額。下一步唯讀／離線評估NON_TOOL_PARTS的固定診斷邊界，詳[P5單案結果](release-completion-plan.md#probe-7-當次單案結果2026-10-01)。
 
 ### 2026-09-29 Free-only one-case probe stop
 
