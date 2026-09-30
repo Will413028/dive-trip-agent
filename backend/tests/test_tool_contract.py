@@ -214,6 +214,62 @@ def test_final_output_counts_as_tool_and_is_exclusive():
         )
 
 
+@pytest.mark.parametrize(
+    ("candidate", "suffix"),
+    [
+        ([call("final_answer")], "FINAL_ONLY"),
+        ([call("calculate_budget")], "BUDGET_ONLY"),
+        ([call("find_items")], "BUSINESS_ONLY"),
+        ([call("find_items"), call("validate_changes")], "BUSINESS_ONLY"),
+        ([call("calculate_budget"), call("final_answer")], "MIXED_NAMES"),
+        ([call("calculate_budget"), call("find_items")], "MIXED_NAMES"),
+        ([call("PRIVATE_UNKNOWN_NAME")], "UNDECLARED_NAME"),
+        ([call("calculate_budget"), call("PRIVATE_UNKNOWN_NAME")], "UNDECLARED_NAME"),
+        ([{"name": ["PRIVATE_UNKNOWN_NAME"]}], "INVALID_NAME_SHAPE"),
+        ([{}], "INVALID_NAME_SHAPE"),
+        (["PRIVATE_CANDIDATE"], "INVALID_NAME_SHAPE"),
+        ([call("PRIVATE_UNKNOWN_NAME"), None], "INVALID_NAME_SHAPE"),
+    ],
+)
+def test_limit_classifies_only_fixed_name_categories_without_preserving_values(
+    candidate, suffix
+):
+    prior = {"prior-call"}
+    for ordered in (candidate, list(reversed(candidate))):
+        with pytest.raises(DomainError) as caught:
+            validate_candidate(ordered, prior, 6)
+        code = f"AGENT_TOOL_LIMIT_{suffix}"
+        assert caught.value.code == str(caught.value) == code
+        assert caught.value.args == (code,)
+        assert vars(caught.value) == {"code": code}
+        assert prior == {"prior-call"}
+
+
+def test_limit_diagnostic_does_not_validate_or_store_arguments_and_call_ids():
+    raw = [call("final_answer", {"PRIVATE_ARGUMENT": "SECRET"}, "PRIVATE_CALL_ID")]
+    with pytest.raises(DomainError, match="^AGENT_TOOL_LIMIT_FINAL_ONLY$") as caught:
+        validate_candidate(raw, set(), 6)
+    assert vars(caught.value) == {"code": "AGENT_TOOL_LIMIT_FINAL_ONLY"}
+    with pytest.raises(DomainError, match="^AGENT_ANSWER_SCHEMA$"):
+        validate_candidate(raw, set(), 5)
+
+
+def test_limit_classifies_whole_batch_crossing_remaining_slot():
+    prior = {"prior-call"}
+    raw = [call("calculate_budget"), call("find_destinations", identity="call-2")]
+    with pytest.raises(DomainError, match="^AGENT_TOOL_LIMIT_MIXED_NAMES$"):
+        validate_candidate(raw, prior, 5)
+    assert prior == {"prior-call"}
+    assert len(validate_candidate(raw, prior, 4)) == 2
+
+
+def test_output_size_guard_precedes_tool_limit_classification():
+    raw = [call("PRIVATE_UNKNOWN_NAME", {"private": "SECRET" * 6000})]
+    with pytest.raises(DomainError, match="^AGENT_OUTPUT_LIMIT$") as caught:
+        validate_candidate(raw, set(), 6)
+    assert vars(caught.value) == {"code": "AGENT_OUTPUT_LIMIT"}
+
+
 def test_duplicate_call_id_across_history_is_rejected():
     with pytest.raises(DomainError, match="^AGENT_MODEL_RESPONSE_REUSED_CALL_ID$"):
         validate_candidate([call("calculate_budget")], {"call-1"}, 1)

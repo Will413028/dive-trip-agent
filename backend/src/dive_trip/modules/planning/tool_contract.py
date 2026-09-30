@@ -103,6 +103,33 @@ class ToolInvocation(WireModel):
     args: dict[str, Any]
 
 
+def tool_limit_code(raw: list[Any]) -> str:
+    """Classify names only; this neither validates calls nor retains their values."""
+    categories: set[str] = set()
+    for value in raw:
+        if not isinstance(value, dict) or not isinstance(value.get("name"), str):
+            categories.add("invalid")
+        elif value["name"] not in TOOL_ARGUMENTS:
+            categories.add("undeclared")
+        elif value["name"] == "final_answer":
+            categories.add("final")
+        elif value["name"] == "calculate_budget":
+            categories.add("budget")
+        else:
+            categories.add("business")
+    if "invalid" in categories:
+        return "AGENT_TOOL_LIMIT_INVALID_NAME_SHAPE"
+    if "undeclared" in categories:
+        return "AGENT_TOOL_LIMIT_UNDECLARED_NAME"
+    if len(categories) != 1:
+        return "AGENT_TOOL_LIMIT_MIXED_NAMES"
+    return {
+        "final": "AGENT_TOOL_LIMIT_FINAL_ONLY",
+        "budget": "AGENT_TOOL_LIMIT_BUDGET_ONLY",
+        "business": "AGENT_TOOL_LIMIT_BUSINESS_ONLY",
+    }[categories.pop()]
+
+
 def validate_candidate(
     raw: Any, prior_ids: set[str], tool_count: int, *, proposed: bool = False
 ) -> list[ToolInvocation]:
@@ -113,7 +140,7 @@ def validate_candidate(
     if len(json.dumps(raw, ensure_ascii=False, separators=(",", ":")).encode()) > 32000:
         raise DomainError("AGENT_OUTPUT_LIMIT")
     if tool_count + len(raw) > 6:
-        raise DomainError("AGENT_TOOL_LIMIT")
+        raise DomainError(tool_limit_code(raw))
     parsed: list[ToolInvocation] = []
     seen = prior_ids.copy()
     for candidate_ordinal, value in enumerate(raw, start=1):

@@ -228,9 +228,35 @@ P9 案例頁已對齊新架構與三個 probe 的實際結果，移除舊 ADK �
 
 離線診斷新增 `test_cloudflare_native_loop_preserves_budget_returns_and_output_tool`，以既有 OfflineSdkGeneration、synthetic credential 與強制 MockTransport 測試一／六次 budget 後回答。逐次檢查 assistant call／tool return 的數量、ID 配對、完整 budget JSON（含 unknown／null／DEMO／evidenceRef）、final_answer schema 與 required tool_choice。59 tests（provider SDK＋tool contract）同次通過，Ruff 通過；沒有 production code／prompt／quota／上限修改、沒有新模型呼叫。
 
+`3147eab88fb5fb20353763321572a8ad33205c40` 的 [完整來源 CI 36740367723](https://github.com/Will413028/dive-trip-agent/actions/runs/36740367723) 唯一 job `109972865901` 與全部27 steps success，exact SHA 與必要 gates 已核對。
+
 這個 native SDK 測試刻意不掛產品 guard：六次工具後的 synthetic final_answer 在 SDK 可解碼，不代表產品允許；產品 guard 的既有拒絕測試也在同次驗證。證據排除固定 synthetic 路徑的工具結果遺失或 output tool 未曝露，不能排除 provider／真模型差異，也不能反推 probe-6 最後候選。下一步先設計不保存原值的固定工具選擇／停止分類，再準備新有界實驗；不先調高上限或對重複呼叫加補丁。
 
 第七候選在解析名稱前被上限拒絕，不能判定它是第七次 budget 或 `final_answer`；本次未保存原始 parts，不能據此聲稱特定 TextPart 形狀或品質已修復。工具上限已有保護，不提高限制或自動重試。
+
+### 工具上限候選分類診斷（2026-10-01）
+
+採固定私有 failure code，不保存原始回覆；相較原值保存，觀察範圍較小但符合目前資料契約。直接改 prompt 或提高上限尚無根因證據。分類在既有 32 KB 輸出檢查之後、工具參數驗證與整批 reservation 之前，只讀候選 name 的已宣告類別。
+
+| `AGENT_TOOL_LIMIT_` suffix | 只表示候選 name 類別 |
+| --- | --- |
+| `FINAL_ONLY` | 全部為 final_answer，不證明數量／參數合法 |
+| `BUDGET_ONLY` | 全部為 calculate_budget |
+| `BUSINESS_ONLY` | 全部為其他已宣告業務工具 |
+| `MIXED_NAMES` | 混合上述類別 |
+| `UNDECLARED_NAME` | 至少一個未宣告名稱 |
+| `INVALID_NAME_SHAPE` | 至少一筆不是 object，或 name 缺漏／不是 string |
+
+異常 shape 優先於未宣告名稱，再優先於混合類別，與候選順序無關。exception 只持有固定 code，不保存名稱、args、call IDs、原始值或動態型別名；`FINAL_ONLY` 是名稱分類，不能推定模型已提供有效回答。transaction 防線仍用原 AGENT_TOOL_LIMIT；六工具（含 final_answer）／七模型、整批拒絕、禁止重試、unknown 保守結算、public AGENT_FAILED 與既有成本 null 均不變。
+
+新純分類 tests 修改前 13 failed／23 passed，證明泛碼不足；後續 affected 命令包含 tool contract、provider SDK 與 response diagnostic，涵蓋四種 native Temporal／隔離 PostgreSQL 超限分類，七次 call usage、六筆工具、零提案／版本变更、private history 固定碼與 public 不洩漏。獨立 correctness／privacy review 無阻擋 findings；兩個 coverage 建議（同批跨剩餘名額、超大輸出優先）已補測。最終同次 affected 為 93 passed；Ruff、strict mypy（85 source files）通過，沒有真模型呼叫。
+
+- [x] 固定分類與受控 native failure 傳遞，原值不保存。
+- [ ] 新分類來源完整 CI。
+- [ ] 完整十六 scopes carry 與新單案入口；準備不授權模型呼叫。
+- [ ] 新當次有界授權與 Free／完整歷史查核後，才觀察真模型候選；停止規則不變。
+
+probe-6 仍只有原 AGENT_TOOL_LIMIT，舊證據不回填，不由 synthetic 結果推定真模型的第七候選。下一次分類結果若仍不足以辨認語義，再重評必要觀察範圍。
 
 ## P6 CI Actions runtime 維護
 

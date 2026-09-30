@@ -39,6 +39,10 @@ from dive_trip.modules.usage.provider import GEMINI_MODEL, ProviderBinding
         ("other", "AGENT_MODEL_RESPONSE_MIXED_OTHER", 1),
         ("duplicate", "AGENT_MODEL_RESPONSE_DUPLICATE_CALL_ID", 1),
         ("reused", "AGENT_MODEL_RESPONSE_REUSED_CALL_ID", 2),
+        ("limit-final", "AGENT_TOOL_LIMIT_FINAL_ONLY", 7),
+        ("limit-budget", "AGENT_TOOL_LIMIT_BUDGET_ONLY", 7),
+        ("limit-mixed", "AGENT_TOOL_LIMIT_MIXED_NAMES", 7),
+        ("limit-undeclared", "AGENT_TOOL_LIMIT_UNDECLARED_NAME", 7),
     ],
 )
 async def test_private_response_codes_do_not_escape_or_authorize_settlement(
@@ -50,6 +54,39 @@ async def test_private_response_codes_do_not_escape_or_authorize_settlement(
     service = PlanningService(database, [], accounting=RuntimeAccounting(provider))
 
     def scenario(messages, _info):
+        if mode.startswith("limit-"):
+            returns = [
+                part
+                for message in messages
+                for part in message.parts
+                if isinstance(part, ToolReturnPart)
+            ]
+            if len(returns) < 6:
+                return ModelResponse(
+                    parts=[
+                        ToolCallPart(
+                            "calculate_budget",
+                            {},
+                            tool_call_id=f"budget-{len(returns)}",
+                        )
+                    ]
+                )
+            name = {
+                "limit-final": "final_answer",
+                "limit-budget": "calculate_budget",
+                "limit-mixed": "final_answer",
+                "limit-undeclared": "SECRET_RESPONSE_VALUE",
+            }[mode]
+            parts = [
+                ToolCallPart(
+                    name,
+                    {"private": "SECRET_RESPONSE_VALUE"},
+                    tool_call_id="SECRET_RESPONSE_VALUE",
+                )
+            ]
+            if mode == "limit-mixed":
+                parts.append(ToolCallPart("calculate_budget", {}, tool_call_id="extra"))
+            return ModelResponse(parts=parts)
         call = ToolCallPart("calculate_budget", {}, tool_call_id="synthetic-call")
         if mode == "empty":
             return ModelResponse(parts=[])
@@ -131,7 +168,9 @@ async def test_private_response_codes_do_not_escape_or_authorize_settlement(
             if mode == "mixed-invalid"
             else (evidence.invocations[0].actual_cost_micros is None)
         )
-        assert len(evidence.tools) == (1 if mode == "reused" else 0)
+        assert len(evidence.tools) == (
+            6 if mode.startswith("limit-") else (1 if mode == "reused" else 0)
+        )
         with database.transaction() as connection:
             events = connection.execute(
                 "SELECT event FROM agent_run_events "
@@ -141,6 +180,7 @@ async def test_private_response_codes_do_not_escape_or_authorize_settlement(
             public = json.dumps(events)
             assert "SECRET_RESPONSE_VALUE" not in public
             assert "AGENT_MODEL_RESPONSE" not in public
+            assert "AGENT_TOOL_LIMIT" not in public
             assert "AGENT_FAILED" in public
             assert (
                 connection.execute("SELECT count(*) AS n FROM proposals").fetchone()[
