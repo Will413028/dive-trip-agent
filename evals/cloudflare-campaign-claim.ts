@@ -42,6 +42,8 @@ const probe2Required = [...probeRequired, 'cloudflare-probe.claim', 'cloudflare-
 const probe2Prior = () => new Set([...probePrior(), ...probe2Required]);
 const probe3Required = [...probe2Required, 'cloudflare-probe-2.claim', 'cloudflare-probe-2.json'];
 const probe3Prior = () => new Set([...probe2Prior(), ...probe3Required]);
+const pythonQualityRequired = [...probe3Required, 'cloudflare-probe-3.claim', 'cloudflare-probe-3.json'];
+const pythonQualityPrior = () => new Set([...probe3Prior(), ...pythonQualityRequired]);
 const policies = () => ({
   revision: { required: requiredFiles, prior: priorFiles(),
     campaign: /^cloudflare-(evaluation|patch|quality|revision).*\.(claim|json)$/,
@@ -67,6 +69,9 @@ const policies = () => ({
   probe3: { required: probe3Required, prior: probe3Prior(),
     campaign: /^cloudflare-(evaluation|patch|quality|revision|recovery|grounded|nonthinking|diagnostic|probe)/,
     scope: 'probe-3-unknown-cost-once-7-calls-1-invocation-free-only' },
+  pythonQuality: { required: pythonQualityRequired, prior: pythonQualityPrior(),
+    campaign: /^cloudflare-(evaluation|patch|quality|revision|recovery|grounded|nonthinking|diagnostic|probe|python-quality)/,
+    scope: 'python-quality-two-included-plus-28-210-calls-39-invocations-once-free-only' },
 } as const);
 
 /** Permanent one-shot claim with closed campaign policies, consumed even on preflight failure.
@@ -80,9 +85,9 @@ export async function claimCloudflareCampaign(lease: EvaluationLockLease, kind: 
   await assertEvaluationLock(lease);
   const dir = resolve('.artifacts');
   const names = await readdir(dir);
-  const stem = kind === 'probe2' ? 'cloudflare-probe-2' : kind === 'probe3' ? 'cloudflare-probe-3' : `cloudflare-${kind}`;
+  const stem = kind === 'probe2' ? 'cloudflare-probe-2' : kind === 'probe3' ? 'cloudflare-probe-3' : kind === 'pythonQuality' ? 'cloudflare-python-quality' : `cloudflare-${kind}`;
   let probeReplay: string | undefined;
-  if ((kind === 'probe' || kind === 'probe2' || kind === 'probe3') && policy.required.every(name => names.includes(name))) {
+  if ((kind === 'probe' || kind === 'probe2' || kind === 'probe3' || kind === 'pythonQuality') && policy.required.every(name => names.includes(name))) {
     try {
       probeReplay = await withBoundedArtifactDirectory([resolve('.'), dir], async directory => {
         const report = await directory.read('cloudflare-diagnostic.json', { minBytes: 1, maxBytes: 2_000_000 });
@@ -92,7 +97,7 @@ export async function claimCloudflareCampaign(lease: EvaluationLockLease, kind: 
     } catch { fail(); }
   }
   let priorProbeReplay: string | undefined;
-  if ((kind === 'probe2' || kind === 'probe3') && policy.required.every(name => names.includes(name))) {
+  if ((kind === 'probe2' || kind === 'probe3' || kind === 'pythonQuality') && policy.required.every(name => names.includes(name))) {
     try {
       priorProbeReplay = await withBoundedArtifactDirectory([resolve('.'), dir], async directory => {
         const report = await directory.read('cloudflare-probe.json', { minBytes: 1, maxBytes: 2_000_000 });
@@ -102,7 +107,7 @@ export async function claimCloudflareCampaign(lease: EvaluationLockLease, kind: 
     } catch { fail(); }
   }
   let secondProbeReplay: string | undefined;
-  if (kind === 'probe3' && policy.required.every(name => names.includes(name))) {
+  if ((kind === 'probe3' || kind === 'pythonQuality') && policy.required.every(name => names.includes(name))) {
     try {
       secondProbeReplay = await withBoundedArtifactDirectory([resolve('.'), dir], async directory => {
         const report = await directory.read('cloudflare-probe-2.json', { minBytes: 1, maxBytes: 2_000_000 });
@@ -111,10 +116,21 @@ export async function claimCloudflareCampaign(lease: EvaluationLockLease, kind: 
       policy.prior.add(secondProbeReplay);
     } catch { fail(); }
   }
+  let thirdProbeReplay: string | undefined;
+  if (kind === 'pythonQuality' && policy.required.every(name => names.includes(name))) {
+    try {
+      thirdProbeReplay = await withBoundedArtifactDirectory([resolve('.'), dir], async directory => {
+        const report = await directory.read('cloudflare-probe-3.json', { minBytes: 1, maxBytes: 2_000_000 });
+        return probeReplayFromReport(JSON.parse(report.bytes.toString('utf8')), 'cloudflare-probe-3').file;
+      });
+      policy.prior.add(thirdProbeReplay);
+    } catch { fail(); }
+  }
   if (policy.required.some(name => !names.includes(name))
-    || ((kind === 'probe' || kind === 'probe2' || kind === 'probe3') && (!probeReplay || !names.includes(probeReplay)))
-    || ((kind === 'probe2' || kind === 'probe3') && (!priorProbeReplay || !names.includes(priorProbeReplay)))
-    || (kind === 'probe3' && (!secondProbeReplay || !names.includes(secondProbeReplay)))
+    || ((kind === 'probe' || kind === 'probe2' || kind === 'probe3' || kind === 'pythonQuality') && (!probeReplay || !names.includes(probeReplay)))
+    || ((kind === 'probe2' || kind === 'probe3' || kind === 'pythonQuality') && (!priorProbeReplay || !names.includes(priorProbeReplay)))
+    || ((kind === 'probe3' || kind === 'pythonQuality') && (!secondProbeReplay || !names.includes(secondProbeReplay)))
+    || (kind === 'pythonQuality' && (!thirdProbeReplay || !names.includes(thirdProbeReplay)))
     || names.some(name => policy.campaign.test(name) && !policy.prior.has(name))) fail();
   for (const name of names.filter(name => policy.prior.has(name))) {
     if (!(await lstat(resolve(dir, name))).isFile()) fail();

@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import type { EvaluationLockLease } from '../../evals/live-evaluation-lock';
 import type { PythonEvaluationOptions as CloudflareCampaignPortsOptions } from '../../evals/python-evaluation';
 import { groundedPrior } from '../support/cloudflare-grounded-fixture';
+import { pythonQualityPrior } from '../support/cloudflare-python-quality-fixture.ts';
 import { diagnosticPrior } from '../support/cloudflare-diagnostic-fixture';
 import { recoveryAccount, recoveryResult } from '../support/cloudflare-recovery-fixture';
 import cases from '../../evals/cases.json';
@@ -28,6 +29,7 @@ vi.mock('../../evals/cloudflare-revision-carry', () => ({ REVISION_CARRY_SCHEMA:
 vi.mock('../../evals/cloudflare-recovery-carry', () => ({ RECOVERY_CARRY_SCHEMA: () => 'recovery_mock', readCloudflareRecoveryCarry: m.carry }));
 vi.mock('../../evals/cloudflare-grounded-carry', () => ({ GROUNDED_CARRY_SCHEMA: () => 'grounded_mock' }));
 vi.mock('../../evals/cloudflare-nonthinking-carry', () => ({ NONTHINKING_CARRY_SCHEMA: () => 'nonthinking_mock', readCloudflareNonthinkingCarry: m.carry }));
+vi.mock('../../evals/cloudflare-python-probe-3-carry.ts', async original => ({ ...await original<typeof import('../../evals/cloudflare-python-probe-3-carry.ts')>(), readCloudflarePythonProbe3Carry: async (pools: unknown[], lease: unknown) => m.carry(...pools, lease) }));
 vi.mock('../../evals/cloudflare-campaign-claim', () => ({ claimCloudflareCampaign: m.claim }));
 vi.mock('../../evals/live-evaluation-lock', () => ({ withEvaluationLock: m.lock, assertEvaluationLock: m.assertLock }));
 vi.mock('../support/database', () => ({ testDatabaseUrl: m.databaseUrl }));
@@ -38,12 +40,17 @@ vi.mock('../../evals/checkpoint', () => ({ writeImmutableCheckpoint: m.immutable
 import { GROUNDED_AUTHORIZATION, runCloudflareGroundedEntry } from '../../evals/cloudflare-grounded-entry';
 import { DIAGNOSTIC_AUTHORIZATION, runCloudflareDiagnosticEntry } from '../../evals/cloudflare-diagnostic-entry';
 
+import { PYTHON_QUALITY_AUTHORIZATION, runCloudflarePythonQualityEntry } from '../../evals/cloudflare-python-quality-entry.ts';
+
 describe.each([
   { kind: 'grounded', authorizationEnv: 'DIVE_TRIP_CLOUDFLARE_GROUNDED_AUTHORIZATION', authorization: GROUNDED_AUTHORIZATION,
     run: runCloudflareGroundedEntry, prior: groundedPrior, additionalSchemas: [] as string[] },
   { kind: 'diagnostic', authorizationEnv: 'DIVE_TRIP_CLOUDFLARE_DIAGNOSTIC_AUTHORIZATION', authorization: DIAGNOSTIC_AUTHORIZATION,
     run: runCloudflareDiagnosticEntry, prior: diagnosticPrior, additionalSchemas: ['grounded_mock', 'nonthinking_mock'] },
+  { kind: 'pythonQuality', authorizationEnv: 'DIVE_TRIP_CLOUDFLARE_PYTHON_QUALITY_AUTHORIZATION', authorization: PYTHON_QUALITY_AUTHORIZATION,
+    run: runCloudflarePythonQualityEntry, prior: pythonQualityPrior, additionalSchemas: ['grounded_mock', 'nonthinking_mock'] },
 ])('$kind two-included-case lifecycle', current => {
+const stem = current.kind === 'pythonQuality' ? 'cloudflare-python-quality' : `cloudflare-${current.kind}`;
 const hash = (s: string) => createHash('sha256').update(s).digest('hex');
 const source = { sha256: hash('synthetic grounded source'), files: [{ path: 'evals/cases.json', sha256: hash('synthetic cases') }] };
 beforeEach(() => {
@@ -113,20 +120,20 @@ test('real finite scheduler, new scope and receipt barrier run 30 slots with 39 
     'quality_mock','revision_mock','recovery_mock', ...current.additionalSchemas].map(s => `-c search_path=${s}`));
   for (const [options] of m.pool.mock.calls) expect(options).not.toHaveProperty('connectionString');
   expect(m.options).toMatchObject({ accountId: recoveryAccount, priorChargedMicros: current.prior().chargedMicros,
-    liveCampaign: `cloudflare-${current.kind}-30-cases` });
+    liveCampaign: `${stem}-30-cases` });
   expect(m.execute).toHaveBeenCalledTimes(30); expect(m.credential).toHaveBeenCalledTimes(30);
   expect(m.carry).toHaveBeenCalledTimes(41); expect(m.source).toHaveBeenCalledTimes(41);
   expect(m.pools.every(pool => pool.end.mock.calls.length === 1)).toBe(true);
   const [file, serialized] = m.immutable.mock.calls[0];
   const [receiptFile, receiptBytes] = m.immutable.mock.calls[1];
-  expect(file).toBe(`.artifacts/cloudflare-${current.kind}-preflight.json`);
-  expect(receiptFile).toBe(`.artifacts/cloudflare-${current.kind}-preflight-receipt.json`);
+  expect(file).toBe(`.artifacts/${stem}-preflight.json`);
+  expect(receiptFile).toBe(`.artifacts/${stem}-preflight-receipt.json`);
   const checkpoint = JSON.parse(serialized), receipt = JSON.parse(receiptBytes);
   expect(checkpoint).toMatchObject({ schemaVersion: 2, invocations: 2, sourceManifest: source, prior: current.prior() });
-  expect(receipt).toMatchObject({ passed: true, sourceSha256: hash(serialized), sourceFile: `cloudflare-${current.kind}-preflight.json` });
+  expect(receipt).toMatchObject({ passed: true, sourceSha256: hash(serialized), sourceFile: `${stem}-preflight.json` });
   expect(m.save.mock.calls.at(-1)![0]).toMatchObject({ stopped: null, invocations: 39, cumulativeInvocations: current.prior().invocations + 39,
     maxModelCalls: 210, maxInvocations: 39, evaluationGatePassed: false, textReview: 'pending',
-    preflightReviewReceipt: { file: `cloudflare-${current.kind}-preflight-receipt.json`, sha256: hash(receiptBytes) } });
+    preflightReviewReceipt: { file: `${stem}-preflight-receipt.json`, sha256: hash(receiptBytes) } });
   expect(m.order.indexOf(receiptFile)).toBeLessThan(m.order.indexOf('review-passed'));
 });
 

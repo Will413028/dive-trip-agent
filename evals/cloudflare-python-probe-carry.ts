@@ -12,6 +12,7 @@ import { assertPrivateCloudflareHistory, historyIdentity } from './cloudflare-hi
 import { captureCloudflarePythonDiagnosticHistory, compareCloudflarePythonDiagnosticHistory,
   pythonDiagnosticCarrySchema } from './cloudflare-python-diagnostic-carry.ts';
 import { capturePythonRetainedDatabase } from './cloudflare-python-retained-database.ts';
+import { parseReplayBundle } from './replay-bundle.ts';
 import { probeReplayFromReport } from './cloudflare-probe-replay.ts';
 import { CLOUDFLARE_MODEL } from '../src/agent/cloudflare-wire.ts';
 import { CAMPAIGN_BUDGET_MICROS, CAMPAIGN_INVOCATION_LIMIT } from './campaign-policy.ts';
@@ -165,7 +166,7 @@ export async function readPinnedPythonProbeProfile(lease: EvaluationLockLease,
 }
 
 export async function capturePinnedPythonProbeFiles(profile: PythonProbeProfile, lease: EvaluationLockLease,
-  stem: 'cloudflare-probe' | 'cloudflare-probe-2') {
+  stem: 'cloudflare-probe' | 'cloudflare-probe-2' | 'cloudflare-probe-3') {
   await assertEvaluationLock(lease);
   const report = await withBoundedArtifactDirectory([root, artifacts], async directory => {
     const claim = await directory.read(`${stem}.claim`, { minBytes: 0, maxBytes: 0 });
@@ -181,6 +182,11 @@ export async function capturePinnedPythonProbeFiles(profile: PythonProbeProfile,
     const replay = await directory.read(replayRef.file, { minBytes: 1, maxBytes: 2_000_000 });
     if (sha256(replay.bytes) !== replayRef.sha256
       || !isDeepStrictEqual((await readdir(artifacts)).filter(oldName).sort(), expected)) invalid();
+    if (stem === 'cloudflare-probe-3') {
+      const bundle = parseReplayBundle(JSON.parse(replay.bytes.toString('utf8')));
+      if (bundle.afterStart.runs.runs[0].id !== profile.runId || bundle.initial.trip.id !== profile.tripId
+        || bundle.resumeEvents.length !== 0) invalid();
+    }
     return { value, claim: claim.snapshot, file: file.snapshot, replay: replay.snapshot,
       directory: directory.snapshot };
   });

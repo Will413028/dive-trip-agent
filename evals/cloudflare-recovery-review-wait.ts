@@ -9,7 +9,7 @@ import { recoveryReviewSchema, recoveryReviewIdentitiesSchema, recoveryReviewPas
 export async function awaitCloudflareRecoveryReview(serializedReport: string,
   cases: RecoveryReviewCases, lease: EvaluationLockLease,
   recordReview: (review: z.infer<typeof recoveryReviewSchema>, passed: boolean) => Promise<void>,
-  kind: 'recovery' | 'grounded' | 'diagnostic' = 'recovery'): Promise<boolean> {
+  kind: 'recovery' | 'grounded' | 'diagnostic' | 'pythonQuality' = 'recovery'): Promise<boolean> {
   const expected = { sourceSha256: createHash('sha256').update(serializedReport).digest('hex'),
     cases: recoveryReviewIdentitiesSchema.parse(cases) };
   return awaitCloudflareReview(lease, kind, async input => {

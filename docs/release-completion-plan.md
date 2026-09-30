@@ -32,7 +32,7 @@ GitHub 操作依適用的本機身份指令逐命令限定帳號。核對 CI 的
 | P2 新單案診斷入口 | 已完成，CI 全綠 | P1；新入口若改程式需新 CI | 新 carry、永久 claim 政策與離線驗證 |
 | P3 單案 live 診斷 | 已執行並保存；任務品質失敗 | P2、當次有界授權、Free／歷史 preflight | 完整 report、usage、診斷與事後 audit |
 | P4 依證據修正 | 一般任務指引已修正，待新 CI／模型驗證 | P3 | 必要修正、合成回歸與新 revision gates |
-| P5 Task 11 品質驗收 | 待做 | 技術流程可用、當次完整 campaign 授權 | 30 案、內容雙審與品質 gate |
+| P5 Task 11 品質驗收 | 新入口／離線驗證完成，待新 CI 與授權 | 技術流程可用、當次完整 campaign 授權 | 30 案、內容雙審與品質 gate |
 | P6 CI Actions runtime 維護 | 待做 | P5 後、公開 release 前 | 升級與完整 Fixture CI |
 | P7 部署與維運 | 待做 | P5、P6、P8；另定 hosting 與部署授權 | public artifact、環境與演練證據 |
 | P8 資料與素材驗證 | 已完成當次來源盤點 | 可在 CI 等待期間獨立進行 | 來源、價格有效期、授權與揭露 |
@@ -86,11 +86,13 @@ P4 不預設模型犯了哪一種錯，也不要求每次 live 後一定修改�
 
 **驗收**：離線證據支持修正，且來源對應的 CI 通過。無可證明缺陷時記錄結論與下一個待決假設，禁止猜值、放寬 gate 或回填歷史。
 
-P4 當次實作：`backend/src/dive_trip/application/agent_runtime.py` 的共用 Agent instructions 補上一般任務選擇：查詢既有行程／費用使用 read tools 與本回合 evidence 的 AnswerPlan；未知費用不能推定預算足夠；只對使用者要求的候選修改／比較驗證，不為查詢捏造修改或建立無差異提案。沒有新增 no-op Domain 拒絕或 case-ID 特例，schema、工具／模型上限與 grade 不變。指引遺漏是可觀察事實，但補指引能否改善模型選擇仍是待驗假設，不宣稱根因已證實。既有 strict AnswerPlan、工具契約及 SDK 合成回歸 59 passed，Ruff／strict mypy 通過；Web typecheck／lint 通過。新的完整 CI 仍待 commit／push 後查核。
+P4 當次實作：`backend/src/dive_trip/application/agent_runtime.py` 的共用 Agent instructions 補上一般任務選擇：查詢既有行程／費用使用 read tools 與本回合 evidence 的 AnswerPlan；未知費用不能推定預算足夠；只對使用者要求的候選修改／比較驗證，不為查詢捏造修改或建立無差異提案。沒有新增 no-op Domain 拒絕或 case-ID 特例，schema、工具／模型上限與 grade 不變。指引遺漏是可觀察事實，但補指引能否改善模型選擇仍是待驗假設，不宣稱根因已證實。既有 strict AnswerPlan、工具契約及 SDK 合成回歸 59 passed，Ruff／strict mypy 通過；Web typecheck／lint 通過。`857133a` 的 CI run `36667675006` 靜態／unit／integration／backend／production build 通過，但兩個案例頁 E2E 還斷言舊 ADK 架構與歷史成功而失敗；已更新該 consumer 至現行 Python／Temporal 與任務失敗證據，新的完整 CI 仍待後續 commit／push 查核。
 
 P9 案例頁已對齊新架構與三個 probe 的實際結果，移除舊 ADK 成功套用為新版的敘述；隔離 fixture stack 的桌面與 390px 手機呈現已檢查。網站尚未公開，影片與正式驗收仍未完成。
 
 ## P5 Task 11 真模型品質驗收
+
+新固定 scope `cloudflare-python-quality` 已實作並完成當次離線 gates；承接第三案在內完整 12 scopes，最多 30 案／39 invocations／210 model calls。新 grant／claim 尚未建立，不讀 generation credential、不 dispatch。先兩案雙審，再依既有逐案 gate 執行後 28 案；整批完成後仍需新的最終內容審查。新入口、capture／comparator、claim／review 機制已獨立設計及 correctness review，均無 findings。全 unit 3383 passed／112 files、typecheck／lint 通過；隔離 PostgreSQL 的 HTTP／retired collector 邊界 13 passed，新 live test 預設 skip；案例頁 consumer 更新後桌面／手機 4 E2E 通過。實際完整 12 scopes 雙輪唯讀核對一致，沒有讀 generation credential、建立新 claim 或發送模型。新的 exact SHA 完整 CI 仍須 commit／push 後查核。
 
 - [ ] 依 [evaluation](evaluation.md#coverage-and-acceptance) 固定 10 情境 × 3 rounds、fixture／model identity、invocation／model call／額度總上限與停止政策，取得新的完整 campaign 授權。
 - [ ] 完成新版入口與歷史 preflight；先執行兩案，依 [review 方法](evaluation-review.md) 做 primary／independent 內容與任務審查，通過既有 gate 才繼續。

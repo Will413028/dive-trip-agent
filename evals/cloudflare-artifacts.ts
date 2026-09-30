@@ -16,5 +16,6 @@ export const CLOUDFLARE_PREFLIGHT_FILES = {
   recovery: { claim: 'cloudflare-recovery.claim', review: 'cloudflare-recovery-preflight-review.json' },
   grounded: { claim: 'cloudflare-grounded.claim', review: 'cloudflare-grounded-preflight-review.json' },
   nonthinking: { claim: 'cloudflare-nonthinking.claim', review: 'cloudflare-nonthinking-preflight-review.json' },
+  pythonQuality: { claim: 'cloudflare-python-quality.claim', review: 'cloudflare-python-quality-preflight-review.json' },
   diagnostic: { claim: 'cloudflare-diagnostic.claim', review: 'cloudflare-diagnostic-preflight-review.json' },
 } as const;
