@@ -147,7 +147,7 @@ P9 案例頁已對齊新架構與三個 probe 的實際結果，移除舊 ADK �
 - [x] 核對鎖定SDK解析路徑、離線wire重現及私有種類診斷。
 - [x] 承接probe-4原始report／replay／完整rows／execution／固定舊碼，建立不可變profile與14 scopes閉世界carry；舊成本null不回填。
 - [x] 準備獨立單案入口及永久claim，維持合成unknown-cost、Free-only Gemma 4、最多1 invocation／7 calls、不重試；驗證新增scope及種類碼不洩漏原文、缺漏／額外／漂移仍拒絕，完成必要review與exact完整CI。
-- [ ] 取得新的當次有界授權、核對當下Free／完整歷史後執行一次；先報告實際種類與觀察限制，再決定修正，不由合成SDK測試宣稱模型已修復。
+- [x] 取得新的當次有界授權、核對當下Free／完整歷史後執行一次；先報告實際種類與觀察限制，再決定修正，不由合成SDK測試宣稱模型已修復。
 
 ### 新單案種類診斷入口：沿用盤點
 
@@ -166,6 +166,14 @@ P9 案例頁已對齊新架構與三個 probe 的實際結果，移除舊 ADK �
 
 另以 `.artifacts/probe5-profile-omission.config.mts` 在測試程序內移除required的三份既有profiles，`pnpm exec vitest run tests/unit/cloudflare-revision-claim.test.ts --config .artifacts/probe5-profile-omission.config.mts --testNamePattern '(probe5|probe4).*claims once' --maxWorkers=1` 為1 failed／1 passed／611 skipped：新入口正向測試轉紅，舊入口控制組保持綠；tracked source未改。一次性執行wrapper已準備並通過syntax check，尚未執行；需要新的當次有界授權與當下Free／完整歷史preflight。
 
+
+### probe-5 當次種類診斷結果（2026-09-30）
+
+使用者對明列的單案授權回覆「繼續」。當下Workers Free Active、Workers AI當日190.2／10,000 Neurons；完整14 scopes reader及exact來源CI通過後，固定入口只執行一次。`node /tmp/dive-trip-probe5-once.mjs` 在1 invocation／2 model calls後按UNKNOWN_USAGE_STOP停止，測試exit 1為campaign停止；沒有重試。原生Temporal固定分類為 `AGENT_MODEL_RESPONSE_MIXED_TEXT`：工具與TextPart混合，不保存原值，不能判定文字語義或回推舊probe-4。call tokens1286＋1418＝2704已知，invocation actual cost仍null，保守charge183505reference micros；不以tokens回填unknown。
+
+`node /tmp/dive-trip-probe5-postrun.mjs` 雙輪核對原始report／replay、22表完整rows、paired Temporal execution及當次source全部一致；`node /tmp/dive-trip-probe5-carry-audit.mjs --verify` 既有14 scopes也一致。report、replay、claim、retained DB及SQLite保留，owned lease正常釋放。沒有提案、確認或行程版本變更，quality gate false。這次授權與永久claim已消耗，不可重開。
+
+下一步先離線評估「忽略TextPart、僅接受經驗證的結構化ToolCallPart」是否符合現行契約，再決定修正；保留mixed嚴格拒絕並調整prompt／模型亦是選項，尚未改guard、不另做真模型呼叫。固定種類只證明SDK形狀，不證明文字正文、工具參數或品質正確。
 
 ## P6 CI Actions runtime 維護
 
