@@ -120,12 +120,14 @@ P9 案例頁已對齊新架構與三個 probe 的實際結果，移除舊 ADK �
 - [x] 原始停止證據唯讀查核及新私有 profile。
 - [x] 新 carry／入口／永久 claim、離線負向與 mutation 驗證。
 - [x] 獨立 design／correctness review。
-- [ ] 完整來源 CI。
+- [x] 完整來源 CI。
 - [ ] CI 通過後另取當次 1 invocation／7 calls 授權，再查核當下 Free／完整歷史並執行一次。
 
 離線驗證：`pnpm test:unit` 為 3480 passed／114 files；修正歷史清單綁定後，以 `pnpm exec vitest run tests/unit/cloudflare-python-quality-carry.test.ts tests/unit/cloudflare-probe-4-campaign.test.ts tests/unit/cloudflare-probe-entry.test.ts tests/unit/cloudflare-revision-claim.test.ts tests/unit/cloudflare-evaluation-authority.test.ts --maxWorkers=1` 同次 632 passed，包含成本正規化、版本／snapshot、skip order、native marker 等反例。`pnpm typecheck`／`pnpm lint` 通過。獨立 Compose PostgreSQL 的 `cloudflare-http.test.ts`、`cloudflare-evaluation-collector.test.ts`、新 opt-in live test 同次 21 passed／1 live skip；未讀憑證或發模型請求。首輪 integration 因尚未啟動該隔離 Compose project 失敗，啟動既有本機 image 後整份命令重跑通過，未變更測試 timeout。
 
 獨立 design-review：1 finding，改 1／記 0／提 0／駁回 0；已將停止當次 schedule 固定，排除與未來 dataset 的耦合並補盤點。後續 correctness/security review 無 findings，確認先前修正未回歸。指令檔對帳未發現需改的 tracked 規則；ignored 本機指標承接 P5 的新入口狀態。原始 13 scopes reader 的雙輪核對也通過；公開合成 vectors 不充當此查核證據。
+
+`0b9ec5c3949b86c63bea0f129a7f624ee44eecf3` 的 [完整 Fixture CI run 36679415004](https://github.com/Will413028/dive-trip-agent/actions/runs/36679415004) 唯一 job `109771388122` 與全部 steps success，包含 integration、backend、production build、桌面／手機 E2E 及 always cleanup。入口準備完成；當次模型呼叫仍未授權／執行。本段後續純文件更新不改稱新程式驗收。
 
 ## P6 CI Actions runtime 維護
 
