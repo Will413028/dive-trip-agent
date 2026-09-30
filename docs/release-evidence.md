@@ -12,8 +12,8 @@ Release acceptance 尚未通過，沒有 public deployment。Public repository �
 
 0. **Python／Temporal 核心重構：已完成本機切換與遠端 Fixture CI。** 產品等價、帳務／歷史、跨程序故障、完整離線gates及獨立review已通過；原demo備份還原演練、migration與持久重啟已驗證。精確範圍見 [核心重構](architecture-refactor.md)。新版CI同SHA完整gate通過，不代表真模型品質。
 
-1. **Fixture 穩定性：新版指定版本完整 gate 已通過。** `bfaafdc` 同次 CI 的結果與 skip 見 Latest checkpoint；舊本機逾時根因及跨環境穩定性未證實。Action runtime deprecation 仍待維護升級與重新驗證；後續程式修改須跑 affected checks，不能沿用舊測試數當新 revision 通過。
-2. **新版真模型品質（Task 11）：未完成，原 30 案入口及三次獨立單案 probe 均已停止。** 原入口出現未知用量；前兩個 probe 為工具參數拒絕。第三個在 2 次已知用量呼叫後成功驗證並建立提案，但查詢案例不應產生提案，grade 包含 `UNEXPECTED_SIDE_EFFECT`，停於 `FAILED_RUN_STOP`；沒有確認或行程變更。四個 claim 與完整原始證據保留，不計入 30 案品質驗收。下一步依第三案證據完成任務選擇指引評估，詳 [P4](release-completion-plan.md#p4-依證據修正)；不得重開停止 claim、回填舊 unknown 或降低 gate。
+1. **Fixture 穩定性：新版指定版本完整 gate 已通過。** `44e0ae9` 同次 CI 的唯一 job 與全部 steps success，見 Latest checkpoint；舊本機逾時根因及跨環境穩定性未證實。Action runtime deprecation 仍待維護升級與重新驗證；後續程式修改須跑 affected checks，不能沿用舊測試數當新 revision 通過。
+2. **新版真模型品質（Task 11）：未完成，新的 Python quality campaign 也已停止。** 一般任務指引與新入口完成 exact CI 後，另獲當次 Free-only 30 案有界授權；首案兩次 call 有完整 token 用量，但第二個模型 activity 為 `AGENT_MODEL_RESPONSE` 失敗，invocation 結算成本仍 unknown，按 `UNKNOWN_USAGE_STOP` 停止，其餘 29 案未 dispatch。沒有提案、確認或行程變更，未進入雙審。原 diagnostic、三次 probe 與本次五個 Python claims／完整證據保留。下一步先唯讀及離線判讀固定失敗碼的多個分支，另定後續品質路線；不得重開 claim、回填 unknown 或降低 gate。
 3. **獨立版控與遠端 CI：新版基線已完成。** Repository 已公開，`bfaafdc` 的 [fixture job 及全部 steps](https://github.com/Will413028/dive-trip-agent/actions/runs/36610177552) success；公開原始碼與 CI 不代表部署。維持 [public fixture／私有歷史契約](evaluation.md#closed-world-history-integrity)，原始證據仍在 ignored local storage。
 4. **公開部署與維運（Task 12）：未完成。** 完成下方 Public release 待填欄位：正式啟動、public URL、可信 ingress/proxy/IP、secret／預算設定、清理排程／告警、備份還原、kill-switch／rollback，取得部署授權後才開放。來源真實性、價格有效期、素材授權及 hosted runtime 須另驗，不能以本機腳本或景點座標查核代替。
 5. **新版真模型展示（Task 12）：未完成。** 沿用同次有界驗收證據，不為影片額外發送，不把 fixture／舊 replay 改標 live。維持一般規劃、鎖住宿但預算不足、查詢失敗／費用待確認三組 demo；重設只影響目前展示 session。案例頁說明本人貢獻、系統界線、示範資料、架構、測試與失敗處理，影片不取代公開 demo。
@@ -46,6 +46,14 @@ Release acceptance 尚未通過，沒有 public deployment。Public repository �
 Domain unit tests 驗費用與規則；真 PostgreSQL integration tests 驗交易、並行與冪等；固定模型 browser E2E 驗互動。真模型的理解、任務完成率、延遲、工具次數、成本及內容 review 另驗：十情境為模糊需求、非潛水同行、降預算鎖住宿、下午留白、改人數、未知費用、日期未定、來源注入、查詢逾時、無法滿足條件。Fixture grader／domain oracle 及 synthetic transport 不冒充模型表現。
 
 ## Latest checkpoint
+
+### 2026-09-30：新 Python quality campaign 首案失敗，完整證據保留
+
+`44e0ae9f9d6d050140d4a7298655244db6339092` 的 [Fixture CI run 36672253529](https://github.com/Will413028/dive-trip-agent/actions/runs/36672253529) 唯一 job `109749572996` 與全部 steps success，包含 integration、backend、production build 及桌面／手機 E2E。一般任務指引、完整 12 scopes carry 與新固定 `cloudflare-python-quality` 入口已完成離線驗證及獨立 design／correctness review；不是模型品質通過。
+
+當次新授權為 Workers AI Free-only、固定 Gemma 4、合成 30 案／39 invocations／210 model calls，先兩案雙審。當下 Workers Free Active、139.42／10,000 Neurons 與完整舊歷史雙輪 preflight 通過後，只執行首案 `unknown-cost`。1 invocation／2 model calls 的 token evidence 都已保存；第一步完成 `calculate_budget`，第二步 native activity 失敗，固定碼為 `AGENT_MODEL_RESPONSE`。未產生 AcceptedAnswer 或提案、沒有 resume，內容與版本保持不變。Invocation 的 `actual_cost_micros=null`、保守 reservation 保留，整批 `UNKNOWN_USAGE_STOP`；29 案 skipped，未建立兩案 preflight review，品質 gate=false。匯出完整與成本可知分別判定。
+
+本輪沒有自動重送。Owned worker 已收尾，永久 claim、report／replay、隔離 PostgreSQL 及 Temporal SQLite 保留。事後完整舊 12 scopes 雙輪 audit 一致；本次雙輪比對 22 表 raw rows／fingerprint、bounded artifacts／digests、正式 replay schema／phase、實際 execution 與來源相符。`AGENT_MODEL_RESPONSE` 可由空／非工具 response parts 或候選 call 檢查等分支產生；原始 parts／call 參數未保存，不能由此反推確切原因。一般指引效果仍未證明，新的失敗結算不回填。
 
 ### 2026-09-30：第三次 Free-only 單案技術結果與任務失敗
 
