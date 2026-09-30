@@ -140,7 +140,14 @@ P9 案例頁已對齊新架構與三個 probe 的實際結果，移除舊 ADK �
 
 新私有固定分類區分 MIXED_TEXT、MIXED_THINKING、MIXED_TEXT_THINKING、MIXED_OTHER；其他種類優先 OTHER，不保存內容、metadata、動態型別名或數量。種類已足以區分本輪首要假設，因此先不擴大數量診斷。全部 mixed 仍拒絕，公開錯誤、未知結算、工具／模型上限與重試政策不變。沿用固定私有 failure code：從零設計在現有 Temporal／私有證據邊界下仍採有限枚舉，無需增加原始回應儲存；若種類不能區分下一個假設，再重評必要觀察欄位。
 
-同次完整 affected 命令 `backend/.venv/bin/pytest backend/tests/test_provider_sdk.py backend/tests/test_response_diagnostic.py -q --tb=short` 為48 passed，含8個真實 Temporal／隔離 PostgreSQL案例及6個SDK wire案例。process內把分類退回舊泛碼，以 `pytest.main(['backend/tests/test_response_diagnostic.py','-q','--tb=short','-k','private_response'])` 反轉驗證為4 failed／4 passed／6 deselected，原source不變。Ruff及strict mypy通過。這是小範圍診斷補強，不改儲存／交易／執行機制；未呼叫真模型，舊證據不回填。完整來源CI待本次push後核對。新單案入口及完整14 scopes carry尚未準備；實際觀察需要新入口、CI與當次有界授權。
+同次完整 affected 命令 `backend/.venv/bin/pytest backend/tests/test_provider_sdk.py backend/tests/test_response_diagnostic.py -q --tb=short` 為48 passed，含8個真實 Temporal／隔離 PostgreSQL案例及6個SDK wire案例。process內把分類退回舊泛碼，以 `pytest.main(['backend/tests/test_response_diagnostic.py','-q','--tb=short','-k','private_response'])` 反轉驗證為4 failed／4 passed／6 deselected，原source不變。Ruff及strict mypy通過。這是小範圍診斷補強，不改儲存／交易／執行機制；未呼叫真模型，舊證據不回填。`bc9446aefa59256e12eed161910b6645ba910ab6` 的 [完整Fixture CI 36685444563](https://github.com/Will413028/dive-trip-agent/actions/runs/36685444563) 唯一job `109790117325` 與全部steps success，含integration、backend、production build、桌面／手機E2E及cleanup。新單案入口及完整14 scopes carry尚未準備；實際觀察需要新入口、CI與當次有界授權。
+
+等待CI期間，`node /tmp/dive-trip-probe4-carry-audit.mjs --verify` 既有13 scopes查核通過；`node /tmp/dive-trip-probe4-original-source-audit.mjs` 對probe-4 report／replay、22表與Temporal雙輪唯讀核對通過，完整source檔案清單及逐檔hash對照原始0b9ec5c（不是今天的source）。兩項依序執行，未清lock／寫入歷史／新增profile，也不宣稱已建立14 scopes完整reader。
+
+- [x] 核對鎖定SDK解析路徑、離線wire重現及私有種類診斷。
+- [ ] 承接probe-4原始report／replay／完整rows／execution／固定舊碼，建立不可變profile與14 scopes閉世界carry；舊成本null不回填。
+- [ ] 準備獨立單案入口及永久claim，維持合成unknown-cost、Free-only Gemma 4、最多1 invocation／7 calls、不重試；驗證新增scope及種類碼不洩漏原文、缺漏／額外／漂移仍拒絕，完成必要review與exact完整CI。
+- [ ] 取得新的當次有界授權、核對當下Free／完整歷史後執行一次；先報告實際種類與觀察限制，再決定修正，不由合成SDK測試宣稱模型已修復。
 
 ## P6 CI Actions runtime 維護
 

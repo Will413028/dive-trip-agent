@@ -59,6 +59,8 @@ Domain unit tests 驗費用與規則；真 PostgreSQL integration tests 驗交�
 
 使用者後續選定準備 `cloudflare-probe-4` 單案診斷入口；完整 13 scopes carry、獨立永久 claim、1 invocation／7 calls 上限已實作，3480 unit、632 affected、21 integration／1 live skip 與靜態檢查通過，design／correctness review 完成。`0b9ec5c` 的 [完整來源 CI](https://github.com/Will413028/dive-trip-agent/actions/runs/36679415004) 唯一 job `109771388122` 與全部 steps success；後續已取得當次單案授權並執行：1 invocation／2 calls 後按 `UNKNOWN_USAGE_STOP` 停止，固定分類 `AGENT_MODEL_RESPONSE_MIXED_PARTS`；兩筆 call tokens 已知、invocation 成本 null，未重試、品質未通過。停止後新證據與既有 13 scopes 唯讀查核通過，原始證據保留且 claim 已消耗。詳細步驟見 [新單案 response 診斷入口](release-completion-plan.md#新單案-response-診斷入口)。
 
+依使用者指示先確認回覆再定修正，`bc9446a` 補固定 mixed 種類診斷，仍全部拒絕、不保存原值；SDK synthetic wire及Temporal／隔離DB同次48 tests、Ruff／strict mypy通過，泛碼mutation4 failed／4 passed。[完整來源CI 36685444563](https://github.com/Will413028/dive-trip-agent/actions/runs/36685444563) 的exact SHA、唯一job `109790117325` 及全部steps success；本輪沒有真模型呼叫，probe-4舊泛碼不回填，新單案入口與14 scopes carry待準備。步驟見 [Mixed parts 種類診斷](release-completion-plan.md#mixed-parts-種類診斷離線)。
+
 ### 2026-09-30：第三次 Free-only 單案技術結果與任務失敗
 
 `c0c1012` 的 [Fixture CI](https://github.com/Will413028/dive-trip-agent/actions/runs/36664639005) 唯一 job 及全部 steps success。probe-3 另獲當次 1 invocation／7 calls 的明確授權；Workers Free active 與當下用量查核、完整 11 scopes 歷史／來源／quota 雙輪 preflight 通過後才 dispatch。
