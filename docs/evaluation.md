@@ -445,7 +445,7 @@ patch, redaction and historical compatibility. This improves diagnosis, not
 model task completion. A new live experiment would still require its own
 bounded scope, permanent claim and complete retained-history preflight.
 
-The prepared third technical entry is `cloudflare-probe-3`, with its own exact
+The consumed third technical entry is `cloudflare-probe-3`, with its own exact
 opt-in and permanent claim policy. It admits only synthetic `unknown-cost`,
 one invocation and at most seven model calls, retains its storage and cannot
 pass the thirty-case quality gate. Its carry adds the stopped second probe's
@@ -510,3 +510,10 @@ directory. `catalog:validate` checks schema and DEMO/coordinate/unknown-price
 counts; it does not fetch source URLs or certify facts/licensing.
 See [data sources](data-sources.md), [assets](assets-license.md) and
 [release evidence](release-evidence.md).
+
+
+### Third Python technical probe outcome
+
+The one-shot `cloudflare-probe-3` scope was consumed on 2026-09-30 at `c0c1012`, after its exact fixture CI passed. One start and two model calls had complete observed usage; validation and proposal tools completed without argument rejection. The `unknown-cost` case expected clarification but produced a proposal with no snapshot difference. Its grade includes `UNEXPECTED_SIDE_EFFECT`; the product remained `awaiting_confirmation`, without resume or a committed change. The finite evaluator stopped with `FAILED_RUN_STOP`, `diagnosticComplete=false`, and quality gate false. This is not a provider or tool-schema failure, nor a thirty-case quality pass.
+
+The permanent claim, report, replay, retained PostgreSQL schema, and Temporal SQLite remain local. Two read-only post-run captures verified all retained raw tables, digests, execution binding, prior histories, and source manifest. Existing unknown receipts remain unchanged. A future scope must include this evidence in its closed-world carry; the consumed entry cannot be rerun.

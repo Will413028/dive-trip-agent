@@ -13,7 +13,7 @@ Release acceptance 尚未通過，沒有 public deployment。Public repository �
 0. **Python／Temporal 核心重構：已完成本機切換與遠端 Fixture CI。** 產品等價、帳務／歷史、跨程序故障、完整離線gates及獨立review已通過；原demo備份還原演練、migration與持久重啟已驗證。精確範圍見 [核心重構](architecture-refactor.md)。新版CI同SHA完整gate通過，不代表真模型品質。
 
 1. **Fixture 穩定性：新版指定版本完整 gate 已通過。** `bfaafdc` 同次 CI 的結果與 skip 見 Latest checkpoint；舊本機逾時根因及跨環境穩定性未證實。Action runtime deprecation 仍待維護升級與重新驗證；後續程式修改須跑 affected checks，不能沿用舊測試數當新 revision 通過。
-2. **新版真模型品質（Task 11）：未完成，原 30 案入口及兩次獨立單案 probe 均已停止。** 原入口首案第二次模型呼叫出現未知用量，停於 `UNKNOWN_USAGE_STOP`；1 案失敗、29 案未送。首個 Free-only probe 在 4 次已知用量呼叫後工具參數被拒；第二個在首呼叫即被拒，均停於 `FAILED_RUN_STOP`，均不計入 30 案品質驗收。三個 claim 與原始證據均保留，未進入內容雙審；詳下方 Latest checkpoint。離線合成對照已把第二次的固定診斷縮到 change kind 辨識；不含原值的私有 kind 診斷與合成契約測試已完成（見 Latest checkpoint）；下一步另定真模型實驗範圍與授權，不重開停止 claim 或抹掉 unknown。
+2. **新版真模型品質（Task 11）：未完成，原 30 案入口及三次獨立單案 probe 均已停止。** 原入口出現未知用量；前兩個 probe 為工具參數拒絕。第三個在 2 次已知用量呼叫後成功驗證並建立提案，但查詢案例不應產生提案，grade 包含 `UNEXPECTED_SIDE_EFFECT`，停於 `FAILED_RUN_STOP`；沒有確認或行程變更。四個 claim 與完整原始證據保留，不計入 30 案品質驗收。下一步依第三案證據完成任務選擇指引評估，詳 [P4](release-completion-plan.md#p4-依證據修正)；不得重開停止 claim、回填舊 unknown 或降低 gate。
 3. **獨立版控與遠端 CI：新版基線已完成。** Repository 已公開，`bfaafdc` 的 [fixture job 及全部 steps](https://github.com/Will413028/dive-trip-agent/actions/runs/36610177552) success；公開原始碼與 CI 不代表部署。維持 [public fixture／私有歷史契約](evaluation.md#closed-world-history-integrity)，原始證據仍在 ignored local storage。
 4. **公開部署與維運（Task 12）：未完成。** 完成下方 Public release 待填欄位：正式啟動、public URL、可信 ingress/proxy/IP、secret／預算設定、清理排程／告警、備份還原、kill-switch／rollback，取得部署授權後才開放。來源真實性、價格有效期、素材授權及 hosted runtime 須另驗，不能以本機腳本或景點座標查核代替。
 5. **新版真模型展示（Task 12）：未完成。** 沿用同次有界驗收證據，不為影片額外發送，不把 fixture／舊 replay 改標 live。維持一般規劃、鎖住宿但預算不足、查詢失敗／費用待確認三組 demo；重設只影響目前展示 session。案例頁說明本人貢獻、系統界線、示範資料、架構、測試與失敗處理，影片不取代公開 demo。
@@ -46,6 +46,14 @@ Release acceptance 尚未通過，沒有 public deployment。Public repository �
 Domain unit tests 驗費用與規則；真 PostgreSQL integration tests 驗交易、並行與冪等；固定模型 browser E2E 驗互動。真模型的理解、任務完成率、延遲、工具次數、成本及內容 review 另驗：十情境為模糊需求、非潛水同行、降預算鎖住宿、下午留白、改人數、未知費用、日期未定、來源注入、查詢逾時、無法滿足條件。Fixture grader／domain oracle 及 synthetic transport 不冒充模型表現。
 
 ## Latest checkpoint
+
+### 2026-09-30：第三次 Free-only 單案技術結果與任務失敗
+
+`c0c1012` 的 [Fixture CI](https://github.com/Will413028/dive-trip-agent/actions/runs/36664639005) 唯一 job 及全部 steps success。probe-3 另獲當次 1 invocation／7 calls 的明確授權；Workers Free active 與當下用量查核、完整 11 scopes 歷史／來源／quota 雙輪 preflight 通過後才 dispatch。
+
+本案 1 invocation／2 model calls，2,617 tokens，reference cost 288 microdollars；當次用量完整，沒有新增 unknown。兩個原生模型步驟都完成且無參數拒絕，`validate_changes`、`propose_changes` 完成。原始評估預期澄清未知費用，卻得到無實際差異的提案；grade 為 `RUN_NOT_SUCCEEDED`、`UNEXPECTED_SIDE_EFFECT`、`TEXT_REVIEW_REQUIRED`，其中 side-effect 是建立不必要提案，不是套用行程。產品為 `awaiting_confirmation`，未送 resume，版本與內容未變；評估器按 `FAILED_RUN_STOP` 結束，`diagnosticComplete=false`、品質 gate=false。不能宣稱新 kind 診斷已證明模型行為改善，也不回填前兩案原因。
+
+永久 claim／report／replay 與當次 PostgreSQL、Temporal SQLite 保留。事後 owned lease 下兩輪唯讀 audit 核對完整原始 22 表、report／replay digest、execution binding、來源及舊歷史，全部一致；owned worker 已收尾。歷史 unknown 仍原樣保留，整體 accountingComplete=false。私有實體及原始資料不搬入公開 fixture。來源命令為新單案 live test；單案停止不重試，後續指引修正仍須新 revision checks 與新的有界實驗授權。
 
 ### 2026-09-30 Offline change kind diagnostic
 

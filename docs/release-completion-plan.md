@@ -29,8 +29,8 @@ GitHub 操作依適用的本機身份指令逐命令限定帳號。核對 CI 的
 | 步驟 | 狀態 | 相依 | 交付 |
 | --- | --- | --- | --- |
 | P1 最新 Fixture CI | 已完成 | `b00e970` | exact SHA 的完整 CI 證據 |
-| P2 新單案診斷入口 | 實作／離線驗證完成，待新 CI | P1；新入口若改程式需新 CI | 新 carry、永久 claim 政策與離線驗證 |
-| P3 單案 live 診斷 | 待做 | P2、當次有界授權、Free／歷史 preflight | 完整 report、usage、診斷與事後 audit |
+| P2 新單案診斷入口 | 已完成，CI 全綠 | P1；新入口若改程式需新 CI | 新 carry、永久 claim 政策與離線驗證 |
+| P3 單案 live 診斷 | 已執行並保存；任務品質失敗 | P2、當次有界授權、Free／歷史 preflight | 完整 report、usage、診斷與事後 audit |
 | P4 依證據修正 | 條件式 | P3 | 必要修正、合成回歸與新 revision gates |
 | P5 Task 11 品質驗收 | 待做 | 技術流程可用、當次完整 campaign 授權 | 30 案、內容雙審與品質 gate |
 | P6 CI Actions runtime 維護 | 待做 | P5 後、公開 release 前 | 升級與完整 Fixture CI |
@@ -54,24 +54,28 @@ P4 不預設模型犯了哪一種錯，也不要求每次 live 後一定修改�
 - [x] 新增完整歷史 carry，納入原歷史、停止的 Python diagnostic 及兩個 probe：原 reports／replays、完整 retained DB rows、Temporal execution 與固定診斷證據；舊 unknown 保留。
 - [x] 定義新永久 claim、server-only capability、閉世界 inventory 及 source manifest；不得沿用已停止入口作重試。
 - [x] 驗證缺漏、額外檔案、digest／row 漂移、execution 不符、重複 claim、上限、未授權 dispatch 等反例；公開診斷隔離及七次上限維持既有共同 gates。
-- [x] 按影響範圍跑測試與靜態檢查；独立 design-review 無 findings。
-- [ ] Commit／push 後核對該程式 SHA 的完整 Fixture CI，再進 P3。
+- [x] 按影響範圍跑測試與靜態檢查；獨立 design-review 無 findings。
+- [x] Commit／push 後核對該程式 SHA 的完整 Fixture CI，再進 P3。
 
-當次實作入口：`evals/cloudflare-probe-3-entry.ts`、`cloudflare-probe-3-campaign.ts`；新增 carry：`cloudflare-python-probe-2-carry.ts`。同次 `pnpm test:unit` **3282 passed／110 files**，`pnpm typecheck`、`pnpm lint` 通過。新 carry 的實際唯讀雙輪查核確認完整 11 scopes 一致；原始 profile／private identities 仍在 ignored local storage。未讀 generation credential、未建立新 claim 或 dispatch。Local Docker CLI 查詢未回應，但當下 retained DB port 可連且 reader 完整 audit 通過；一般整合測試仍須由新 CI 驗證，不把這次唯讀 audit 當整合測試結果。
+當次實作入口：`evals/cloudflare-probe-3-entry.ts`、`cloudflare-probe-3-campaign.ts`；新增 carry：`cloudflare-python-probe-2-carry.ts`。同次 `pnpm test:unit` **3282 passed／110 files**，`pnpm typecheck`、`pnpm lint` 通過，獨立 design-review 無 findings。`c0c1012` 的 [CI run 36664639005](https://github.com/Will413028/dive-trip-agent/actions/runs/36664639005) 唯一 job 與全部 steps success，包含 integration、backend、production build、桌面／手機 E2E。實際唯讀雙輪查核確認完整 11 scopes 一致；原始 profile／private identities 仍在 ignored local storage。
 
 **驗收**：新入口可離線證明有界、失敗即停、完整承接歷史；合成測試不讀真憑證、不 fallback 網路。公開文件只放方法與去識別化結論。
 
 ## P3 單案 live 診斷
 
-- [ ] 取得明確的當次 scope 授權；唯讀確認 Workers Free 狀態與當日額度，不能以本機 reference cost 代替 provider 餘額。
-- [ ] 在 owned lease 下完整雙輪 preflight；核對來源、provider binding、quota 與 claim 政策，再由受控入口讀 generation capability。
-- [ ] 執行一次固定單案；記錄技術結果、工具完成數、私有固定診斷、逐 call 用量與 terminal 狀態。
-- [ ] 等 owned worker／SDK／保存 hook 收尾，保存完整 report／replay、PostgreSQL 與 Temporal 證據，執行事後完整 audit。
-- [ ] 更新 release evidence，分別判定 diagnostic completion、accounting completeness 與 quality gate。
+- [x] 取得明確的當次 scope 授權；唯讀確認 Workers Free 狀態與當日額度，不能以本機 reference cost 代替 provider 餘額。
+- [x] 在 owned lease 下完整雙輪 preflight；核對來源、provider binding、quota 與 claim 政策，再由受控入口讀 generation capability。
+- [x] 執行一次固定單案；記錄技術結果、工具完成數、私有固定診斷、逐 call 用量與 terminal 狀態。
+- [x] 等 owned worker／SDK／保存 hook 收尾，保存完整 report／replay、PostgreSQL 與 Temporal 證據，執行事後完整 audit。
+- [x] 更新 release evidence，分別判定 diagnostic completion、accounting completeness 與 quality gate。
 
 **停止**：新的 unknown、限流、工具參數拒絕、技術或安全失敗立即停止，不自動重送。永久 claim 即使 preflight 失敗仍消耗；失敗、保存不完整或未知 drain 均保留證據。
 
 **驗收**：即使單案成功，也只完成技術診斷。失敗則依固定碼定位可驗證的問題，不由未保存原值推論模型實際輸出。
+
+2026-09-30 probe-3 在 `c0c1012` 執行一次 start、2 次模型呼叫，完整用量已保存，沒有新的 unknown 或參數拒絕。`validate_changes`／`propose_changes` 均完成，但 `unknown-cost` 預期澄清，卻收到無實際差異的提案；原始 grade 包含 `UNEXPECTED_SIDE_EFFECT`，產品停在 `awaiting_confirmation`，評估依 `FAILED_RUN_STOP` 停止，沒有 resume，行程／版本未變。`diagnosticComplete=false`、`evaluationGatePassed=false`；當次用量完整與歷史 accounting completeness（仍有舊 unknown）分別判定。永久 claim、report、replay、PostgreSQL 及 Temporal 證據保留，完整雙輪事後 audit 通過。Free active 已查核，dashboard 今日 Neurons 執行前 113.39／10,000、執行後 139.42／10,000；這是 account 的當下用量，不把差額直接等同本案帳務。
+
+下一步 P4：現行工具 schema 與 validator 在本案一致，沒有證據支持放寬 change kind；模型指引未明訂查詢／澄清不得建提案。已提出一般任務指引、no-op 拒絕與換模型三種選項，待選定後實作。此案不通過品質，不由未保存原始參數反推模型的意圖。
 
 ## P4 依證據修正
 
@@ -123,7 +127,7 @@ P4 不預設模型犯了哪一種錯，也不要求每次 live 後一定修改�
 
 ## P9 作品展示
 
-- [ ] 更新 [demo script](demo-script.md)：一般規劃、鎖住宿但預算不足、查詢失敗／費用待確認三組情境。
+- [x] 更新 [demo script](demo-script.md)：一般規劃、鎖住宿但預算不足、查詢失敗／費用待確認三組情境。
 - [ ] 案例頁說明本人貢獻、架構、產品界線、示範資料、測試、真模型結果及失敗處理。
 - [ ] 使用同次有界驗收的 AcceptedAnswer／replay 證據製作影片，不為影片額外發送模型，不把 fixture 或舊 replay 改標 live。
 - [ ] 核對 public demo、案例頁、影片與 release artifact 一致。
