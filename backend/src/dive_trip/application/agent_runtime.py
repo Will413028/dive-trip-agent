@@ -14,6 +14,8 @@ from pydantic_ai.messages import (
     ModelMessage,
     ModelMessagesTypeAdapter,
     ModelResponse,
+    TextPart,
+    ThinkingPart,
     ToolCallPart,
     ToolReturnPart,
 )
@@ -280,6 +282,28 @@ def fixture_response(messages: list[ModelMessage], info: AgentInfo) -> ModelResp
     )
 
 
+def mixed_response_code(response: ModelResponse) -> str:
+    """Classify rejected SDK parts without inspecting contents or provider metadata."""
+    text = False
+    thinking = False
+    for part in response.parts:
+        if isinstance(part, ToolCallPart):
+            continue
+        if isinstance(part, TextPart):
+            text = True
+        elif isinstance(part, ThinkingPart):
+            thinking = True
+        else:
+            return "AGENT_MODEL_RESPONSE_MIXED_OTHER"
+    if text and thinking:
+        return "AGENT_MODEL_RESPONSE_MIXED_TEXT_THINKING"
+    if text:
+        return "AGENT_MODEL_RESPONSE_MIXED_TEXT"
+    if thinking:
+        return "AGENT_MODEL_RESPONSE_MIXED_THINKING"
+    return "AGENT_MODEL_RESPONSE_DIAGNOSTIC_INVALID"
+
+
 class GuardedFixtureModel(WrapperModel):
     def __init__(self) -> None:
         super().__init__(FunctionModel(fixture_response, model_name="dive-fixture-v1"))
@@ -339,7 +363,7 @@ class GuardedFixtureModel(WrapperModel):
         if not any(isinstance(part, ToolCallPart) for part in response.parts):
             raise DomainError("AGENT_MODEL_RESPONSE_NON_TOOL_PARTS")
         if any(not isinstance(part, ToolCallPart) for part in response.parts):
-            raise DomainError("AGENT_MODEL_RESPONSE_MIXED_PARTS")
+            raise DomainError(mixed_response_code(response))
         calls = [
             {
                 "id": part.tool_call_id,

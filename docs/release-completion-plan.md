@@ -131,7 +131,16 @@ P9 案例頁已對齊新架構與三個 probe 的實際結果，移除舊 ADK �
 
 當次單案執行：使用者明確授權上述上限後，確認 Workers Free Active、當日 164.74／10,000 Neurons，完整 13 scopes preflight 通過，執行一次後按 `UNKNOWN_USAGE_STOP` 停止。結果為 1 invocation／2 model calls；兩筆 call 用量均已知，但 invocation actual cost 仍 null，保守扣帳 183505 reference micros，沒有重試。第一步完成 calculate_budget，第二步失敗，未建立提案或變更行程。固定私有分類為 `AGENT_MODEL_RESPONSE_MIXED_PARTS`，只證明 ToolCallPart 與至少一種非 ToolCallPart 共存，不辨認非工具 part 種類或原值，也不回推舊 P5 的分類。diagnosticComplete／evaluationGatePassed 皆 false。
 
-停止後 `node /tmp/dive-trip-probe4-postrun.mjs` 雙輪唯讀核對 report／replay、22 表、Temporal execution 與 source manifest 全部符合，新增一筆 unknown receipt；`node /tmp/dive-trip-probe4-carry-audit.mjs --verify` 再核對既有 13 scopes 通過。原始 claim／report／replay、DB／Temporal 保留，claim 已消耗；不得重新執行入口。先前同時啟動的唯讀查核遇到 owned lease EEXIST，未清 lock，待持有者完成釋放後順序查核通過。下一步先評估 mixed response 的相容策略或更細固定種類診斷；新實驗需獨立入口與當次有界授權。
+停止後 `node /tmp/dive-trip-probe4-postrun.mjs` 雙輪唯讀核對 report／replay、22 表、Temporal execution 與 source manifest 全部符合，新增一筆 unknown receipt；`node /tmp/dive-trip-probe4-carry-audit.mjs --verify` 再核對既有 13 scopes 通過。原始 claim／report／replay、DB／Temporal 保留，claim 已消耗；不得重新執行入口。先前同時啟動的唯讀查核遇到 owned lease EEXIST，未清 lock，待持有者完成釋放後順序查核通過。下一步先確認回應結構，再決定修正：先唯讀核對 provider adapter／SDK 的解析路徑，離線驗證固定 part 種類診斷，不改 mixed guard；若現存證據不足，再準備不保存原值的種類／數量診斷，另取當次有界授權執行新單案。確認實際種類及轉換行為後才比較 adapter 修正、輔助 part 過濾或模型選擇，不預先採用過濾。種類資訊不足以判斷內容語義時，明記未知，另定必要且有界的觀察方式；不得由種類推論原文。新實驗需獨立入口與當次有界授權。
+
+
+### Mixed parts 種類診斷（離線）
+
+依使用者指示先確認回應結構再決定修正。唯讀核對鎖定的 PydanticAI 2.51.0：Cloudflare 走 OpenAIChatModel，SDK 會分別處理 reasoning／reasoning_content、content（含 thinking tags）與 tool_calls。以 synthetic credential＋強制 MockTransport 的六種 wire 回應重現純工具、文字混合、兩種 reasoning 欄位與 content thinking tags；request 保持 tool_choice=required、enable_thinking=false，仍可解析混合回應。這證明可行解析路徑，不證明上一案使用哪個欄位，也不證明 provider 違約。型別定義參照 [PydanticAI messages](https://pydantic.dev/docs/ai/api/pydantic-ai/messages/)，模型參照 [Cloudflare Gemma 4](https://developers.cloudflare.com/workers-ai/models/gemma-4-26b-a4b-it/)；本輪結論以鎖定 SDK 與離線 wire 測試為準。
+
+新私有固定分類區分 MIXED_TEXT、MIXED_THINKING、MIXED_TEXT_THINKING、MIXED_OTHER；其他種類優先 OTHER，不保存內容、metadata、動態型別名或數量。種類已足以區分本輪首要假設，因此先不擴大數量診斷。全部 mixed 仍拒絕，公開錯誤、未知結算、工具／模型上限與重試政策不變。沿用固定私有 failure code：從零設計在現有 Temporal／私有證據邊界下仍採有限枚舉，無需增加原始回應儲存；若種類不能區分下一個假設，再重評必要觀察欄位。
+
+同次完整 affected 命令 `backend/.venv/bin/pytest backend/tests/test_provider_sdk.py backend/tests/test_response_diagnostic.py -q --tb=short` 為48 passed，含8個真實 Temporal／隔離 PostgreSQL案例及6個SDK wire案例。process內把分類退回舊泛碼，以 `pytest.main(['backend/tests/test_response_diagnostic.py','-q','--tb=short','-k','private_response'])` 反轉驗證為4 failed／4 passed／6 deselected，原source不變。Ruff及strict mypy通過。這是小範圍診斷補強，不改儲存／交易／執行機制；未呼叫真模型，舊證據不回填。完整來源CI待本次push後核對。新單案入口及完整14 scopes carry尚未準備；實際觀察需要新入口、CI與當次有界授權。
 
 ## P6 CI Actions runtime 維護
 

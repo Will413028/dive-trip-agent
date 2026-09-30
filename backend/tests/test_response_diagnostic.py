@@ -5,7 +5,14 @@ from uuid import uuid4
 
 import pytest
 from pydantic_ai.durable_exec.temporal import PydanticAIPlugin
-from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart, ToolReturnPart
+from pydantic_ai.messages import (
+    CompactionPart,
+    ModelResponse,
+    TextPart,
+    ThinkingPart,
+    ToolCallPart,
+    ToolReturnPart,
+)
 from temporalio.client import WorkflowFailureError
 from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import Worker
@@ -26,7 +33,10 @@ from dive_trip.modules.usage.provider import GEMINI_MODEL, ProviderBinding
     [
         ("empty", "AGENT_MODEL_RESPONSE_EMPTY_PARTS", 1),
         ("text", "AGENT_MODEL_RESPONSE_NON_TOOL_PARTS", 1),
-        ("mixed", "AGENT_MODEL_RESPONSE_MIXED_PARTS", 1),
+        ("mixed", "AGENT_MODEL_RESPONSE_MIXED_TEXT", 1),
+        ("thinking", "AGENT_MODEL_RESPONSE_MIXED_THINKING", 1),
+        ("both", "AGENT_MODEL_RESPONSE_MIXED_TEXT_THINKING", 1),
+        ("other", "AGENT_MODEL_RESPONSE_MIXED_OTHER", 1),
         ("duplicate", "AGENT_MODEL_RESPONSE_DUPLICATE_CALL_ID", 1),
         ("reused", "AGENT_MODEL_RESPONSE_REUSED_CALL_ID", 2),
     ],
@@ -47,6 +57,18 @@ async def test_private_response_codes_do_not_escape_or_authorize_settlement(
             return ModelResponse(parts=[TextPart("SECRET_RESPONSE_VALUE")])
         if mode == "mixed":
             return ModelResponse(parts=[call, TextPart("SECRET_RESPONSE_VALUE")])
+        if mode == "thinking":
+            return ModelResponse(parts=[call, ThinkingPart("SECRET_RESPONSE_VALUE")])
+        if mode == "both":
+            return ModelResponse(
+                parts=[
+                    call,
+                    TextPart("SECRET_RESPONSE_VALUE"),
+                    ThinkingPart("SECRET_RESPONSE_VALUE"),
+                ]
+            )
+        if mode == "other":
+            return ModelResponse(parts=[call, CompactionPart("SECRET_RESPONSE_VALUE")])
         if mode == "duplicate":
             return ModelResponse(parts=[call, call])
         assert mode == "reused"
@@ -87,7 +109,7 @@ async def test_private_response_codes_do_not_escape_or_authorize_settlement(
             if event.HasField("activity_task_failed_event_attributes")
         ]
         assert any(failure.message == code for failure in failures)
-        assert all("SECRET_RESPONSE_VALUE" not in str(failure) for failure in failures)
+        assert "SECRET_RESPONSE_VALUE" not in history.to_json()
         evidence = read_usage_evidence(database, binding, provider)
         assert evidence.status == "failed"
         assert len(evidence.calls) == calls
@@ -114,3 +136,22 @@ async def test_private_response_codes_do_not_escape_or_authorize_settlement(
                 "SELECT current_version FROM trips WHERE id = %s", (trip.id,)
             ).fetchone()
             assert current["current_version"] == trip.version
+
+
+@pytest.mark.parametrize(
+    ("parts", "code"),
+    [
+        ([TextPart("a")], "AGENT_MODEL_RESPONSE_MIXED_TEXT"),
+        ([ThinkingPart("a")], "AGENT_MODEL_RESPONSE_MIXED_THINKING"),
+        ([TextPart(""), ThinkingPart("")], "AGENT_MODEL_RESPONSE_MIXED_TEXT_THINKING"),
+        ([CompactionPart("a")], "AGENT_MODEL_RESPONSE_MIXED_OTHER"),
+        ([TextPart("a"), CompactionPart("a")], "AGENT_MODEL_RESPONSE_MIXED_OTHER"),
+        ([], "AGENT_MODEL_RESPONSE_DIAGNOSTIC_INVALID"),
+    ],
+)
+def test_mixed_classification_uses_only_known_types(parts, code):
+    call = ToolCallPart("calculate_budget", {}, tool_call_id="synthetic-call")
+    response = ModelResponse(parts=[call, *parts])
+    assert agent_runtime.mixed_response_code(response) == code
+    response.parts.reverse()
+    assert agent_runtime.mixed_response_code(response) == code

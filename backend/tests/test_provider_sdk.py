@@ -3,7 +3,13 @@ import json
 
 import httpx2 as httpx
 import pytest
-from pydantic_ai.messages import ModelRequest, ToolCallPart, UserPromptPart
+from pydantic_ai.messages import (
+    ModelRequest,
+    TextPart,
+    ThinkingPart,
+    ToolCallPart,
+    UserPromptPart,
+)
 from pydantic_ai.models import ModelRequestParameters
 from pydantic_ai.tools import ToolDefinition
 
@@ -349,3 +355,48 @@ async def test_native_sdk_bounds_body_and_forbids_redirect(provider):
             await request(generation)
     finally:
         await generation.aclose()
+
+
+@pytest.mark.parametrize(
+    ("fields", "expected"),
+    [
+        ({"content": "synthetic text"}, [TextPart, ToolCallPart]),
+        ({"reasoning_content": "synthetic reasoning"}, [ThinkingPart, ToolCallPart]),
+        ({"reasoning": "synthetic reasoning"}, [ThinkingPart, ToolCallPart]),
+        (
+            {"content": "synthetic text", "reasoning_content": "synthetic reasoning"},
+            [ThinkingPart, TextPart, ToolCallPart],
+        ),
+        (
+            {"content": "<think>synthetic reasoning</think>synthetic text"},
+            [ThinkingPart, TextPart, ToolCallPart],
+        ),
+        ({"content": ""}, [ToolCallPart]),
+    ],
+)
+async def test_cloudflare_sdk_preserves_mixed_wire_parts_without_retry(
+    fields, expected
+):
+    payload = reply("cloudflare")
+    payload["choices"][0]["message"].update(fields)
+    seen = []
+
+    def transport(req):
+        seen.append(req)
+        return httpx.Response(200, json=payload)
+
+    generation = OfflineSdkGeneration(
+        binding("cloudflare"),
+        "synthetic-not-a-real-key",
+        httpx.MockTransport(transport),
+    )
+    try:
+        response, usage = await request(generation)
+    finally:
+        await generation.aclose()
+    assert [type(part) for part in response.parts] == expected
+    assert len(seen) == 1
+    body = json.loads(seen[0].content)
+    assert body["chat_template_kwargs"] == {"enable_thinking": False}
+    assert body["tool_choice"] == "required"
+    assert usage.usage is not None and usage.usage.totalTokens == 5
