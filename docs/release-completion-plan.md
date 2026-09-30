@@ -96,6 +96,8 @@ P9 案例頁已對齊新架構與三個 probe 的實際結果，移除舊 ADK �
 
 另獲當次完整上限授權、當下 Free 與完整歷史 preflight 通過後，首案 `unknown-cost` 執行 1 invocation／2 model calls。兩次 token 用量都已保存，第一步完成 calculate_budget，第二步 `AGENT_MODEL_RESPONSE` activity failure；invocation 結算成本 null，保守 reservation 保留，按 `UNKNOWN_USAGE_STOP` 停止。其餘 29 案未 dispatch，沒有提案／確認／行程變更，未進入兩案雙審，品質 gate=false。永久 claim 已消耗，完整 report／replay／DB／Temporal 保留；事後舊歷史及本次 22 表、artifacts／execution／來源雙輪核對相符。新的固定碼有多個分支，尚不能反推原始 response parts 或 call 值。下一步先唯讀／離線釐清可觀測邊界，再決定後續品質路線；不自動建下一個 probe。
 
+使用者選定先補固定 response 分類診斷，未授權新模型呼叫。保留的 stack location 對照 `44e0ae9` 指向 `agent_runtime.py:340` 的 parts guard；只能定位 guard，不能分辨原始 parts。已把既有拒絕分支拆成不保存原值的固定私有代碼，見 [Failure diagnosis](evaluation-review.md#failure-diagnosis)。隔離 PostgreSQL／Temporal 與工具契約同次 **28 passed**；將新代碼在測試 process 內退回舊泛碼的反轉驗證為 **8 failed／20 passed**，未修改原始 source 或歷史。Ruff／strict mypy 通過，公開錯誤、無重送、工具／模型上限及成本結算規則不變。當次完整 CI 待 commit／push 後查核；這項改動只改善可觀測性，尚未證明模型品質。
+
 - [x] 依 [evaluation](evaluation.md#coverage-and-acceptance) 固定 10 情境 × 3 rounds、fixture／model identity、invocation／model call／額度總上限與停止政策，取得新的完整 campaign 授權。
 - [ ] 完成新版入口與歷史 preflight；先執行兩案，依 [review 方法](evaluation-review.md) 做 primary／independent 內容與任務審查，通過既有 gate 才繼續。
 - [ ] 每案核對 before／proposal／decision／receipt／after、AcceptedAnswer、native tools、用量與目標完成；pending 不當 passed。

@@ -106,8 +106,10 @@ class ToolInvocation(WireModel):
 def validate_candidate(
     raw: Any, prior_ids: set[str], tool_count: int, *, proposed: bool = False
 ) -> list[ToolInvocation]:
-    if not isinstance(raw, list) or not raw:
-        raise DomainError("AGENT_MODEL_RESPONSE")
+    if not isinstance(raw, list):
+        raise DomainError("AGENT_MODEL_RESPONSE_CANDIDATES_SHAPE")
+    if not raw:
+        raise DomainError("AGENT_MODEL_RESPONSE_EMPTY_CALLS")
     if len(json.dumps(raw, ensure_ascii=False, separators=(",", ":")).encode()) > 32000:
         raise DomainError("AGENT_OUTPUT_LIMIT")
     if tool_count + len(raw) > 6:
@@ -118,8 +120,10 @@ def validate_candidate(
         call = ToolInvocation.model_validate(value)
         if call.name not in TOOL_ARGUMENTS:
             raise DomainError("AGENT_TOOL_NOT_ALLOWED")
+        if call.id in prior_ids:
+            raise DomainError("AGENT_MODEL_RESPONSE_REUSED_CALL_ID")
         if call.id in seen:
-            raise DomainError("AGENT_MODEL_RESPONSE")
+            raise DomainError("AGENT_MODEL_RESPONSE_DUPLICATE_CALL_ID")
         seen.add(call.id)
         try:
             args = (

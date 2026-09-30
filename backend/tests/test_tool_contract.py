@@ -215,9 +215,23 @@ def test_final_output_counts_as_tool_and_is_exclusive():
 
 
 def test_duplicate_call_id_across_history_is_rejected():
-    with pytest.raises(DomainError, match="AGENT_MODEL_RESPONSE"):
+    with pytest.raises(DomainError, match="^AGENT_MODEL_RESPONSE_REUSED_CALL_ID$"):
         validate_candidate([call("calculate_budget")], {"call-1"}, 1)
-    with pytest.raises(DomainError, match="AGENT_MODEL_RESPONSE"):
+    with pytest.raises(DomainError, match="^AGENT_MODEL_RESPONSE_DUPLICATE_CALL_ID$"):
         validate_candidate(
             [call("calculate_budget"), call("find_destinations")], set(), 0
         )
+
+
+@pytest.mark.parametrize(
+    ("raw", "code"),
+    [
+        ({"SECRET": "raw-value"}, "AGENT_MODEL_RESPONSE_CANDIDATES_SHAPE"),
+        ([], "AGENT_MODEL_RESPONSE_EMPTY_CALLS"),
+    ],
+)
+def test_candidate_container_diagnostic_does_not_store_values(raw, code):
+    with pytest.raises(DomainError) as caught:
+        validate_candidate(raw, set(), 0)
+    assert str(caught.value) == code
+    assert vars(caught.value) == {"code": code}

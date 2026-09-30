@@ -334,10 +334,12 @@ class GuardedFixtureModel(WrapperModel):
                 response = await self.wrapped.request(
                     messages, settings, model_request_parameters
                 )
-        if not response.parts or any(
-            not isinstance(part, ToolCallPart) for part in response.parts
-        ):
-            raise DomainError("AGENT_MODEL_RESPONSE")
+        if not response.parts:
+            raise DomainError("AGENT_MODEL_RESPONSE_EMPTY_PARTS")
+        if not any(isinstance(part, ToolCallPart) for part in response.parts):
+            raise DomainError("AGENT_MODEL_RESPONSE_NON_TOOL_PARTS")
+        if any(not isinstance(part, ToolCallPart) for part in response.parts):
+            raise DomainError("AGENT_MODEL_RESPONSE_MIXED_PARTS")
         calls = [
             {
                 "id": part.tool_call_id,

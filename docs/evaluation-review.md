@@ -110,6 +110,8 @@ Replay 僅取既有 captured events，不為錄影加送模型。標示 syntheti
 
 ## Failure diagnosis
 
+- 新 runtime 的 response guard 使用固定私有 `AGENT_MODEL_RESPONSE_*` 分類：`EMPTY_PARTS`、`NON_TOOL_PARTS`、`MIXED_PARTS` 為模型回應 parts 邊界；`CANDIDATES_SHAPE`、`EMPTY_CALLS`、`REUSED_CALL_ID`、`DUPLICATE_CALL_ID` 為候選 call 邊界。`DIAGNOSTIC_INVALID` 表示內部拒絕診斷不符合型別，不能推定模型原值錯誤。只保存固定代碼，不新增原值、part class 名稱、call ID、正文或錯誤細節。公開事件及未知成本政策不變。
+- 舊 `AGENT_MODEL_RESPONSE` 不回填；保留 stack location 若能與當次 source 對照，只能定位該 guard，不能推論其未保存的 parts／參數。分類測試與 Temporal／公開事件／保守結算邊界在 `backend/tests/test_response_diagnostic.py`、`test_tool_contract.py`。
 - `AGENT_TOOL_ARGUMENTS` 只保存白名單工具與有界 issue type/path；原值未存就不能猜是哪個非法值，也不能回填更早失敗的根因。
 - `AGENT_PROVIDER_ERROR` 的舊固定碼無法區分所有 transport、parse 或 provider 分支；沒有 structured stage/reason 就保持未知。
 - `response/length` 需由實際 finish reason 證明；output 達 cap 只是線索，不能單憑數字定因。Non-thinking request policy 不是品質修復證明。

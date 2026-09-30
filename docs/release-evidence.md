@@ -53,7 +53,9 @@ Domain unit tests 驗費用與規則；真 PostgreSQL integration tests 驗交�
 
 當次新授權為 Workers AI Free-only、固定 Gemma 4、合成 30 案／39 invocations／210 model calls，先兩案雙審。當下 Workers Free Active、139.42／10,000 Neurons 與完整舊歷史雙輪 preflight 通過後，只執行首案 `unknown-cost`。1 invocation／2 model calls 的 token evidence 都已保存；第一步完成 `calculate_budget`，第二步 native activity 失敗，固定碼為 `AGENT_MODEL_RESPONSE`。未產生 AcceptedAnswer 或提案、沒有 resume，內容與版本保持不變。Invocation 的 `actual_cost_micros=null`、保守 reservation 保留，整批 `UNKNOWN_USAGE_STOP`；29 案 skipped，未建立兩案 preflight review，品質 gate=false。匯出完整與成本可知分別判定。
 
-本輪沒有自動重送。Owned worker 已收尾，永久 claim、report／replay、隔離 PostgreSQL 及 Temporal SQLite 保留。事後完整舊 12 scopes 雙輪 audit 一致；本次雙輪比對 22 表 raw rows／fingerprint、bounded artifacts／digests、正式 replay schema／phase、實際 execution 與來源相符。`AGENT_MODEL_RESPONSE` 可由空／非工具 response parts 或候選 call 檢查等分支產生；原始 parts／call 參數未保存，不能由此反推確切原因。一般指引效果仍未證明，新的失敗結算不回填。
+本輪沒有自動重送。Owned worker 已收尾，永久 claim、report／replay、隔離 PostgreSQL 及 Temporal SQLite 保留。事後完整舊 12 scopes 雙輪 audit 一致；本次雙輪比對 22 表 raw rows／fingerprint、bounded artifacts／digests、正式 replay schema／phase、實際 execution 與來源相符。保留 stack location 對照當次 source，將失敗定位於 `agent_runtime.py:340` 的 parts guard；原始 parts 未保存，不能區分空、純非工具或混合 parts。一般指引效果仍未證明，新的失敗結算不回填。
+
+使用者選定先補固定 response 分類，當次離線實作及驗證見 [P5](release-completion-plan.md#p5-task-11-真模型品質驗收)，代碼邊界見 [Failure diagnosis](evaluation-review.md#failure-diagnosis)。本輪未再讀模型憑證或 dispatch；新分類不回填舊 history，完整來源 CI 待查核，品質 gate 仍 false。
 
 ### 2026-09-30：第三次 Free-only 單案技術結果與任務失敗
 

@@ -219,7 +219,9 @@ class PlanningService:
             except ToolArgumentsRejected as error:
                 parsed, rejected = [], True
                 if not isinstance(error.diagnostic, ArgumentDiagnostic):
-                    raise DomainError("AGENT_MODEL_RESPONSE") from None
+                    raise DomainError(
+                        "AGENT_MODEL_RESPONSE_DIAGNOSTIC_INVALID"
+                    ) from None
                 diagnostic = error.diagnostic
             # Reserve the whole validated batch in model order before the SDK sees it.
             for call in parsed:
@@ -241,7 +243,7 @@ class PlanningService:
             )
             if rejected:
                 if diagnostic is None:
-                    raise DomainError("AGENT_MODEL_RESPONSE")
+                    raise DomainError("AGENT_MODEL_RESPONSE_DIAGNOSTIC_INVALID")
                 planning.mark_argument_rejection(
                     connection, binding.runId, activity_id, diagnostic
                 )
