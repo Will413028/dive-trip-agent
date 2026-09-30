@@ -3,6 +3,7 @@ import json
 
 import httpx2 as httpx
 import pytest
+from pydantic_ai import Agent, ToolOutput
 from pydantic_ai.messages import (
     ModelRequest,
     TextPart,
@@ -11,14 +12,101 @@ from pydantic_ai.messages import (
     UserPromptPart,
 )
 from pydantic_ai.models import ModelRequestParameters
+from pydantic_ai.models.wrapper import WrapperModel
 from pydantic_ai.tools import ToolDefinition
 
+from dive_trip.modules.planning.answer_contract import AnswerPlan
 from dive_trip.modules.usage.provider import CLOUDFLARE_MODEL, GEMINI_MODEL
 from dive_trip.modules.usage.public import ProviderBinding
 from dive_trip.platform import provider_sdk
 from dive_trip.platform.errors import DomainError
 from dive_trip.platform.provider_sdk import OfflineSdkGeneration, endpoint
 from dive_trip.platform.provider_wire import ProviderFailure, wire_evidence
+
+
+@pytest.mark.parametrize("budget_calls", [1, 6])
+async def test_cloudflare_native_loop_preserves_budget_returns_and_output_tool(
+    budget_calls,
+):
+    """Synthetic wire diagnosis, not the product guard or real model quality."""
+    evidence = "ev_" + "a" * 64
+    budget = {
+        "evidenceRef": evidence,
+        "knownSubtotalMinor": 120000,
+        "unknownCount": 1,
+        "totalMinor": None,
+        "currency": "TWD",
+        "demo": True,
+    }
+    plan = {"version": "1", "answer": {"kind": "budget", "evidenceRef": evidence}}
+    seen = []
+
+    def transport(req):
+        body = json.loads(req.content)
+        seen.append(body)
+        ordinal = len(seen)
+        functions = {tool["function"]["name"] for tool in body["tools"]}
+        assert {"calculate_budget", "final_answer"} <= functions
+        assert body["tool_choice"] == "required"
+        output_tool = next(
+            tool["function"]
+            for tool in body["tools"]
+            if tool["function"]["name"] == "final_answer"
+        )
+        assert output_tool["parameters"]["properties"]["version"]["const"] == "1"
+        assert "answer" in output_tool["parameters"]["required"]
+        returns = [message for message in body["messages"] if message["role"] == "tool"]
+        assert len(returns) == ordinal - 1
+        for index, message in enumerate(returns, start=1):
+            assert message["tool_call_id"] == f"budget-{index}"
+            assert json.loads(message["content"]) == budget
+        assistants = [
+            message for message in body["messages"] if message["role"] == "assistant"
+        ]
+        assert len(assistants) == len(returns)
+        for index, message in enumerate(assistants, start=1):
+            assert message["tool_calls"][0]["id"] == f"budget-{index}"
+            assert message["tool_calls"][0]["function"]["name"] == "calculate_budget"
+        raw = reply("cloudflare")
+        call = raw["choices"][0]["message"]["tool_calls"][0]
+        call["id"] = f"budget-{ordinal}" if ordinal <= budget_calls else "answer-1"
+        if ordinal > budget_calls:
+            call["function"] = {"name": "final_answer", "arguments": json.dumps(plan)}
+        return httpx.Response(200, json=raw)
+
+    generation = OfflineSdkGeneration(
+        binding("cloudflare"),
+        "synthetic-not-a-real-key",
+        httpx.MockTransport(transport),
+    )
+
+    class CapturedModel(WrapperModel):
+        async def request(self, messages, model_settings, model_request_parameters):
+            response, usage = await generation.request(
+                messages,
+                model_settings,
+                model_request_parameters,
+                f"step-{len(seen) + 1}",
+            )
+            assert usage.usage.totalTokens == 5
+            return response
+
+    native = Agent(
+        CapturedModel(generation.model),
+        output_type=ToolOutput(AnswerPlan, name="final_answer"),
+        retries=0,
+    )
+
+    @native.tool_plain
+    def calculate_budget():
+        return budget
+
+    try:
+        result = await native.run("synthetic unknown-cost question")
+    finally:
+        await generation.aclose()
+    assert result.output.model_dump(mode="json") == plan
+    assert len(seen) == budget_calls + 1
 
 
 def binding(provider):

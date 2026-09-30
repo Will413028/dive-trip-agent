@@ -222,9 +222,13 @@ P9 案例頁已對齊新架構與三個 probe 的實際結果，移除舊 ADK �
 
 當次完整證據雙輪核對 rows／replay／execution／source 一致；再執行原十五 scopes reader，舊歷史仍為 50 invocations／76 calls／8 unknown。含本次累計為 51 invocations／83 calls／9 unknown、1684156 charged reference micros／308936 observed tokens；剩餘 49 invocations／1315844 reference micros，不等於 provider Free 額度。
 
-- [ ] 離線重現六次業務工具後 `final_answer` 的上限邊界，先比對契約與既有測試。
-- [ ] 查核 native SDK 的工具結果與 output tool 曝露，釐清重複 budget 呼叫；目前根因未證實。
+- [x] 離線重現上限邊界：既有 `test_final_output_counts_as_tool_and_is_exclusive` 明確要求 final_answer 計入六次名額，五次業務工具後接受、六次後拒絕；transaction 的 consume_final_tool 同樣計數，屬既有政策且 already protected。
+- [x] 固定 synthetic SDK 查核工具結果與 output tool 曝露；重複 budget 的真模型原因仍未證實。
 - [ ] 修正與驗證後才準備新的十六 scopes 有界入口；當次模型授權另取。
+
+離線診斷新增 `test_cloudflare_native_loop_preserves_budget_returns_and_output_tool`，以既有 OfflineSdkGeneration、synthetic credential 與強制 MockTransport 測試一／六次 budget 後回答。逐次檢查 assistant call／tool return 的數量、ID 配對、完整 budget JSON（含 unknown／null／DEMO／evidenceRef）、final_answer schema 與 required tool_choice。59 tests（provider SDK＋tool contract）同次通過，Ruff 通過；沒有 production code／prompt／quota／上限修改、沒有新模型呼叫。
+
+這個 native SDK 測試刻意不掛產品 guard：六次工具後的 synthetic final_answer 在 SDK 可解碼，不代表產品允許；產品 guard 的既有拒絕測試也在同次驗證。證據排除固定 synthetic 路徑的工具結果遺失或 output tool 未曝露，不能排除 provider／真模型差異，也不能反推 probe-6 最後候選。下一步先設計不保存原值的固定工具選擇／停止分類，再準備新有界實驗；不先調高上限或對重複呼叫加補丁。
 
 第七候選在解析名稱前被上限拒絕，不能判定它是第七次 budget 或 `final_answer`；本次未保存原始 parts，不能據此聲稱特定 TextPart 形狀或品質已修復。工具上限已有保護，不提高限制或自動重試。
 
