@@ -50,6 +50,8 @@ const probe5Required = [...probe4Required,
   'cloudflare-python-probe-history.json', 'cloudflare-python-probe-2-history.json',
   'cloudflare-python-probe-3-history.json', 'cloudflare-probe-4.claim', 'cloudflare-probe-4.json', 'cloudflare-python-probe-4-history.json'];
 const probe5Prior = () => new Set([...probe4Prior(), ...probe5Required]);
+const probe6Required = [...probe5Required, 'cloudflare-probe-5.claim', 'cloudflare-probe-5.json', 'cloudflare-python-probe-5-history.json'];
+const probe6Prior = () => new Set([...probe5Prior(), ...probe6Required]);
 const policies = () => ({
   revision: { required: requiredFiles, prior: priorFiles(),
     campaign: /^cloudflare-(evaluation|patch|quality|revision).*\.(claim|json)$/,
@@ -84,6 +86,9 @@ const policies = () => ({
   probe5: { required: probe5Required, prior: probe5Prior(),
     campaign: /^cloudflare-(evaluation|patch|quality|revision|recovery|grounded|nonthinking|diagnostic|probe|python-quality|python-probe)/,
     scope: 'probe-5-unknown-cost-once-7-calls-1-invocation-free-only' },
+  probe6: { required: probe6Required, prior: probe6Prior(),
+    campaign: /^cloudflare-(evaluation|patch|quality|revision|recovery|grounded|nonthinking|diagnostic|probe|python-quality|python-probe)/,
+    scope: 'probe-6-unknown-cost-once-7-calls-1-invocation-free-only' },
 } as const);
 
 /** Permanent one-shot claim with closed campaign policies, consumed even on preflight failure.
@@ -97,9 +102,9 @@ export async function claimCloudflareCampaign(lease: EvaluationLockLease, kind: 
   await assertEvaluationLock(lease);
   const dir = resolve('.artifacts');
   const names = await readdir(dir);
-  const stem = kind === 'probe5' ? 'cloudflare-probe-5' : kind === 'probe4' ? 'cloudflare-probe-4' : kind === 'probe2' ? 'cloudflare-probe-2' : kind === 'probe3' ? 'cloudflare-probe-3' : kind === 'pythonQuality' ? 'cloudflare-python-quality' : `cloudflare-${kind}`;
+  const stem = kind === 'probe6' ? 'cloudflare-probe-6' : kind === 'probe5' ? 'cloudflare-probe-5' : kind === 'probe4' ? 'cloudflare-probe-4' : kind === 'probe2' ? 'cloudflare-probe-2' : kind === 'probe3' ? 'cloudflare-probe-3' : kind === 'pythonQuality' ? 'cloudflare-python-quality' : `cloudflare-${kind}`;
   let probeReplay: string | undefined;
-  if ((kind === 'probe' || kind === 'probe2' || kind === 'probe3' || (kind === 'pythonQuality' || (kind === 'probe4' || kind === 'probe5'))) && policy.required.every(name => names.includes(name))) {
+  if ((kind === 'probe' || kind === 'probe2' || kind === 'probe3' || (kind === 'pythonQuality' || (kind === 'probe4' || (kind === 'probe5' || kind === 'probe6')))) && policy.required.every(name => names.includes(name))) {
     try {
       probeReplay = await withBoundedArtifactDirectory([resolve('.'), dir], async directory => {
         const report = await directory.read('cloudflare-diagnostic.json', { minBytes: 1, maxBytes: 2_000_000 });
@@ -109,7 +114,7 @@ export async function claimCloudflareCampaign(lease: EvaluationLockLease, kind: 
     } catch { fail(); }
   }
   let priorProbeReplay: string | undefined;
-  if ((kind === 'probe2' || kind === 'probe3' || (kind === 'pythonQuality' || (kind === 'probe4' || kind === 'probe5'))) && policy.required.every(name => names.includes(name))) {
+  if ((kind === 'probe2' || kind === 'probe3' || (kind === 'pythonQuality' || (kind === 'probe4' || (kind === 'probe5' || kind === 'probe6')))) && policy.required.every(name => names.includes(name))) {
     try {
       priorProbeReplay = await withBoundedArtifactDirectory([resolve('.'), dir], async directory => {
         const report = await directory.read('cloudflare-probe.json', { minBytes: 1, maxBytes: 2_000_000 });
@@ -119,7 +124,7 @@ export async function claimCloudflareCampaign(lease: EvaluationLockLease, kind: 
     } catch { fail(); }
   }
   let secondProbeReplay: string | undefined;
-  if ((kind === 'probe3' || (kind === 'pythonQuality' || (kind === 'probe4' || kind === 'probe5'))) && policy.required.every(name => names.includes(name))) {
+  if ((kind === 'probe3' || (kind === 'pythonQuality' || (kind === 'probe4' || (kind === 'probe5' || kind === 'probe6')))) && policy.required.every(name => names.includes(name))) {
     try {
       secondProbeReplay = await withBoundedArtifactDirectory([resolve('.'), dir], async directory => {
         const report = await directory.read('cloudflare-probe-2.json', { minBytes: 1, maxBytes: 2_000_000 });
@@ -129,7 +134,7 @@ export async function claimCloudflareCampaign(lease: EvaluationLockLease, kind: 
     } catch { fail(); }
   }
   let thirdProbeReplay: string | undefined;
-  if ((kind === 'pythonQuality' || (kind === 'probe4' || kind === 'probe5')) && policy.required.every(name => names.includes(name))) {
+  if ((kind === 'pythonQuality' || (kind === 'probe4' || (kind === 'probe5' || kind === 'probe6'))) && policy.required.every(name => names.includes(name))) {
     try {
       thirdProbeReplay = await withBoundedArtifactDirectory([resolve('.'), dir], async directory => {
         const report = await directory.read('cloudflare-probe-3.json', { minBytes: 1, maxBytes: 2_000_000 });
@@ -139,7 +144,7 @@ export async function claimCloudflareCampaign(lease: EvaluationLockLease, kind: 
     } catch { fail(); }
   }
   let qualityReplay: string | undefined;
-  if ((kind === 'probe4' || kind === 'probe5') && policy.required.every(name => names.includes(name))) {
+  if ((kind === 'probe4' || (kind === 'probe5' || kind === 'probe6')) && policy.required.every(name => names.includes(name))) {
     try {
       qualityReplay = await withBoundedArtifactDirectory([resolve('.'), dir], async directory => {
         const report = await directory.read('cloudflare-python-quality.json', { minBytes: 1, maxBytes: 2_000_000 });
@@ -149,7 +154,7 @@ export async function claimCloudflareCampaign(lease: EvaluationLockLease, kind: 
     } catch { fail(); }
   }
   let fourthProbeReplay: string | undefined;
-  if (kind === 'probe5' && policy.required.every(name => names.includes(name))) {
+  if ((kind === 'probe5' || kind === 'probe6') && policy.required.every(name => names.includes(name))) {
     try {
       fourthProbeReplay = await withBoundedArtifactDirectory([resolve('.'), dir], async directory => {
         const report = await directory.read('cloudflare-probe-4.json', { minBytes: 1, maxBytes: 2_000_000 });
@@ -158,13 +163,24 @@ export async function claimCloudflareCampaign(lease: EvaluationLockLease, kind: 
       policy.prior.add(fourthProbeReplay);
     } catch { fail(); }
   }
+  let fifthProbeReplay: string | undefined;
+  if (kind === 'probe6' && policy.required.every(name => names.includes(name))) {
+    try {
+      fifthProbeReplay = await withBoundedArtifactDirectory([resolve('.'), dir], async directory => {
+        const report = await directory.read('cloudflare-probe-5.json', { minBytes: 1, maxBytes: 2_000_000 });
+        return probeReplayFromReport(JSON.parse(report.bytes.toString('utf8')), 'cloudflare-probe-5').file;
+      });
+      policy.prior.add(fifthProbeReplay);
+    } catch { fail(); }
+  }
   if (policy.required.some(name => !names.includes(name))
-    || ((kind === 'probe' || kind === 'probe2' || kind === 'probe3' || (kind === 'pythonQuality' || (kind === 'probe4' || kind === 'probe5'))) && (!probeReplay || !names.includes(probeReplay)))
-    || ((kind === 'probe2' || kind === 'probe3' || (kind === 'pythonQuality' || (kind === 'probe4' || kind === 'probe5'))) && (!priorProbeReplay || !names.includes(priorProbeReplay)))
-    || ((kind === 'probe3' || (kind === 'pythonQuality' || (kind === 'probe4' || kind === 'probe5'))) && (!secondProbeReplay || !names.includes(secondProbeReplay)))
-    || ((kind === 'pythonQuality' || (kind === 'probe4' || kind === 'probe5')) && (!thirdProbeReplay || !names.includes(thirdProbeReplay)))
-    || ((kind === 'probe4' || kind === 'probe5') && (!qualityReplay || !names.includes(qualityReplay)))
-    || (kind === 'probe5' && (!fourthProbeReplay || !names.includes(fourthProbeReplay)))
+    || ((kind === 'probe' || kind === 'probe2' || kind === 'probe3' || (kind === 'pythonQuality' || (kind === 'probe4' || (kind === 'probe5' || kind === 'probe6')))) && (!probeReplay || !names.includes(probeReplay)))
+    || ((kind === 'probe2' || kind === 'probe3' || (kind === 'pythonQuality' || (kind === 'probe4' || (kind === 'probe5' || kind === 'probe6')))) && (!priorProbeReplay || !names.includes(priorProbeReplay)))
+    || ((kind === 'probe3' || (kind === 'pythonQuality' || (kind === 'probe4' || (kind === 'probe5' || kind === 'probe6')))) && (!secondProbeReplay || !names.includes(secondProbeReplay)))
+    || ((kind === 'pythonQuality' || (kind === 'probe4' || (kind === 'probe5' || kind === 'probe6'))) && (!thirdProbeReplay || !names.includes(thirdProbeReplay)))
+    || ((kind === 'probe4' || (kind === 'probe5' || kind === 'probe6')) && (!qualityReplay || !names.includes(qualityReplay)))
+    || ((kind === 'probe5' || kind === 'probe6') && (!fourthProbeReplay || !names.includes(fourthProbeReplay)))
+    || (kind === 'probe6' && (!fifthProbeReplay || !names.includes(fifthProbeReplay)))
     || names.some(name => policy.campaign.test(name) && !policy.prior.has(name))) fail();
   for (const name of names.filter(name => policy.prior.has(name))) {
     if (!(await lstat(resolve(dir, name))).isFile()) fail();

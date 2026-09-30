@@ -44,6 +44,10 @@ vi.mock('../../evals/cloudflare-python-probe-4-carry', async original => ({
   ...await original<typeof import('../../evals/cloudflare-python-probe-4-carry')>(),
   readCloudflarePythonProbe4Carry: m.carry,
 }));
+vi.mock('../../evals/cloudflare-python-probe-5-carry', async original => ({
+  ...await original<typeof import('../../evals/cloudflare-python-probe-5-carry')>(),
+  readCloudflarePythonProbe5Carry: m.carry,
+}));
 vi.mock('../../evals/cloudflare-campaign-claim', () => ({ claimCloudflareCampaign: m.claim }));
 vi.mock('../../evals/live-evaluation-lock', () => ({ withEvaluationLock: m.lock, assertEvaluationLock: m.assertLock }));
 vi.mock('../support/database', () => ({ testDatabaseUrl: m.databaseUrl }));
@@ -275,5 +279,50 @@ test.each(['claim', 'history', 'source', 'lease'])('fifth probe %s denial cannot
 test.each([undefined, '', PROBE_4_AUTHORIZATION])('fifth probe rejects missing or consumed grant %s', async grant => {
   vi.stubEnv('DIVE_TRIP_CLOUDFLARE_PROBE_5_AUTHORIZATION',grant);
   await expect(runCloudflareProbe5Entry()).rejects.toThrow('EVAL_AUTHORIZATION_REQUIRED');
+  for(const fn of [m.lock,m.claim,m.pool,m.carry,m.database,m.credential])expect(fn).not.toHaveBeenCalled();
+});
+
+import { PROBE_6_AUTHORIZATION, runCloudflareProbe6Entry } from '../../evals/cloudflare-probe-6-entry.ts';
+test('sixth technical entry requires its own grant and claim before loading credentials', async () => {
+  await expect(runCloudflareProbe6Entry()).rejects.toThrow('EVAL_AUTHORIZATION_REQUIRED');
+  expect(m.claim).not.toHaveBeenCalled();
+  vi.stubEnv('DIVE_TRIP_CLOUDFLARE_PROBE_6_AUTHORIZATION', PROBE_6_AUTHORIZATION);
+  m.claim.mockImplementation(async (lease, kind) => { expect(lease).toBe(m.lease); expect(kind).toBe('probe6'); return m.save; });
+  m.carry.mockImplementation(async (pools, lease) => {
+    expect(pools).toEqual(m.pools); expect(lease).toBe(m.lease); return { ...probe2Prior(), invocations: 50, modelCalls: 76, chargedMicros: 1500651, historicalUnknownReceipts: 8,
+      observedTokens: 297341, remainingInvocationCeiling: 50, remainingReferenceMicros: 1499349 };
+  });
+  await expect(runCloudflareProbe6Entry()).resolves.toBeUndefined();
+  expect(m.claim).toHaveBeenCalledExactlyOnceWith(m.lease, 'probe6');
+  expect(m.pools).toHaveLength(8);
+  expect(m.options).toMatchObject({ accountId: recoveryAccount, priorChargedMicros: 1500651,
+    liveCampaign: 'cloudflare-probe-6-one-case', retention: 'retain' });
+  expect(m.execute).toHaveBeenCalledExactlyOnceWith('unknown-cost', expect.any(Function));
+  expect(m.credential).toHaveBeenCalledExactlyOnceWith('cloudflare');
+  expect(m.carry).toHaveBeenCalledTimes(3);
+  expect(m.source).toHaveBeenCalledTimes(3);
+  expect(m.save.mock.calls.at(-1)![0]).toMatchObject({ stopped: null,
+    diagnosticComplete: true, invocations: 1, maxInvocations: 1, maxModelCalls: 7,
+    evaluationGatePassed: false });
+});
+
+
+test.each(['claim', 'history', 'source', 'lease'])('sixth probe %s denial cannot load credentials', async failure => {
+  vi.stubEnv('DIVE_TRIP_CLOUDFLARE_PROBE_6_AUTHORIZATION', PROBE_6_AUTHORIZATION);
+  m.claim.mockResolvedValue(m.save);
+  const history = { ...probe2Prior(), invocations: 50, modelCalls: 76, chargedMicros: 1500651, historicalUnknownReceipts: 8,
+    observedTokens: 297341, remainingInvocationCeiling: 50, remainingReferenceMicros: 1499349 };
+  m.carry.mockResolvedValue(history);
+  if (failure === 'claim') m.claim.mockRejectedValue(new Error('EVAL_ALREADY_CLAIMED'));
+  if (failure === 'history') m.carry.mockResolvedValueOnce(history).mockRejectedValue(new Error('EVAL_HISTORY_CHANGED'));
+  if (failure === 'source') m.source.mockResolvedValueOnce(source).mockResolvedValue({ ...source, sha256: hash('changed') });
+  if (failure === 'lease') m.assertLock.mockRejectedValue(new Error('EVAL_LOCK_NOT_OWNED'));
+  await expect(runCloudflareProbe6Entry()).rejects.toThrow();
+  expect(m.credential).not.toHaveBeenCalled();
+});
+
+test.each([undefined, '', PROBE_5_AUTHORIZATION])('sixth probe rejects missing or consumed grant %s', async grant => {
+  vi.stubEnv('DIVE_TRIP_CLOUDFLARE_PROBE_6_AUTHORIZATION',grant);
+  await expect(runCloudflareProbe6Entry()).rejects.toThrow('EVAL_AUTHORIZATION_REQUIRED');
   for(const fn of [m.lock,m.claim,m.pool,m.carry,m.database,m.credential])expect(fn).not.toHaveBeenCalled();
 });

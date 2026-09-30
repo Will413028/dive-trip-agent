@@ -9,38 +9,40 @@ import { claimCloudflareCampaign } from '../../evals/cloudflare-campaign-claim';
 import * as checkpoints from '../../evals/checkpoint';
 import * as lock from '../../evals/live-evaluation-lock';
 
-describe.each(['revision', 'recovery', 'grounded', 'nonthinking', 'diagnostic', 'probe', 'probe2', 'probe3', 'pythonQuality', 'probe4', 'probe5'] as const)('%s one-shot claim', kind => {
+describe.each(['revision', 'recovery', 'grounded', 'nonthinking', 'diagnostic', 'probe', 'probe2', 'probe3', 'pythonQuality', 'probe4', 'probe5', 'probe6'] as const)('%s one-shot claim', kind => {
 const diagnosticRunId = '77777777-7777-4777-8777-777777777777';
 const diagnosticReplay = `cloudflare-diagnostic-${diagnosticRunId}.replay.json`;
 const probeRunId = '88888888-8888-4888-8888-888888888888';
 const probeReplay = `cloudflare-probe-${probeRunId}.replay.json`;
 const probe3Replay = `cloudflare-probe-3-${probeRunId}.replay.json`;
+const probe5Replay = `cloudflare-probe-5-${probeRunId}.replay.json`;
 const probe4Replay = `cloudflare-probe-4-${probeRunId}.replay.json`;
 const qualityReplay = `cloudflare-python-quality-${probeRunId}.replay.json`;
 const probe2Replay = `cloudflare-probe-2-${probeRunId}.replay.json`;
-const historyContent = (name: string) => (kind === 'probe' || kind === 'probe2' || kind === 'probe3' || (kind === 'pythonQuality' || (kind === 'probe4' || kind === 'probe5'))) && name === 'cloudflare-diagnostic.json'
+const historyContent = (name: string) => (kind === 'probe' || kind === 'probe2' || kind === 'probe3' || (kind === 'pythonQuality' || (kind === 'probe4' || (kind === 'probe5' || kind === 'probe6')))) && name === 'cloudflare-diagnostic.json'
   ? JSON.stringify({ replays: [{ file: diagnosticReplay, runId: diagnosticRunId,
     sha256: 'a'.repeat(64), recordedResume: false }] })
-  : (kind === 'probe2' || kind === 'probe3' || (kind === 'pythonQuality' || (kind === 'probe4' || kind === 'probe5'))) && name === 'cloudflare-probe.json'
+  : (kind === 'probe2' || kind === 'probe3' || (kind === 'pythonQuality' || (kind === 'probe4' || (kind === 'probe5' || kind === 'probe6')))) && name === 'cloudflare-probe.json'
     ? JSON.stringify({ replays: [{ file: probeReplay, runId: probeRunId,
       sha256: 'b'.repeat(64), recordedResume: false }] })
-    : (kind === 'probe3' || (kind === 'pythonQuality' || (kind === 'probe4' || kind === 'probe5'))) && name === 'cloudflare-probe-2.json'
-      ? JSON.stringify({ replays: [{ file: probe2Replay, runId: probeRunId, sha256: 'c'.repeat(64), recordedResume: false }] }) : (kind === 'pythonQuality' || (kind === 'probe4' || kind === 'probe5')) && name === 'cloudflare-probe-3.json'
-        ? JSON.stringify({ replays: [{ file: probe3Replay, runId: probeRunId, sha256: 'd'.repeat(64), recordedResume: false }] }) : (kind === 'probe4' || kind === 'probe5') && name === 'cloudflare-python-quality.json'
-          ? JSON.stringify({replays:[{file:qualityReplay,runId:probeRunId,sha256:'e'.repeat(64),recordedResume:false}]}) : kind === 'probe5' && name === 'cloudflare-probe-4.json'
-            ? JSON.stringify({replays:[{file:probe4Replay,runId:probeRunId,sha256:'f'.repeat(64),recordedResume:false}]}) : `history:${name}`;
+    : (kind === 'probe3' || (kind === 'pythonQuality' || (kind === 'probe4' || (kind === 'probe5' || kind === 'probe6')))) && name === 'cloudflare-probe-2.json'
+      ? JSON.stringify({ replays: [{ file: probe2Replay, runId: probeRunId, sha256: 'c'.repeat(64), recordedResume: false }] }) : (kind === 'pythonQuality' || (kind === 'probe4' || (kind === 'probe5' || kind === 'probe6'))) && name === 'cloudflare-probe-3.json'
+        ? JSON.stringify({ replays: [{ file: probe3Replay, runId: probeRunId, sha256: 'd'.repeat(64), recordedResume: false }] }) : (kind === 'probe4' || (kind === 'probe5' || kind === 'probe6')) && name === 'cloudflare-python-quality.json'
+          ? JSON.stringify({replays:[{file:qualityReplay,runId:probeRunId,sha256:'e'.repeat(64),recordedResume:false}]}) : (kind === 'probe5' || kind === 'probe6') && name === 'cloudflare-probe-4.json'
+            ? JSON.stringify({replays:[{file:probe4Replay,runId:probeRunId,sha256:'f'.repeat(64),recordedResume:false}]}) : kind === 'probe6' && name === 'cloudflare-probe-5.json' ? JSON.stringify({replays:[{file:probe5Replay,runId:probeRunId,sha256:'a'.repeat(64),recordedResume:false}]}) : `history:${name}`;
 const claimCampaign = kind === 'revision' ? claimCloudflareRevisionCampaign : kind === 'recovery'
   ? claimCloudflareRecoveryCampaign : (lease: EvaluationLockLease) => claimCloudflareCampaign(lease, kind);
 const required = ['cloudflare-evaluation-1', 'cloudflare-evaluation-2',
   'cloudflare-patch-verification', 'cloudflare-quality', ...(kind !== 'revision' ? ['cloudflare-revision'] : []),
-  ...(['grounded', 'nonthinking', 'diagnostic', 'probe', 'probe2', 'probe3', 'pythonQuality', 'probe4', 'probe5'].includes(kind) ? ['cloudflare-recovery'] : []),
-  ...(['nonthinking', 'diagnostic', 'probe', 'probe2', 'probe3', 'pythonQuality', 'probe4', 'probe5'].includes(kind) ? ['cloudflare-grounded'] : []),
-  ...(['diagnostic', 'probe', 'probe2', 'probe3', 'pythonQuality', 'probe4', 'probe5'].includes(kind) ? ['cloudflare-nonthinking'] : []),
-  ...(['probe', 'probe2', 'probe3', 'pythonQuality', 'probe4', 'probe5'].includes(kind) ? ['cloudflare-diagnostic'] : []),
-  ...(['probe2', 'probe3', 'pythonQuality', 'probe4', 'probe5'].includes(kind) ? ['cloudflare-probe'] : []),
-  ...((kind === 'probe3' || (kind === 'pythonQuality' || (kind === 'probe4' || kind === 'probe5'))) ? ['cloudflare-probe-2'] : []), ...((kind === 'pythonQuality' || (kind === 'probe4' || kind === 'probe5')) ? ['cloudflare-probe-3'] : []), ...((kind === 'probe4' || kind === 'probe5') ? ['cloudflare-python-quality'] : []), ...(kind === 'probe5' ? ['cloudflare-probe-4'] : [])]
+  ...(['grounded', 'nonthinking', 'diagnostic', 'probe', 'probe2', 'probe3', 'pythonQuality', 'probe4', 'probe5', 'probe6'].includes(kind) ? ['cloudflare-recovery'] : []),
+  ...(['nonthinking', 'diagnostic', 'probe', 'probe2', 'probe3', 'pythonQuality', 'probe4', 'probe5', 'probe6'].includes(kind) ? ['cloudflare-grounded'] : []),
+  ...(['diagnostic', 'probe', 'probe2', 'probe3', 'pythonQuality', 'probe4', 'probe5', 'probe6'].includes(kind) ? ['cloudflare-nonthinking'] : []),
+  ...(['probe', 'probe2', 'probe3', 'pythonQuality', 'probe4', 'probe5', 'probe6'].includes(kind) ? ['cloudflare-diagnostic'] : []),
+  ...(['probe2', 'probe3', 'pythonQuality', 'probe4', 'probe5', 'probe6'].includes(kind) ? ['cloudflare-probe'] : []),
+  ...((kind === 'probe3' || (kind === 'pythonQuality' || (kind === 'probe4' || (kind === 'probe5' || kind === 'probe6')))) ? ['cloudflare-probe-2'] : []), ...((kind === 'pythonQuality' || (kind === 'probe4' || (kind === 'probe5' || kind === 'probe6'))) ? ['cloudflare-probe-3'] : []), ...((kind === 'probe4' || (kind === 'probe5' || kind === 'probe6')) ? ['cloudflare-python-quality'] : []), ...((kind === 'probe5' || kind === 'probe6') ? ['cloudflare-probe-4'] : [])]
   .flatMap(stem => [`${stem}.claim`, `${stem}.json`])
-  .concat(['probe', 'probe2', 'probe3', 'pythonQuality', 'probe4', 'probe5'].includes(kind) ? [diagnosticReplay] : [], ['probe2', 'probe3', 'pythonQuality', 'probe4', 'probe5'].includes(kind) ? [probeReplay] : [], (kind === 'probe3' || (kind === 'pythonQuality' || (kind === 'probe4' || kind === 'probe5'))) ? [probe2Replay] : [], (kind === 'pythonQuality' || (kind === 'probe4' || kind === 'probe5')) ? [probe3Replay] : [], (kind === 'probe4' || kind === 'probe5') ? [qualityReplay, 'cloudflare-python-quality-history.json'] : [], kind === 'probe5' ? [probe4Replay, 'cloudflare-python-probe-history.json', 'cloudflare-python-probe-2-history.json', 'cloudflare-python-probe-3-history.json', 'cloudflare-python-probe-4-history.json'] : []);
+  .concat(['probe', 'probe2', 'probe3', 'pythonQuality', 'probe4', 'probe5', 'probe6'].includes(kind) ? [diagnosticReplay] : [], ['probe2', 'probe3', 'pythonQuality', 'probe4', 'probe5', 'probe6'].includes(kind) ? [probeReplay] : [], (kind === 'probe3' || (kind === 'pythonQuality' || (kind === 'probe4' || (kind === 'probe5' || kind === 'probe6')))) ? [probe2Replay] : [], (kind === 'pythonQuality' || (kind === 'probe4' || (kind === 'probe5' || kind === 'probe6'))) ? [probe3Replay] : [], (kind === 'probe4' || (kind === 'probe5' || kind === 'probe6')) ? [qualityReplay, 'cloudflare-python-quality-history.json'] : [], (kind === 'probe5' || kind === 'probe6') ? [probe4Replay, 'cloudflare-python-probe-history.json', 'cloudflare-python-probe-2-history.json', 'cloudflare-python-probe-3-history.json', 'cloudflare-python-probe-4-history.json'] : []);
+if (kind === 'probe6') required.push('cloudflare-probe-5.claim', 'cloudflare-probe-5.json', 'cloudflare-python-probe-5-history.json', probe5Replay);
 const sidecars = ['cloudflare-evaluation-1-review.json', 'cloudflare-patch-verification-review.json',
   'cloudflare-quality-review.json', 'cloudflare-quality-diagnostic.json', 'cloudflare-quality-preflight.json',
   'cloudflare-quality-preflight-review.json', 'cloudflare-quality-preflight-receipt.json',
@@ -49,15 +51,15 @@ const sidecars = ['cloudflare-evaluation-1-review.json', 'cloudflare-patch-verif
 if (kind !== 'revision') sidecars.push('cloudflare-revision-review.json', 'cloudflare-revision-preflight.json',
   'cloudflare-revision-preflight-review.json', 'cloudflare-revision-preflight-receipt.json',
   'cloudflare-revision-101855df-90b1-4479-8db6-99d57b319170.replay.json');
-if (['grounded', 'nonthinking', 'diagnostic', 'probe', 'probe2', 'probe3', 'pythonQuality', 'probe4', 'probe5'].includes(kind)) sidecars.push('cloudflare-recovery-review.json', 'cloudflare-recovery-preflight.json',
+if (['grounded', 'nonthinking', 'diagnostic', 'probe', 'probe2', 'probe3', 'pythonQuality', 'probe4', 'probe5', 'probe6'].includes(kind)) sidecars.push('cloudflare-recovery-review.json', 'cloudflare-recovery-preflight.json',
   'cloudflare-recovery-preflight-review.json', 'cloudflare-recovery-preflight-receipt.json',
   'cloudflare-recovery-50a70ddd-f054-4f55-8362-9dbc43decc9a.replay.json',
   'cloudflare-recovery-b9be947b-f0b4-4160-84ca-1829e74c9ba8.replay.json');
-if (['nonthinking', 'diagnostic', 'probe', 'probe2', 'probe3', 'pythonQuality', 'probe4', 'probe5'].includes(kind)) sidecars.push('cloudflare-grounded-review.json',
+if (['nonthinking', 'diagnostic', 'probe', 'probe2', 'probe3', 'pythonQuality', 'probe4', 'probe5', 'probe6'].includes(kind)) sidecars.push('cloudflare-grounded-review.json',
   'cloudflare-grounded-53a2acc8-127e-4c4b-8e6f-9fc42db07532.replay.json');
-if (kind === 'diagnostic' || kind === 'probe' || kind === 'probe2' || kind === 'probe3' || (kind === 'pythonQuality' || (kind === 'probe4' || kind === 'probe5'))) sidecars.push('cloudflare-nonthinking-review.json',
+if (kind === 'diagnostic' || kind === 'probe' || kind === 'probe2' || kind === 'probe3' || (kind === 'pythonQuality' || (kind === 'probe4' || (kind === 'probe5' || kind === 'probe6')))) sidecars.push('cloudflare-nonthinking-review.json',
   'cloudflare-nonthinking-1c18c417-145e-45ef-8e4a-64931326498f.replay.json');
-const stem = kind === 'probe5' ? 'cloudflare-probe-5' : kind === 'probe4' ? 'cloudflare-probe-4' : kind === 'probe2' ? 'cloudflare-probe-2' : kind === 'probe3' ? 'cloudflare-probe-3' : kind === 'pythonQuality' ? 'cloudflare-python-quality' : `cloudflare-${kind}`;
+const stem = kind === 'probe6' ? 'cloudflare-probe-6' : kind === 'probe5' ? 'cloudflare-probe-5' : kind === 'probe4' ? 'cloudflare-probe-4' : kind === 'probe2' ? 'cloudflare-probe-2' : kind === 'probe3' ? 'cloudflare-probe-3' : kind === 'pythonQuality' ? 'cloudflare-python-quality' : `cloudflare-${kind}`;
 const claimName = `${stem}.claim`, reportName = `${stem}.json`;
 const denied = `EVAL_CLOUDFLARE_${kind.toUpperCase()}_ALREADY_CLAIMED`;
 // Inventory tests cover every policy name. File-type rejection uses the same
@@ -87,7 +89,7 @@ test('claims once with private modes and fixed pending scope; preflight failure 
               : kind === 'diagnostic' ? 'diagnostic-two-included-plus-28-210-calls-39-invocations-once'
                 : kind === 'probe' ? 'probe-unknown-cost-once-7-calls-1-invocation-free-only'
                   : kind === 'probe2' ? 'probe-2-unknown-cost-once-7-calls-1-invocation-free-only'
-                    : kind === 'probe3' ? 'probe-3-unknown-cost-once-7-calls-1-invocation-free-only' : kind === 'probe5' ? 'probe-5-unknown-cost-once-7-calls-1-invocation-free-only' : kind === 'probe4' ? 'probe-4-unknown-cost-once-7-calls-1-invocation-free-only' : 'python-quality-two-included-plus-28-210-calls-39-invocations-once-free-only', textReview: 'pending',
+                    : kind === 'probe3' ? 'probe-3-unknown-cost-once-7-calls-1-invocation-free-only' : kind === 'probe6' ? 'probe-6-unknown-cost-once-7-calls-1-invocation-free-only' : kind === 'probe5' ? 'probe-5-unknown-cost-once-7-calls-1-invocation-free-only' : kind === 'probe4' ? 'probe-4-unknown-cost-once-7-calls-1-invocation-free-only' : 'python-quality-two-included-plus-28-210-calls-39-invocations-once-free-only', textReview: 'pending',
       evaluationGatePassed: false, accountingComplete: false, cumulativeTokens: null, records: [],
     });
     for (const name of [claimName, reportName]) expect((await lstat(join(dir, name))).mode & 0o777).toBe(0o600);
@@ -125,7 +127,7 @@ test.each([claimName, reportName, 'cloudflare-evaluation-3.claim', 'cloudflare-e
     'cloudflare-diagnostic-preflight.json', 'cloudflare-diagnostic-unknown.replay.json', 'cloudflare-probe.partial'] : []),
   ...(kind === 'probe2' ? ['cloudflare-probe-2-preflight-review.json', 'cloudflare-probe-3.claim',
     'cloudflare-probe-unknown.replay.json', 'cloudflare-diagnostic-unknown.replay.json', 'cloudflare-probe-2.partial'] : []),
-  ...(kind === 'probe5' ? ['cloudflare-python-probe-9-history.json', 'cloudflare-python-probe-history-extra.json'] : []),
+  ...((kind === 'probe5' || kind === 'probe6') ? ['cloudflare-python-probe-9-history.json', 'cloudflare-python-probe-history-extra.json'] : []),
   ...(kind === 'probe3' ? ['cloudflare-probe-3-preflight-review.json', 'cloudflare-probe-4.claim',
     'cloudflare-probe-2-unknown.replay.json', 'cloudflare-probe-3.partial'] : [])])(
   'preexisting or unknown %s blocks and remains untouched', name => temporary(async dir => {

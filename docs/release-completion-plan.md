@@ -189,6 +189,29 @@ P9 案例頁已對齊新架構與三個 probe 的實際結果，移除舊 ADK �
 
 修正後 `node /tmp/dive-trip-probe5-original-source-audit.mjs` 對原始probe-5做雙輪唯讀核對：原2f8d77c完整source清單／逐檔hash、report／replay、22表及paired Temporal execution全部一致；固定MIXED_TEXT與null成本保留。未讀generation憑證、未dispatch、未改原始歷史，也未建立15 scopes新carry或新claim。
 
+### probe-6 單案入口準備（2026-09-30）
+
+承接已停止的 probe-5，固定合成 unknown-cost、Cloudflare Workers AI Free-only／Gemma 4，最多 1 invocation／7 model calls；新入口準備不授權 dispatch，也不計入 30 案品質驗收。
+
+| 沿用機制 | 今日約束／從零設計 | 決定與重評條件 |
+| --- | --- | --- |
+| 永久 claim／獨立 grant | 每次呼叫有界、停止不可重開；一次性 capability | 新 probe-6，不重用已停止入口；授權政策改變才重評 |
+| 固定 profile／遞迴 carry | 不可變歷史與完整身分綁定；封閉逐次證據核對 | 新 profile-5 接續舊 14 scopes，最外兩次完整 capture；歷史變為可寫或需原子快照時重設計 |
+| 原 scheduler／Python runtime | 六工具七模型、usage 保存、未知保守結算仍必要 | 單個固定 slot，不另建 dispatcher／自動重試；runtime 契約改變再評 |
+
+- [x] 原始 probe-5 source、report／replay、22 張表及 paired Temporal execution 雙輪一致後，exclusive create 保存 private profile；舊成本 null／MIXED_TEXT 保留。
+- [x] 新十五 scopes reader 整份雙輪核對一致：50 invocations／76 model calls、1500651 charged reference micros、297341 observed tokens、8 unknown；剩餘 reference 1499349／50 invocations。這些不是當下 provider Free 額度。
+- [x] 新 grant／claim／server marker 與所有 consumers；inventory 必須含歷代 profiles、claim／report／replay。
+- [x] 實際 inventory dry 在 probe-6 claim open(wx) 前攔截：清單接受、claim／report 前後不存在，沒有讀 generation credential。
+- [x] focused 806 passed、全 unit 3700 passed／118 files、typecheck／lint 通過；移除 profile-5 required 的程序內 mutation 為 1 failed／11 older controls passed，證明正向清單會辨認漏列。
+- [x] 獨立 correctness 複核，無 findings。
+- [ ] exact source 完整 Fixture CI；本機 integration 尚未通過。
+- [ ] 完成準備後取得當次明確單案授權、查核當下 Free／歷史，再執行一次；新 unknown／限流／技術／安全／任務失敗即停。
+
+本機 integration 三檔首輪為 1 failed／27 passed／1 skip；誤重疊的四檔完整命令為 7 failed／28 passed／1 skip。新獨立 Compose project 串行同一四檔完整命令為 1 failed／34 passed／1 skip，唯一 failure 為既有 Gemini abort 案例在 10 秒內 model_calls 仍為 0（abort 尚未發生）；沒有改程式或 timeout，不能稱本機 integration 通過。當下主機 load 38–81，但不是已證實根因；未修改基線 e6c8bb6 的同一 abort 案例也 30 秒 timeout（1 failed／11 skipped），形狀不同，不足以證實根因或宣稱排除回歸。基線 worktree 的 pnpm 先因無 TTY 的 modules purge 檢查中止，未安裝；改以同版本 Node 直接執行既有 Vitest。完整來源 CI 將獨立驗證，任何局部重跑都不拼成通過。
+
+原始 profile bootstrap `node /tmp/dive-trip-pin-probe5-history.mjs` 只執行一次，不可重跑。唯讀完整 reader：`node /tmp/dive-trip-probe6-carry-audit.mjs --verify`。design-review 與 correctness review 均無 findings（各 0；改／記／提／駁回各 0）；指令檔對帳僅更新 ignored 本機入口指標，尚未建立 probe-6 claim 或模型 dispatch。
+
 ## P6 CI Actions runtime 維護
 
 等待上述 CI 期間已做唯讀來源盤點，未修改 workflow。官方候選版本為 [checkout v7.0.1](https://github.com/actions/checkout/releases/tag/v7.0.1)、[setup-node v7.0.0](https://github.com/actions/setup-node/releases/tag/v7.0.0)、[pnpm/action-setup v6.1.0](https://github.com/pnpm/action-setup/releases/tag/v6.1.0)，其 tag 對應的 `action.yml` 均宣告 Node 24。對應 commit 為 `3d3c42e5aac5ba805825da76410c181273ba90b1`、`820762786026740c76f36085b0efc47a31fe5020`、`ea17c68df8912ef543352723c149a84f56e3d413`（pnpm annotated tag 已解至 commit）；實際升級前仍查核當下版本、完整差異與 runner 支援。現行固定 setup-python／setup-uv 已宣告 Node 24，runtime 邊界已有保護，無需為此換版。
