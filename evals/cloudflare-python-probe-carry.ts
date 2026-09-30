@@ -18,7 +18,7 @@ import { CAMPAIGN_BUDGET_MICROS, CAMPAIGN_INVOCATION_LIMIT } from './campaign-po
 
 const digest = z.string().regex(/^[a-f0-9]{64}$/);
 const uuid = z.uuid();
-const profileSchema = z.strictObject({
+export const pythonProbeProfileSchema = z.strictObject({
   schemaVersion: z.literal(1), reportSha256: digest, sourceSha256: digest,
   retainedSchema: z.string().regex(/^python_test_[a-f0-9]{32}$/),
   storageDir: z.string().regex(/^python-evaluation-[A-Za-z0-9]{6,32}$/),
@@ -26,7 +26,7 @@ const profileSchema = z.strictObject({
   runId: uuid, tripId: uuid, ownerId: uuid, executionRunId: uuid,
   workflowId: z.string().min(1).max(128),
 });
-export type PythonProbeProfile = z.infer<typeof profileSchema>;
+export type PythonProbeProfile = z.infer<typeof pythonProbeProfileSchema>;
 export const pythonProbeCarrySchema = () => z.strictObject({
   sourceSha256: digest, historyConsistent: z.literal(true), dispatchAuthorized: z.literal(false),
   accountingComplete: z.literal(false), evaluationGatePassed: z.literal(false),
@@ -52,7 +52,7 @@ export function comparePythonProbeCarry(
   temporal: { workflowMatches: number; executionMatches: number; argumentMarkers: number },
 ) {
   try {
-    const profile = profileSchema.parse(profileInput);
+    const profile = pythonProbeProfileSchema.parse(profileInput);
     const report = z.object({
       schemaVersion: z.literal(2), model: z.literal(CLOUDFLARE_MODEL),
       accountId: z.literal(historyIdentity('accountId_1')),
@@ -152,29 +152,31 @@ export function comparePythonProbeCarry(
   } catch { return invalid(); }
 }
 
-async function readProfile(lease: EvaluationLockLease) {
+export async function readPinnedPythonProbeProfile(lease: EvaluationLockLease,
+  pin: { file: string; sha256: string }) {
   await assertPrivateCloudflareHistory();
   await assertEvaluationLock(lease);
   return withBoundedArtifactDirectory([root, artifacts], async directory => {
-    const file = await directory.read('cloudflare-python-probe-history.json', { minBytes: 1, maxBytes: 8192 });
-    if (sha256(file.bytes) !== PRIVATE_PYTHON_PROBE_PROFILE_SHA256) invalid();
-    return { profile: profileSchema.parse(JSON.parse(file.bytes.toString('utf8'))),
+    const file = await directory.read(pin.file, { minBytes: 1, maxBytes: 8192 });
+    if (sha256(file.bytes) !== pin.sha256) invalid();
+    return { profile: pythonProbeProfileSchema.parse(JSON.parse(file.bytes.toString('utf8'))),
       directory: directory.snapshot, file: file.snapshot };
   });
 }
 
-async function captureFiles(profile: PythonProbeProfile, lease: EvaluationLockLease) {
+export async function capturePinnedPythonProbeFiles(profile: PythonProbeProfile, lease: EvaluationLockLease,
+  stem: 'cloudflare-probe' | 'cloudflare-probe-2') {
   await assertEvaluationLock(lease);
   const report = await withBoundedArtifactDirectory([root, artifacts], async directory => {
-    const claim = await directory.read('cloudflare-probe.claim', { minBytes: 0, maxBytes: 0 });
-    const file = await directory.read('cloudflare-probe.json', { minBytes: 1, maxBytes: 2_000_000 });
+    const claim = await directory.read(`${stem}.claim`, { minBytes: 0, maxBytes: 0 });
+    const file = await directory.read(`${stem}.json`, { minBytes: 1, maxBytes: 2_000_000 });
     if (sha256(file.bytes) !== profile.reportSha256) invalid();
     const value = JSON.parse(file.bytes.toString('utf8')) as unknown;
-    const replayRef = probeReplayFromReport(value);
+    const replayRef = probeReplayFromReport(value, stem);
     if (replayRef.runId !== profile.runId) invalid();
-    const oldName = (name: string) => name.startsWith('cloudflare-probe')
-      && !/^cloudflare-probe-2(?:\.|-)/.test(name);
-    const expected = ['cloudflare-probe.claim', 'cloudflare-probe.json', replayRef.file].sort();
+    const oldName = (name: string) => name.startsWith(stem)
+      && !(stem === 'cloudflare-probe' && /^cloudflare-probe-[23](?:\.|-)/.test(name));
+    const expected = [`${stem}.claim`, `${stem}.json`, replayRef.file].sort();
     if (!isDeepStrictEqual((await readdir(artifacts)).filter(oldName).sort(), expected)) invalid();
     const replay = await directory.read(replayRef.file, { minBytes: 1, maxBytes: 2_000_000 });
     if (sha256(replay.bytes) !== replayRef.sha256
@@ -207,32 +209,39 @@ async function captureFiles(profile: PythonProbeProfile, lease: EvaluationLockLe
   return { report, temporal };
 }
 
+/** One complete capture; only the outermost reader performs the double read. */
+export async function captureCloudflarePythonProbeHistory(pools: Pool[], lease: EvaluationLockLease) {
+  if (pools.length !== 8) invalid();
+  const pinned = await readPinnedPythonProbeProfile(lease, {
+    file: 'cloudflare-python-probe-history.json', sha256: PRIVATE_PYTHON_PROBE_PROFILE_SHA256 });
+  const history = await captureCloudflarePythonDiagnosticHistory(pools, lease);
+  const files = await capturePinnedPythonProbeFiles(pinned.profile, lease, 'cloudflare-probe');
+  const pool = new Pool({ host: '127.0.0.1', port: pools[0].options.port,
+    database: 'dive_trip_test', user: 'postgres', password: 'offline-placeholder-not-a-credential',
+    ssl: false, connectionTimeoutMillis: 2000, statement_timeout: 2000, max: 1,
+    options: `-c search_path=${pinned.profile.retainedSchema}` });
+  try {
+    const database = await capturePythonRetainedDatabase(pool, pinned.profile, 4);
+    await assertEvaluationLock(lease);
+    return { pinned, history, files, database };
+  } finally { await pool.end(); }
+}
+
+export function compareCloudflarePythonProbeHistory(value: Awaited<ReturnType<typeof captureCloudflarePythonProbeHistory>>) {
+  return pythonProbeCarrySchema().parse(comparePythonProbeCarry(
+    compareCloudflarePythonDiagnosticHistory(value.history), value.pinned.profile,
+    value.files.report.value, value.database, value.files.temporal.native));
+}
+
 /** Two full read-only captures of all ten stopped/retained historical scopes. */
 export async function readCloudflarePythonProbeCarry(pools: Pool[], lease: EvaluationLockLease) {
   try {
     if (pools.length !== 8) invalid();
-    const capture = async () => {
-      const pinned = await readProfile(lease);
-      const history = await captureCloudflarePythonDiagnosticHistory(pools, lease);
-      const files = await captureFiles(pinned.profile, lease);
-      const pool = new Pool({ host: '127.0.0.1', port: pools[0].options.port,
-        database: 'dive_trip_test', user: 'postgres', password: 'offline-placeholder-not-a-credential',
-        ssl: false, connectionTimeoutMillis: 2000, statement_timeout: 2000, max: 1,
-        options: `-c search_path=${pinned.profile.retainedSchema}` });
-      try {
-        const database = await capturePythonRetainedDatabase(pool, pinned.profile, 4);
-        await assertEvaluationLock(lease);
-        return { pinned, history, files, database };
-      } finally { await pool.end(); }
-    };
-    const compare = (value: Awaited<ReturnType<typeof capture>>) => pythonProbeCarrySchema().parse(
-      comparePythonProbeCarry(compareCloudflarePythonDiagnosticHistory(value.history), value.pinned.profile,
-        value.files.report.value, value.database, value.files.temporal.native));
-    const before = await capture();
-    compare(before);
-    const after = await capture();
+    const before = await captureCloudflarePythonProbeHistory(pools, lease);
+    compareCloudflarePythonProbeHistory(before);
+    const after = await captureCloudflarePythonProbeHistory(pools, lease);
     if (!isDeepStrictEqual(before, after)) invalid();
-    const result = compare(after);
+    const result = compareCloudflarePythonProbeHistory(after);
     await assertPrivateCloudflareHistory();
     await assertEvaluationLock(lease);
     return result;

@@ -29,13 +29,13 @@ GitHub 操作依適用的本機身份指令逐命令限定帳號。核對 CI 的
 | 步驟 | 狀態 | 相依 | 交付 |
 | --- | --- | --- | --- |
 | P1 最新 Fixture CI | 已完成 | `b00e970` | exact SHA 的完整 CI 證據 |
-| P2 新單案診斷入口 | 待做 | P1；新入口若改程式需新 CI | 新 carry、永久 claim 政策與離線驗證 |
+| P2 新單案診斷入口 | 實作／離線驗證完成，待新 CI | P1；新入口若改程式需新 CI | 新 carry、永久 claim 政策與離線驗證 |
 | P3 單案 live 診斷 | 待做 | P2、當次有界授權、Free／歷史 preflight | 完整 report、usage、診斷與事後 audit |
 | P4 依證據修正 | 條件式 | P3 | 必要修正、合成回歸與新 revision gates |
 | P5 Task 11 品質驗收 | 待做 | 技術流程可用、當次完整 campaign 授權 | 30 案、內容雙審與品質 gate |
 | P6 CI Actions runtime 維護 | 待做 | P5 後、公開 release 前 | 升級與完整 Fixture CI |
 | P7 部署與維運 | 待做 | P5、P6、P8；另定 hosting 與部署授權 | public artifact、環境與演練證據 |
-| P8 資料與素材驗證 | 待做 | 可在 CI 等待期間獨立進行 | 來源、價格有效期、授權與揭露 |
+| P8 資料與素材驗證 | 已完成當次來源盤點 | 可在 CI 等待期間獨立進行 | 來源、價格有效期、授權與揭露 |
 | P9 作品展示 | 待做 | P5、P7、P8 | 三組 demo、案例頁與影片 |
 
 P4 不預設模型犯了哪一種錯，也不要求每次 live 後一定修改程式。P8 可提早進行；hosted runtime 的驗證仍在 P7。共用 CI／部署資源一次只觸發一個序列化工作。
@@ -50,12 +50,14 @@ P4 不預設模型犯了哪一種錯，也不要求每次 live 後一定修改�
 
 ## P2 新單案診斷入口
 
-- [ ] 定義新 scope：建議固定合成 `unknown-cost`、最多 1 invocation／7 model calls、技術診斷模式、Free-only，品質 gate 固定 false。
-- [ ] 新增完整歷史 carry，納入原歷史、停止的 Python diagnostic 及兩個 probe：原 reports／replays、完整 retained DB rows、Temporal execution 與固定診斷證據；舊 unknown 保留。
-- [ ] 定義新永久 claim、server-only capability、閉世界 inventory 及 source manifest；不得沿用已停止入口作重試。
-- [ ] 驗證缺漏、額外檔案、digest／row 漂移、execution 不符、重複 claim、上限、未授權 dispatch、公開診斷洩漏等反例。
-- [ ] 按影響範圍跑測試與靜態檢查；若屬大幅入口修改，依 design-review 執行獨立設計複查並處理 findings。
+- [x] 定義新 scope：固定合成 `unknown-cost`、最多 1 invocation／7 model calls、技術診斷模式、Free-only，品質 gate 固定 false。
+- [x] 新增完整歷史 carry，納入原歷史、停止的 Python diagnostic 及兩個 probe：原 reports／replays、完整 retained DB rows、Temporal execution 與固定診斷證據；舊 unknown 保留。
+- [x] 定義新永久 claim、server-only capability、閉世界 inventory 及 source manifest；不得沿用已停止入口作重試。
+- [x] 驗證缺漏、額外檔案、digest／row 漂移、execution 不符、重複 claim、上限、未授權 dispatch 等反例；公開診斷隔離及七次上限維持既有共同 gates。
+- [x] 按影響範圍跑測試與靜態檢查；独立 design-review 無 findings。
 - [ ] Commit／push 後核對該程式 SHA 的完整 Fixture CI，再進 P3。
+
+當次實作入口：`evals/cloudflare-probe-3-entry.ts`、`cloudflare-probe-3-campaign.ts`；新增 carry：`cloudflare-python-probe-2-carry.ts`。同次 `pnpm test:unit` **3282 passed／110 files**，`pnpm typecheck`、`pnpm lint` 通過。新 carry 的實際唯讀雙輪查核確認完整 11 scopes 一致；原始 profile／private identities 仍在 ignored local storage。未讀 generation credential、未建立新 claim 或 dispatch。Local Docker CLI 查詢未回應，但當下 retained DB port 可連且 reader 完整 audit 通過；一般整合測試仍須由新 CI 驗證，不把這次唯讀 audit 當整合測試結果。
 
 **驗收**：新入口可離線證明有界、失敗即停、完整承接歷史；合成測試不讀真憑證、不 fallback 網路。公開文件只放方法與去識別化結論。
 
@@ -111,9 +113,11 @@ P4 不預設模型犯了哪一種錯，也不要求每次 live 後一定修改�
 
 ## P8 資料與素材驗證
 
-- [ ] 逐項核對 [data sources](data-sources.md) 的來源事實、價格有效期、單位、排除費用、未知與 DEMO 揭露；無證據維持未知。
-- [ ] 核對 [assets license](assets-license.md) 的素材來源、使用範圍與必要署名。
-- [ ] 將產品可見聲明與 catalog／compiler 證據對齊；不捏造可訂狀態或預訂／潛水安全背書。
+- [x] 逐項核對 [data sources](data-sources.md) 的來源事實、價格有效期、單位、排除費用、未知與 DEMO 揭露；無證據維持未知。
+- [x] 核對 [assets license](assets-license.md) 的素材來源、使用範圍與必要署名。
+- [x] 將產品可見聲明與 catalog／compiler 證據對齊；不捏造可訂狀態或預訂／潛水安全背書。
+
+2026-09-30 重新核對原始三個官方景點頁名稱／座標，讀取現行 OSM raster policy，盤點 tracked 素材及產品引用並跑 `pnpm catalog:validate`；詳上述兩份證據文件。沒有真實報價可宣稱有效期，維持 null／待確認；未加入官方圖片或字型。Hosted 地圖連線、Referer、容量及視覺驗證仍由 P7 執行。
 
 **驗收**：發布內容有可追溯來源及合法素材；未解項明確揭露或移除，記錄驗證日期。
 

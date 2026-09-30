@@ -19,4 +19,10 @@
 
 ## 真實網路目視驗收
 
+### 2026-09-30 發布前素材與政策複核
+
+再次閱讀 [OSM raster tile 政策](https://operations.osmfoundation.org/policies/tiles/)：正常互動 viewport 可使用，需可見 attribution、有效 Referer、遵守瀏覽器快取，不可批量下載、預抓或離線保存。`MapPanel.tsx` 仍只有使用者點擊後載入當前 viewport，img 明示 `referrerPolicy="origin"`，attribution 可見並提供回報問題連結；沒有瓦片代理或預抓工作。本次沒有發送真實瓦片請求，hosted Referer／快取／容量與桌面手機顯示在部署階段另驗。
+
+兩個文化記憶庫原始頁的數位物件仍標示 CC BY-NC 3.0 TW +；它們與花瓶岩頁的圖片均未納入作品。盤點 `git ls-files '*.png' '*.jpg' '*.jpeg' '*.webp' '*.gif' '*.svg' '*.woff' '*.woff2' '*.ttf' '*.mp4' '*.ico'` 未列出追蹤素材檔；再用 `rg -n 'https://|url\(|<img|next/font|<Image' src/app src/features src/components package.json` 核對產品引用，圖片入口是上述 OSM viewport，無外部照片或字型載入。此結論限當次程式來源；將來新增素材須重做盤點。CSS／文字介面與地圖標記由本專案程式產生，不轉載官方描述。
+
 2026-09-22另以headed Chromium開啟本機production工作台，經使用者操作路徑建立驗收DEMO、替換花瓶岩並接受，點擊後才載入真實OSM底圖。單一zoom14視窗共6張瓦片，全HTTP200；沒有攔截、背景預抓、拖曳或縮放掃描。桌面1100×900、手機390×844沿用同一底圖，已目視位置標記、來源、座標與可見attribution，手機無水平溢出。這是當次連通與顯示證據，不是SLA或精確入口／安全認證。未送出模型請求。

@@ -445,6 +445,17 @@ patch, redaction and historical compatibility. This improves diagnosis, not
 model task completion. A new live experiment would still require its own
 bounded scope, permanent claim and complete retained-history preflight.
 
+The prepared third technical entry is `cloudflare-probe-3`, with its own exact
+opt-in and permanent claim policy. It admits only synthetic `unknown-cost`,
+one invocation and at most seven model calls, retains its storage and cannot
+pass the thirty-case quality gate. Its carry adds the stopped second probe's
+exact report/replay, full retained rows, single known call, original generic
+argument diagnostic and Temporal execution to the preceding ten scopes.
+Only the outer reader performs two complete captures; lower readers expose
+one capture and a pure comparator. Shared pinned-file reads do not supply a
+dispatch or credential capability. Preparation and offline tests do not grant
+permission to run this entry.
+
 - New private REST diagnostics permit provider plus locally selected
   `request`, `call-start`, `fetch`, `body-read`, `body-json`, `evidence`,
   `response`, `evidence-save`, or `http` with integer status 0–599.

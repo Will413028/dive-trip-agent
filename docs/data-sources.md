@@ -16,6 +16,14 @@
 
 ## 目錄入口
 
+### 2026-09-30 發布前複核
+
+依上表三個原始官方頁逐項核對，名稱、目的地與緯經度仍與 `data/catalog.json` 相符。文化記憶庫頁是文化紀錄；花瓶岩頁的旅遊資訊也不代表本次造訪、交通或潛水活動的完整報價。三筆價格繼續為 `null`，產品標示開放／費用待確認；未把歷史頁的開放欄位變成即時保證。
+
+其餘 10 筆均為自行編製 DEMO：無真實業者名稱、座標或來源 URL，單價依據為 demo；住宿使用 room-night、活動使用 person／group，3 筆示範潛水價格維持未知及非空原因。沒有現行真實報價可設定有效期，故不提供「價格有效至」主張；DEMO 編製日期與事實查核日期分開。現行 catalog 未重寫舊 bound snapshots。
+
+本次 `pnpm catalog:validate` 回傳 `mechanicallyValid:true`、13 items、10 DEMO、10 without coordinates、6 unknown prices；命令本身仍為 `factVerification:not-performed`，外部名稱／位置驗證由上述官方頁支持。來源、DEMO、單位、unknown 與 exclusions 的呈現邊界依既有 compiler 及產品驗收；本項不證明真模型選擇品質。
+
 `loadCatalog(input: unknown)` 驗證並回傳獨立資料物件；拒絕重複項目 ID、缺來源、無效目的地、價格來源 ID 未對應本項目、重複來源 ID、單邊／越界座標與非 HTTPS URL。`fact` 來源必須有 HTTPS URL；`demo` 可以是 `null`，但仍須有明示標籤。來源日期採 `YYYY-MM-DD`。
 
 未知單價與非空白原因必須成對；已知單價必須是非負安全整數，且原因為 `null`。住宿按 `room-night` 計價，容量必須為正安全整數；活動按 `person` 或 `group` 計價，房間容量為 `null`。`findItems` 按單一目的地篩選並保留原順序。
