@@ -145,9 +145,25 @@ P9 案例頁已對齊新架構與三個 probe 的實際結果，移除舊 ADK �
 等待CI期間，`node /tmp/dive-trip-probe4-carry-audit.mjs --verify` 既有13 scopes查核通過；`node /tmp/dive-trip-probe4-original-source-audit.mjs` 對probe-4 report／replay、22表與Temporal雙輪唯讀核對通過，完整source檔案清單及逐檔hash對照原始0b9ec5c（不是今天的source）。兩項依序執行，未清lock／寫入歷史／新增profile，也不宣稱已建立14 scopes完整reader。
 
 - [x] 核對鎖定SDK解析路徑、離線wire重現及私有種類診斷。
-- [ ] 承接probe-4原始report／replay／完整rows／execution／固定舊碼，建立不可變profile與14 scopes閉世界carry；舊成本null不回填。
+- [x] 承接probe-4原始report／replay／完整rows／execution／固定舊碼，建立不可變profile與14 scopes閉世界carry；舊成本null不回填。
 - [ ] 準備獨立單案入口及永久claim，維持合成unknown-cost、Free-only Gemma 4、最多1 invocation／7 calls、不重試；驗證新增scope及種類碼不洩漏原文、缺漏／額外／漂移仍拒絕，完成必要review與exact完整CI。
 - [ ] 取得新的當次有界授權、核對當下Free／完整歷史後執行一次；先報告實際種類與觀察限制，再決定修正，不由合成SDK測試宣稱模型已修復。
+
+### 新單案種類診斷入口：沿用盤點
+
+| 機制 | 今天的約束 | 從零設計 | 本次決定及重評條件 |
+| --- | --- | --- | --- |
+| 固定scope／永久claim | 舊入口消耗，新呼叫另取當次授權 | 一次性capability＋先claim再preflight | 獨立probe-5，不重開舊claim；授權政策改變時重評 |
+| Immutable profile與完整rows | 14 scopes、unknown不能歸零或回填 | 封閉inventory、digest及完整run／trip／owner／provider／account綁定 | 新profile承接probe-4，以exclusive create一次保存；證據格式變更另建adapter |
+| 雙輪capture及有界helper | 多pool不能假裝原子快照，原始report不可漂移 | 外層兩次完整capture、底層單次 | 沿用bounded reader；新scope另驗workflow／execution成對與固定舊mixed碼；可取得跨schema原子快照時重評 |
+| 固定歷史schema與候選驗證 | 歷史replay／原始call用量／未知成本皆不可改寫 | 每個不可變scope獨立比較其原始證據 | 新comparator只接受停止當次單案兩records、2708已知call tokens與null invocation成本；未依今天dataset或新分類回填 |
+| 共用technical scheduler／retention | 合成unknown-cost、1 invocation／7 calls，失敗即停 | 有界單案，不以技術probe當品質 | 沿用一案scheduler及retain；實際種類不足時先報限制，不自動再probe |
+| 固定私有種類碼 | 不存原值，全部mixed仍拒絕 | 有限enum與通用公開錯誤 | 使用bc9446a已驗證分類，不改runtime guard或結算；得到新實測證據後才定修法 |
+
+新 `cloudflare-probe-5` 準備：14 scopes完整reader雙輪查核通過；profile核對probe-4原始source／完整DB／Temporal／replay後以exclusive create保存，原值與身份不進public fixture。`node /tmp/dive-trip-pin-probe4-history.mjs` 只執行一次，後續不可重跑；唯讀reader驗證命令為 `node /tmp/dive-trip-probe5-carry-audit.mjs --verify`。當次單案入口未建立claim或dispatch。
+
+`pnpm test:unit` 同次3588 passed／116 files；`pnpm exec vitest run tests/unit/cloudflare-python-probe-4-carry.test.ts tests/unit/cloudflare-probe-5-campaign.test.ts tests/unit/cloudflare-probe-entry.test.ts tests/unit/cloudflare-revision-claim.test.ts tests/unit/cloudflare-evaluation-authority.test.ts --maxWorkers=1` 同次718 passed，含missing／extra、row／identity／execution配對／固定mixed marker、unknown正規化、舊grant與永久claim等mutation反例。首輪focused因複製時多帶舊entry測試片段而1 failed／718 passed；移除多帶片段後整份命令通過。`pnpm typecheck`／`pnpm lint` 通過。獨立Compose PostgreSQL的HTTP／retired collector／新live opt-in測試同次22 passed／1 live skip，沒有讀真憑證或模型呼叫；隔離container已停止且volume保留。design-review無findings；correctness/security review發現新campaign inventory漏列既有三個probe profiles，已補齊required／正向fixture及逐檔missing／額外profile反例，全unit／affected／typecheck／lint整份重跑通過。實際inventory dry驗證在候選claim open(wx)前攔截寫入，重用原claim檢查成功，前後確認新claim／report不存在；沒有讀憑證或dispatch。獨立複核確認P1已修、無新findings；累積ledger無open findings。design為0 findings；correctness為1 finding、改1／記0／提0／駁回0。指令檔對帳僅更新ignored本機入口指標，不新增tracked規則。完整來源CI待push後核對。
+
 
 ## P6 CI Actions runtime 維護
 

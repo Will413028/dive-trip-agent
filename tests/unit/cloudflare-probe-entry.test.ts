@@ -40,6 +40,10 @@ vi.mock('../../evals/cloudflare-python-quality-carry', async original => ({
   ...await original<typeof import('../../evals/cloudflare-python-quality-carry')>(),
   readCloudflarePythonQualityCarry: m.carry,
 }));
+vi.mock('../../evals/cloudflare-python-probe-4-carry', async original => ({
+  ...await original<typeof import('../../evals/cloudflare-python-probe-4-carry')>(),
+  readCloudflarePythonProbe4Carry: m.carry,
+}));
 vi.mock('../../evals/cloudflare-campaign-claim', () => ({ claimCloudflareCampaign: m.claim }));
 vi.mock('../../evals/live-evaluation-lock', () => ({ withEvaluationLock: m.lock, assertEvaluationLock: m.assertLock }));
 vi.mock('../support/database', () => ({ testDatabaseUrl: m.databaseUrl }));
@@ -51,6 +55,7 @@ import { PROBE_2_AUTHORIZATION, runCloudflareProbe2Entry } from '../../evals/clo
 
 import { PROBE_3_AUTHORIZATION, runCloudflareProbe3Entry } from '../../evals/cloudflare-probe-3-entry.ts';
 
+import { PROBE_5_AUTHORIZATION, runCloudflareProbe5Entry } from '../../evals/cloudflare-probe-5-entry.ts';
 import { PROBE_4_AUTHORIZATION, runCloudflareProbe4Entry } from '../../evals/cloudflare-probe-4-entry.ts';
 
 const hash = (s: string) => createHash('sha256').update(s).digest('hex');
@@ -226,5 +231,49 @@ test.each(['claim', 'history', 'source', 'lease'])('fourth probe %s denial canno
 test.each([undefined, '', PROBE_3_AUTHORIZATION])('fourth probe rejects missing or consumed grant %s', async grant => {
   vi.stubEnv('DIVE_TRIP_CLOUDFLARE_PROBE_4_AUTHORIZATION',grant);
   await expect(runCloudflareProbe4Entry()).rejects.toThrow('EVAL_AUTHORIZATION_REQUIRED');
+  for(const fn of [m.lock,m.claim,m.pool,m.carry,m.database,m.credential])expect(fn).not.toHaveBeenCalled();
+});
+
+test('fifth technical entry requires its own grant and claim before loading credentials', async () => {
+  await expect(runCloudflareProbe5Entry()).rejects.toThrow('EVAL_AUTHORIZATION_REQUIRED');
+  expect(m.claim).not.toHaveBeenCalled();
+  vi.stubEnv('DIVE_TRIP_CLOUDFLARE_PROBE_5_AUTHORIZATION', PROBE_5_AUTHORIZATION);
+  m.claim.mockImplementation(async (lease, kind) => { expect(lease).toBe(m.lease); expect(kind).toBe('probe5'); return m.save; });
+  m.carry.mockImplementation(async (pools, lease) => {
+    expect(pools).toEqual(m.pools); expect(lease).toBe(m.lease); return { ...probe2Prior(), invocations: 49, modelCalls: 74, chargedMicros: 1317146, historicalUnknownReceipts: 7,
+      observedTokens: 294637, remainingInvocationCeiling: 51, remainingReferenceMicros: 1682854 };
+  });
+  await expect(runCloudflareProbe5Entry()).resolves.toBeUndefined();
+  expect(m.claim).toHaveBeenCalledExactlyOnceWith(m.lease, 'probe5');
+  expect(m.pools).toHaveLength(8);
+  expect(m.options).toMatchObject({ accountId: recoveryAccount, priorChargedMicros: 1317146,
+    liveCampaign: 'cloudflare-probe-5-one-case', retention: 'retain' });
+  expect(m.execute).toHaveBeenCalledExactlyOnceWith('unknown-cost', expect.any(Function));
+  expect(m.credential).toHaveBeenCalledExactlyOnceWith('cloudflare');
+  expect(m.carry).toHaveBeenCalledTimes(3);
+  expect(m.source).toHaveBeenCalledTimes(3);
+  expect(m.save.mock.calls.at(-1)![0]).toMatchObject({ stopped: null,
+    diagnosticComplete: true, invocations: 1, maxInvocations: 1, maxModelCalls: 7,
+    evaluationGatePassed: false });
+});
+
+
+test.each(['claim', 'history', 'source', 'lease'])('fifth probe %s denial cannot load credentials', async failure => {
+  vi.stubEnv('DIVE_TRIP_CLOUDFLARE_PROBE_5_AUTHORIZATION', PROBE_5_AUTHORIZATION);
+  m.claim.mockResolvedValue(m.save);
+  const history = { ...probe2Prior(), invocations: 49, modelCalls: 74, chargedMicros: 1317146, historicalUnknownReceipts: 7,
+    observedTokens: 294637, remainingInvocationCeiling: 51, remainingReferenceMicros: 1682854 };
+  m.carry.mockResolvedValue(history);
+  if (failure === 'claim') m.claim.mockRejectedValue(new Error('EVAL_ALREADY_CLAIMED'));
+  if (failure === 'history') m.carry.mockResolvedValueOnce(history).mockRejectedValue(new Error('EVAL_HISTORY_CHANGED'));
+  if (failure === 'source') m.source.mockResolvedValueOnce(source).mockResolvedValue({ ...source, sha256: hash('changed') });
+  if (failure === 'lease') m.assertLock.mockRejectedValue(new Error('EVAL_LOCK_NOT_OWNED'));
+  await expect(runCloudflareProbe5Entry()).rejects.toThrow();
+  expect(m.credential).not.toHaveBeenCalled();
+});
+
+test.each([undefined, '', PROBE_4_AUTHORIZATION])('fifth probe rejects missing or consumed grant %s', async grant => {
+  vi.stubEnv('DIVE_TRIP_CLOUDFLARE_PROBE_5_AUTHORIZATION',grant);
+  await expect(runCloudflareProbe5Entry()).rejects.toThrow('EVAL_AUTHORIZATION_REQUIRED');
   for(const fn of [m.lock,m.claim,m.pool,m.carry,m.database,m.credential])expect(fn).not.toHaveBeenCalled();
 });
