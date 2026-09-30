@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: '作品案例 · 潛旅筆記',
-  description: '個人潛旅規劃作品：以 Google ADK TypeScript、AG-UI 與人工確認，連接對話、行程卡片及持久化版本。',
+  description: '個人潛旅規劃作品：以 FastAPI／PydanticAI、Temporal、AG-UI 與人工確認，連接對話、行程卡片及持久化版本。',
 };
 
 export default function CaseStudy() {
@@ -26,22 +26,22 @@ export default function CaseStudy() {
       <p className="eyebrow">01 / PROBLEM & CONTRIBUTION</p>
       <h2 id="contribution-title">問題與本人貢獻</h2>
       <p>同行者可能不潛水、住宿已決定、下午又想留白。單次生成整份行程很難保留這些選擇；這件作品聚焦於可檢查的局部修改。</p>
-      <p>我負責需求與互動設計、Next.js／TypeScript 工作台、domain 規則、PostgreSQL 版本交易，以及 Google ADK TypeScript＋AG-UI 整合與驗證設計。這是個人作品，沒有客戶上線案例或實際營運成效可宣稱。</p>
+      <p>我負責需求與互動設計、Next.js／TypeScript 工作台、domain 規則、PostgreSQL 版本交易，以及 FastAPI／PydanticAI、Temporal 與 AG-UI 整合、quota 帳務、持久刪除及故障驗證。這是個人作品，沒有客戶上線案例或實際營運成效可宣稱。</p>
       <p className="muted">範圍限定小琉球、綠島、墾丁；每趟一個目的地、1–6 人、2–7 天，以 TWD 計價。</p>
     </section>
 
     <section aria-label="架構與確認流程" className="intro-grid">
       <article>
         <span>02 / 提案</span><h2>對話與卡片共用行程</h2>
-        <p>Next.js 呈現需求、對話及活動卡片。Google ADK TypeScript 管理 Agent 與確認接續，AG-UI 傳遞事件；真模型經獨立 provider adapter 接入，目前以 Cloudflare Workers AI 做有界驗證。預設固定模型僅支援指定劇本。</p>
+        <p>Next.js 呈現需求、對話及活動卡片，經 AG-UI 連接 FastAPI 後端。PydanticAI 管模型與工具迴圈，Temporal 保存執行與等待狀態，PostgreSQL 保存行程、回答與帳務。真模型經獨立 Cloudflare Workers AI evaluator 做有界驗證；預設固定模型僅支援指定劇本。</p>
       </article>
       <article>
         <span>03 / 驗證</span><h2>程式計算，人來確認</h2>
-        <p>模型只提出修改，domain 驗證鎖定、容量與日期，並計算費用。未知價格不當成零；提案先顯示差異，接受前原行程保持不變，衝突提案不能套用。</p>
+        <p>模型只提出修改及結構化的證據引用，伺服器產生回答；domain 驗證鎖定、容量與日期，並計算費用。未知價格不當成零；提案先顯示差異，接受前原行程保持不變，衝突提案不能套用。</p>
       </article>
       <article>
         <span>04 / 保存</span><h2>每次接受，都有版本</h2>
-        <p>人工接受後，伺服器交易才保存完整行程新版本至 PostgreSQL。刷新可接續待確認提案；復原將舊內容存成新版。分享固定於建立時的版本，後續修改不會改寫分享快照。</p>
+        <p>人工接受後，伺服器交易才保存完整行程新版本與 receipt 至 PostgreSQL；確認接續不再呼叫模型。刷新可接續待確認提案；復原將舊內容存成新版。分享固定於建立時的版本，後續修改不會改寫分享快照。</p>
       </article>
     </section>
 
@@ -56,9 +56,9 @@ export default function CaseStudy() {
     <section className="panel" aria-labelledby="evidence-title">
       <p className="eyebrow">06 / EVIDENCE & FAILURE HANDLING</p>
       <h2 id="evidence-title">驗證結果與尚未完成的事</h2>
-      <p>2026-09-26 本機驗證：1,090 個 unit、296 個 PostgreSQL／HTTP／ADK integration、5 個 ADK 跨程序探針及 63 個桌面／手機 E2E 通過。6 個 live 入口預設跳過；重播錄影需另行明示啟用。production build、strict TypeScript 與 lint 通過；不代表遠端 CI 或正式部署驗收。</p>
-      <p>Cloudflare 真模型的預算衝突單案已通過：鎖定費用超過預算時正確說明不可行，保留 DEMO／非真實報價揭露。後續 30 案評估完成 11 案流程，第 12 案因提案工具參數錯誤停止，其餘 18 案未執行；文字審查另發現價格證據契約偏差，尚未通過品質門檻。原始失敗保留，不自動重試。</p>
-      <p>成功案例已保存提案、確認接續與版本刷新證據，可離線重播展示；重播明示非 LIVE，播放節奏不代表模型延遲。10 情境 × 3 輪 fixture 僅檢查 domain oracle，不能取代真模型驗收。</p>
+      <p>Python／Temporal 核心重構已通過離線產品、帳務與跨程序故障驗證，並完成本機切換。固定版本的遠端 Fixture CI 驗證靜態檢查、unit、PostgreSQL integration、backend、production build 及桌面／手機互動；live 入口預設跳過。Fixture CI 通過不代表真模型品質或公開部署驗收。</p>
+      <p>新版真模型品質尚未通過：完整 30 案入口在未知用量時停止，後續兩次獨立單案診斷在工具參數被拒時停止；第三次工具成功，卻在只應澄清費用的案例建立不必要提案，任務品質仍失敗。原始失敗與保守帳務保留，不重送已停止的執行。私有診斷只保存固定分類與白名單路徑，不保存模型產生的原值。</p>
+      <p>10 情境 × 3 輪 fixture 僅檢查 domain oracle；單案技術診斷也不能抵完整真模型驗收。歷史 ADK 成功或重播不改標為新版成功；重播明示非 LIVE，播放節奏不代表模型延遲。</p>
       <p>失敗時保留可辨識的狀態：舊版本衝突要求刷新，套用回應遺失以同一請求重試，未知費用保持待確認。狀態不明的模型 invocation 不自動重跑，避免重複副作用。</p>
       <p>目前未公開部署；公開環境驗證、備份／還原驗收及留存排程仍待啟用。首頁提供一般規劃、預算衝突，以及明示的查詢失敗靜態劇本；後者不是即時模型故障。完整發布驗收尚未通過，不宣稱 Task12 或 M6 已全部完成。</p>
     </section>

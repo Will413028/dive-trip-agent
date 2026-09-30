@@ -31,7 +31,7 @@ GitHub 操作依適用的本機身份指令逐命令限定帳號。核對 CI 的
 | P1 最新 Fixture CI | 已完成 | `b00e970` | exact SHA 的完整 CI 證據 |
 | P2 新單案診斷入口 | 已完成，CI 全綠 | P1；新入口若改程式需新 CI | 新 carry、永久 claim 政策與離線驗證 |
 | P3 單案 live 診斷 | 已執行並保存；任務品質失敗 | P2、當次有界授權、Free／歷史 preflight | 完整 report、usage、診斷與事後 audit |
-| P4 依證據修正 | 條件式 | P3 | 必要修正、合成回歸與新 revision gates |
+| P4 依證據修正 | 一般任務指引已修正，待新 CI／模型驗證 | P3 | 必要修正、合成回歸與新 revision gates |
 | P5 Task 11 品質驗收 | 待做 | 技術流程可用、當次完整 campaign 授權 | 30 案、內容雙審與品質 gate |
 | P6 CI Actions runtime 維護 | 待做 | P5 後、公開 release 前 | 升級與完整 Fixture CI |
 | P7 部署與維運 | 待做 | P5、P6、P8；另定 hosting 與部署授權 | public artifact、環境與演練證據 |
@@ -75,7 +75,7 @@ P4 不預設模型犯了哪一種錯，也不要求每次 live 後一定修改�
 
 2026-09-30 probe-3 在 `c0c1012` 執行一次 start、2 次模型呼叫，完整用量已保存，沒有新的 unknown 或參數拒絕。`validate_changes`／`propose_changes` 均完成，但 `unknown-cost` 預期澄清，卻收到無實際差異的提案；原始 grade 包含 `UNEXPECTED_SIDE_EFFECT`，產品停在 `awaiting_confirmation`，評估依 `FAILED_RUN_STOP` 停止，沒有 resume，行程／版本未變。`diagnosticComplete=false`、`evaluationGatePassed=false`；當次用量完整與歷史 accounting completeness（仍有舊 unknown）分別判定。永久 claim、report、replay、PostgreSQL 及 Temporal 證據保留，完整雙輪事後 audit 通過。Free active 已查核，dashboard 今日 Neurons 執行前 113.39／10,000、執行後 139.42／10,000；這是 account 的當下用量，不把差額直接等同本案帳務。
 
-下一步 P4：現行工具 schema 與 validator 在本案一致，沒有證據支持放寬 change kind；模型指引未明訂查詢／澄清不得建提案。已提出一般任務指引、no-op 拒絕與換模型三種選項，待選定後實作。此案不通過品質，不由未保存原始參數反推模型的意圖。
+下一步 P4：現行工具 schema 與 validator 在本案一致，沒有證據支持放寬 change kind；模型指引未明訂查詢／澄清不得建提案。已提出一般任務指引、no-op 拒絕與換模型三種選項；未收到方向補充後，先依建議實作可逆的一般任務指引。此案不通過品質，不由未保存原始參數反推模型的意圖。
 
 ## P4 依證據修正
 
@@ -85,6 +85,10 @@ P4 不預設模型犯了哪一種錯，也不要求每次 live 後一定修改�
 - [ ] 記錄修正後仍未驗證的模型效果。若需新 live，比照 P2／P3 另建 scope 與授權；不設無限 probe 迴圈。
 
 **驗收**：離線證據支持修正，且來源對應的 CI 通過。無可證明缺陷時記錄結論與下一個待決假設，禁止猜值、放寬 gate 或回填歷史。
+
+P4 當次實作：`backend/src/dive_trip/application/agent_runtime.py` 的共用 Agent instructions 補上一般任務選擇：查詢既有行程／費用使用 read tools 與本回合 evidence 的 AnswerPlan；未知費用不能推定預算足夠；只對使用者要求的候選修改／比較驗證，不為查詢捏造修改或建立無差異提案。沒有新增 no-op Domain 拒絕或 case-ID 特例，schema、工具／模型上限與 grade 不變。指引遺漏是可觀察事實，但補指引能否改善模型選擇仍是待驗假設，不宣稱根因已證實。既有 strict AnswerPlan、工具契約及 SDK 合成回歸 59 passed，Ruff／strict mypy 通過；Web typecheck／lint 通過。新的完整 CI 仍待 commit／push 後查核。
+
+P9 案例頁已對齊新架構與三個 probe 的實際結果，移除舊 ADK 成功套用為新版的敘述；隔離 fixture stack 的桌面與 390px 手機呈現已檢查。網站尚未公開，影片與正式驗收仍未完成。
 
 ## P5 Task 11 真模型品質驗收
 
@@ -128,7 +132,7 @@ P4 不預設模型犯了哪一種錯，也不要求每次 live 後一定修改�
 ## P9 作品展示
 
 - [x] 更新 [demo script](demo-script.md)：一般規劃、鎖住宿但預算不足、查詢失敗／費用待確認三組情境。
-- [ ] 案例頁說明本人貢獻、架構、產品界線、示範資料、測試、真模型結果及失敗處理。
+- [x] 案例頁說明本人貢獻、架構、產品界線、示範資料、測試、真模型結果及失敗處理。
 - [ ] 使用同次有界驗收的 AcceptedAnswer／replay 證據製作影片，不為影片額外發送模型，不把 fixture 或舊 replay 改標 live。
 - [ ] 核對 public demo、案例頁、影片與 release artifact 一致。
 
