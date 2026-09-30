@@ -205,10 +205,12 @@ P9 案例頁已對齊新架構與三個 probe 的實際結果，移除舊 ADK �
 - [x] 實際 inventory dry 在 probe-6 claim open(wx) 前攔截：清單接受、claim／report 前後不存在，沒有讀 generation credential。
 - [x] focused 806 passed、全 unit 3700 passed／118 files、typecheck／lint 通過；移除 profile-5 required 的程序內 mutation 為 1 failed／11 older controls passed，證明正向清單會辨認漏列。
 - [x] 獨立 correctness 複核，無 findings。
-- [ ] exact source 完整 Fixture CI；本機 integration 尚未通過。
+- [x] exact source 完整 Fixture CI；本機 integration 的失敗仍保留。
 - [ ] 完成準備後取得當次明確單案授權、查核當下 Free／歷史，再執行一次；新 unknown／限流／技術／安全／任務失敗即停。
 
 本機 integration 三檔首輪為 1 failed／27 passed／1 skip；誤重疊的四檔完整命令為 7 failed／28 passed／1 skip。新獨立 Compose project 串行同一四檔完整命令為 1 failed／34 passed／1 skip，唯一 failure 為既有 Gemini abort 案例在 10 秒內 model_calls 仍為 0（abort 尚未發生）；沒有改程式或 timeout，不能稱本機 integration 通過。當下主機 load 38–81，但不是已證實根因；未修改基線 e6c8bb6 的同一 abort 案例也 30 秒 timeout（1 failed／11 skipped），形狀不同，不足以證實根因或宣稱排除回歸。基線 worktree 的 pnpm 先因無 TTY 的 modules purge 檢查中止，未安裝；改以同版本 Node 直接執行既有 Vitest。完整來源 CI 將獨立驗證，任何局部重跑都不拼成通過。
+
+`7e2287bf998369dbc9773f54df860dd1cf3b8cff` 的 [完整來源 CI 36732864070](https://github.com/Will413028/dive-trip-agent/actions/runs/36732864070) attempt1、唯一 job `109946794987` 及全部 27 steps success，包含完整 integration／backend／production build／桌面手機 E2E／cleanup；exact SHA、必要 gate 名稱及每 step 均已核對。以該次完整命令作本輪來源驗收，不把本機局部或失敗命令拼成通過；本機 failure 根因未證實。尚未建立 probe-6 claim／讀 generation 憑證／dispatch，下一步只在取得當次單案明確授權後查核 Free 與完整歷史。
 
 原始 profile bootstrap `node /tmp/dive-trip-pin-probe5-history.mjs` 只執行一次，不可重跑。唯讀完整 reader：`node /tmp/dive-trip-probe6-carry-audit.mjs --verify`。design-review 與 correctness review 均無 findings（各 0；改／記／提／駁回各 0）；指令檔對帳僅更新 ignored 本機入口指標，尚未建立 probe-6 claim 或模型 dispatch。
 
