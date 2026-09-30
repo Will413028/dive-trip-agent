@@ -435,6 +435,16 @@ Provider diagnostics are deliberately limited:
   read-only post-run audit matched all 22 raw-row tables, replay hash, execution
   Run ID and Temporal rejection marker. No new unknown or quality pass arose.
 
+Subsequent offline diagnostics distinguish `kind_missing` from `kind_invalid`
+only for discriminated-union errors at a `validate_changes` change item.
+Classification reads the error type and location, never raw input, message or
+context. Other validation errors retain their existing codes; historical
+`invalid_value` evidence remains readable and is not reclassified. Synthetic
+tests cover missing, unknown, null and numeric tags, an empty requirements
+patch, redaction and historical compatibility. This improves diagnosis, not
+model task completion. A new live experiment would still require its own
+bounded scope, permanent claim and complete retained-history preflight.
+
 - New private REST diagnostics permit provider plus locally selected
   `request`, `call-start`, `fetch`, `body-read`, `body-json`, `evidence`,
   `response`, `evidence-save`, or `http` with integer status 0–599.

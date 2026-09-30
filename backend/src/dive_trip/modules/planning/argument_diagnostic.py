@@ -17,6 +17,8 @@ IssueCode = Literal[
     "missing",
     "invalid_type",
     "invalid_value",
+    "kind_missing",
+    "kind_invalid",
     "too_small",
     "too_big",
     "invalid_format",
@@ -135,6 +137,16 @@ def from_validation_error(
     errors = error.errors(include_input=False, include_context=False, include_url=False)
     for item in errors:
         code = _issue_code(item["type"])
+        if (
+            tool == "validate_changes"
+            and len(item["loc"]) == 2
+            and item["loc"][0] == "changes"
+            and type(item["loc"][1]) is int
+        ):
+            if item["type"] == "union_tag_not_found":
+                code = "kind_missing"
+            elif item["type"] == "union_tag_invalid":
+                code = "kind_invalid"
         path = _path(item["loc"], extra=item["type"] == "extra_forbidden")
         identity = (code, tuple(path))
         if identity in seen:

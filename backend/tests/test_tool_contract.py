@@ -93,6 +93,49 @@ def test_rejected_known_field_reports_fixed_error_class_and_path():
     }
 
 
+@pytest.mark.parametrize(
+    ("change", "code"),
+    [
+        ({"private_field": "SECRET_VALUE"}, "kind_missing"),
+        ({"kind": "SECRET_VALUE"}, "kind_invalid"),
+        ({"kind": None}, "kind_invalid"),
+        ({"kind": 42}, "kind_invalid"),
+        ({"kind": "requirements", "value": {}}, "invalid_value"),
+    ],
+)
+def test_change_kind_diagnostic_distinguishes_tags_without_retaining_values(
+    change, code
+):
+    prior = {"before"}
+    with pytest.raises(ToolArgumentsRejected) as caught:
+        validate_candidate(
+            [call("validate_changes", {"changes": [change]})], prior, 0
+        )
+    diagnostic = caught.value.diagnostic
+    assert diagnostic is not None
+    assert diagnostic.issues[0].code == code
+    assert diagnostic.issues[0].path == (
+        ["changes", "*", "requirements"]
+        if code == "invalid_value"
+        else ["changes", "*"]
+    )
+    assert "SECRET_VALUE" not in diagnostic.model_dump_json()
+    assert "private_field" not in diagnostic.model_dump_json()
+    assert prior == {"before"}
+    assert str(caught.value) == "AGENT_TOOL_ARGUMENTS_REJECTED"
+
+
+def test_historical_generic_diagnostic_remains_readable():
+    from dive_trip.modules.planning.argument_diagnostic import ArgumentDiagnostic
+
+    historical = {
+        "tool": "validate_changes",
+        "candidate_ordinal": 1,
+        "issues": [{"code": "invalid_value", "path": ["changes", "*"]}],
+    }
+    assert ArgumentDiagnostic.model_validate(historical).model_dump() == historical
+
+
 def test_extra_field_is_redacted_even_when_its_name_exists_in_another_tool():
     with pytest.raises(ToolArgumentsRejected) as caught:
         validate_candidate(
