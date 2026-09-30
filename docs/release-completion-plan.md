@@ -206,13 +206,27 @@ P9 案例頁已對齊新架構與三個 probe 的實際結果，移除舊 ADK �
 - [x] focused 806 passed、全 unit 3700 passed／118 files、typecheck／lint 通過；移除 profile-5 required 的程序內 mutation 為 1 failed／11 older controls passed，證明正向清單會辨認漏列。
 - [x] 獨立 correctness 複核，無 findings。
 - [x] exact source 完整 Fixture CI；本機 integration 的失敗仍保留。
-- [ ] 完成準備後取得當次明確單案授權、查核當下 Free／歷史，再執行一次；新 unknown／限流／技術／安全／任務失敗即停。
+- [x] 取得當次單案授權並查核 Free／完整歷史，執行一次後按 UNKNOWN_USAGE_STOP 停止；claim 已消耗。
 
 本機 integration 三檔首輪為 1 failed／27 passed／1 skip；誤重疊的四檔完整命令為 7 failed／28 passed／1 skip。新獨立 Compose project 串行同一四檔完整命令為 1 failed／34 passed／1 skip，唯一 failure 為既有 Gemini abort 案例在 10 秒內 model_calls 仍為 0（abort 尚未發生）；沒有改程式或 timeout，不能稱本機 integration 通過。當下主機 load 38–81，但不是已證實根因；未修改基線 e6c8bb6 的同一 abort 案例也 30 秒 timeout（1 failed／11 skipped），形狀不同，不足以證實根因或宣稱排除回歸。基線 worktree 的 pnpm 先因無 TTY 的 modules purge 檢查中止，未安裝；改以同版本 Node 直接執行既有 Vitest。完整來源 CI 將獨立驗證，任何局部重跑都不拼成通過。
 
-`7e2287bf998369dbc9773f54df860dd1cf3b8cff` 的 [完整來源 CI 36732864070](https://github.com/Will413028/dive-trip-agent/actions/runs/36732864070) attempt1、唯一 job `109946794987` 及全部 27 steps success，包含完整 integration／backend／production build／桌面手機 E2E／cleanup；exact SHA、必要 gate 名稱及每 step 均已核對。以該次完整命令作本輪來源驗收，不把本機局部或失敗命令拼成通過；本機 failure 根因未證實。尚未建立 probe-6 claim／讀 generation 憑證／dispatch，下一步只在取得當次單案明確授權後查核 Free 與完整歷史。
+`7e2287bf998369dbc9773f54df860dd1cf3b8cff` 的 [完整來源 CI 36732864070](https://github.com/Will413028/dive-trip-agent/actions/runs/36732864070) attempt1、唯一 job `109946794987` 及全部 27 steps success，包含完整 integration／backend／production build／桌面手機 E2E／cleanup；exact SHA、必要 gate 名稱及每 step 均已核對。以該次完整命令作本輪來源驗收，不把本機局部或失敗命令拼成通過；本機 failure 根因未證實。隨後依當次明確授權執行 probe-6，結果見下節。
 
-原始 profile bootstrap `node /tmp/dive-trip-pin-probe5-history.mjs` 只執行一次，不可重跑。唯讀完整 reader：`node /tmp/dive-trip-probe6-carry-audit.mjs --verify`。design-review 與 correctness review 均無 findings（各 0；改／記／提／駁回各 0）；指令檔對帳僅更新 ignored 本機入口指標，尚未建立 probe-6 claim 或模型 dispatch。
+原始 profile bootstrap `node /tmp/dive-trip-pin-probe5-history.mjs` 只執行一次，不可重跑。唯讀完整 reader：`node /tmp/dive-trip-probe6-carry-audit.mjs --verify`。design-review 與 correctness review 均無 findings（各 0；改／記／提／駁回各 0）；指令檔對帳僅更新 ignored 本機入口指標，probe-6 已執行並停止，永久 claim 不重開。
+
+### probe-6 當次單案結果（2026-09-30）
+
+當次明確授權為 Free-only、固定 `@cf/google/gemma-4-26b-a4b-it`、合成 unknown-cost，最多 1 invocation／7 model calls。執行前確認 Workers Free Active、Workers AI 今日 215.62／10000 neurons；完整十五 scopes 雙輪一致，再核對 exact source CI。
+
+一次執行為 **UNKNOWN_USAGE_STOP**：1 invocation／7 calls，前六步完成 `calculate_budget`，第七模型 activity 固定失敗碼 `AGENT_TOOL_LIMIT`。七筆 call usage 共 11595 tokens 已保存；invocation 成本仍 null，保守扣帳 183505 reference micros，不回填。沒有提案、確認、重試或版本變更；diagnosticComplete／evaluationGatePassed 均 false。claim 已消耗，原始 report／replay／22 表與 paired Temporal execution 保留。
+
+當次完整證據雙輪核對 rows／replay／execution／source 一致；再執行原十五 scopes reader，舊歷史仍為 50 invocations／76 calls／8 unknown。含本次累計為 51 invocations／83 calls／9 unknown、1684156 charged reference micros／308936 observed tokens；剩餘 49 invocations／1315844 reference micros，不等於 provider Free 額度。
+
+- [ ] 離線重現六次業務工具後 `final_answer` 的上限邊界，先比對契約與既有測試。
+- [ ] 查核 native SDK 的工具結果與 output tool 曝露，釐清重複 budget 呼叫；目前根因未證實。
+- [ ] 修正與驗證後才準備新的十六 scopes 有界入口；當次模型授權另取。
+
+第七候選在解析名稱前被上限拒絕，不能判定它是第七次 budget 或 `final_answer`；本次未保存原始 parts，不能據此聲稱特定 TextPart 形狀或品質已修復。工具上限已有保護，不提高限制或自動重試。
 
 ## P6 CI Actions runtime 維護
 
