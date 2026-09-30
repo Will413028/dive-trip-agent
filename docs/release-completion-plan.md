@@ -252,11 +252,38 @@ P9 案例頁已對齊新架構與三個 probe 的實際結果，移除舊 ADK �
 新純分類 tests 修改前 13 failed／23 passed，證明泛碼不足；後續 affected 命令包含 tool contract、provider SDK 與 response diagnostic，涵蓋四種 native Temporal／隔離 PostgreSQL 超限分類，七次 call usage、六筆工具、零提案／版本变更、private history 固定碼與 public 不洩漏。獨立 correctness／privacy review 無阻擋 findings；兩個 coverage 建議（同批跨剩餘名額、超大輸出優先）已補測。最終同次 affected 為 93 passed；Ruff、strict mypy（85 source files）通過，沒有真模型呼叫。
 
 - [x] 固定分類與受控 native failure 傳遞，原值不保存。
-- [ ] 新分類來源完整 CI。
+- [x] 新分類來源完整 CI：54a1842，run36742545503，唯一job109980378232／27 steps success。
 - [ ] 完整十六 scopes carry 與新單案入口；準備不授權模型呼叫。
 - [ ] 新當次有界授權與 Free／完整歷史查核後，才觀察真模型候選；停止規則不變。
 
 probe-6 仍只有原 AGENT_TOOL_LIMIT，舊證據不回填，不由 synthetic 結果推定真模型的第七候選。下一次分類結果若仍不足以辨認語義，再重評必要觀察範圍。
+
+### probe-7 單案入口準備（2026-10-01）
+
+目的為使用固定候選分類辨認超限回覆，不預先調高上限或修改 prompt。新範圍仍固定 synthetic unknown-cost、Free-only、Gemma 4，最多 1 invocation／7 calls；完整三十案品質 gate 維持 false。準備不授權 generation；模型實際執行另取當次明確有界授權。
+
+| 沿用機制 | 原始必要條件 | 今日從零設計 | 決定與重評條件 |
+| --- | --- | --- | --- |
+| 永久 claim／獨立 grant | 每次呼叫有界；停止不可重開 | 固定新 scope 與一次性 server capability | 新 probe-7；授權政策改變才重評 |
+| 固定 private profile pin／完整原始 rows | 本機單一信任邊界、retained scopes 不可變 | bounded immutable reads＋固定digest，拒絕缺漏／漂移 | 沿用；來源不可信時改簽章或交易式 provenance |
+| 完整兩輪 carry capture／owned lease | 固定歷史、多 pool、合作 writer 鎖 | immutable scopes 採完整雙輪捕捉，不宣稱跨 schema 原子性 | 新十六 scopes；歷史可再次寫入時改一致快照 |
+| 固定 policy descriptor／薄 entry／campaign、共用 lifecycle | claim、history、credential 順序不可漂移 | 一個 lifecycle、明確 scope 與固定單案政策 | 沿用共享實作，不另造 dispatcher；增加一般化需求才重評 |
+| 歷史版本 adapter／固定 DB 與 Temporal 格式 | 原始 stopped report與22表layout、SQLite history格式不可重新解讀成功 | 固定版本 adapter＋共用 bounded raw capture | 保留專用 comparator；跨工具鏈搬移、DB migration或Temporal格式變更時另定相容性方案，不改舊pin |
+| Python／Temporal runtime與quota | 六工具七模型、usage先保存、未知保守結算 | 原生模型工具迴圈與受控失敗分類 | 不新增 retry／formatter／強制去重；runtime契約改變再評 |
+
+- [x] 原始 probe-6 source、report／replay、22 表與 paired Temporal execution 雙輪一致後，exclusive create 保存 ignored profile；原 AGENT_TOOL_LIMIT／null 保留。
+- [x] 新十六 scopes reader 完整雙輪一致：51 invocations／83 calls、1684156 charged reference micros／308936 observed tokens、9 unknown，剩餘49 invocations／1315844 reference micros；不等於provider Free額度。
+- [x] 新 grant／永久 claim／capability 與所有 consumers；required inventory 包含歷代 profiles、claim／report／replay。
+- [x] descriptor修正後actual inventory dry在claim open(wx)前攔截；清單接受，前後claim／report不存在，沒有讀generation credential。
+- [x] focused898；descriptor修正後完整 `pnpm test:unit --maxWorkers=1` 為3816 passed／120 files，原timeout不變。typecheck／lint、隔離integration17 passed／1 live skip及獨立design／correctness review通過。
+- [ ] exact source 完整 Fixture CI。
+- [ ] 當次模型授權與 Free／完整歷史查核後，才執行一次；新 unknown／限流／技術／安全／任務失敗即停。
+
+新 profile required omission 的程序內 mutation：1 failed／13 controls passed／757 deselected，tracked source未改；新入口會辨認缺少profile-6。首次focused因沿用舊exception assertion而20 failed／878 passed，修正test assertion後同一五檔898 passed。首份全unit為2 failed／3814 passed／120 files：既有SDK子程序命令失敗及tools declaration案5000ms timeout；根因未證實，保留log、不拼成通過。新descriptor完成後，整份unit以原timeout與單一worker重驗為3816 passed／120 files（211.45秒）；不拼湊局部結果，首輪根因未證實。typecheck／lint通過，當次唯一Compose的collector integration 17 passed／1 live skip；容器停止、volumes保留，未觸碰原始history DB。
+
+Design-review累積ledger：B replay kind ladder＝改，以fixed policy／ordered replay descriptors共用bounded reader，所有舊scope仍有正向／缺漏／額外／file-type控制；A歷史格式耦合漏列＝記入盤點表。複查無新findings，改1／記1／提0／駁回0。獨立correctness review無actionable bug；完整raw fingerprint／pins／outer雙輪capture對局部compare欄位已有保護（already protected），不重複造驗證。指令檔對帳只更新ignored新入口current pointer，產品規則不變。
+
+原始 profile bootstrap `node /tmp/dive-trip-pin-probe6-history.mjs` 只執行一次，不可重跑；原始結果以 ignored report定位，不能把public vectors當私有歷史。唯讀完整 reader：`node /tmp/dive-trip-probe7-carry-audit.mjs --verify`。舊claims均不重開；完整carry、inventory、quota保護不因只做一案省略。
 
 ## P6 CI Actions runtime 維護
 

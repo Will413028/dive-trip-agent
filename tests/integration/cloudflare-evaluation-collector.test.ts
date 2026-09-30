@@ -221,7 +221,7 @@ test('context-only: Cloudflare live evaluation rejects before key while Gemini s
 });
 
 test.each(['cloudflare-grounded-30-cases', 'cloudflare-nonthinking-one-case', 'cloudflare-diagnostic-30-cases',
-  'cloudflare-probe-one-case', 'cloudflare-probe-2-one-case', 'cloudflare-probe-3-one-case', 'cloudflare-probe-4-one-case', 'cloudflare-probe-5-one-case', 'cloudflare-probe-6-one-case', 'cloudflare-python-quality-30-cases'] as const)(
+  'cloudflare-probe-one-case', 'cloudflare-probe-2-one-case', 'cloudflare-probe-3-one-case', 'cloudflare-probe-4-one-case', 'cloudflare-probe-5-one-case', 'cloudflare-probe-6-one-case', 'cloudflare-probe-7-one-case', 'cloudflare-python-quality-30-cases'] as const)(
   '%s is retired before credentials and admission even in a test schema', marker => withDatabase(async () => {
   const owner = await createSession(), fixture = evaluationInput('unknown-cost');
   const trip = await createTrip(owner.id, fixture.before);

@@ -16,7 +16,7 @@ import type { ReplayBundle } from './replay-bundle';
 import type { FiniteCampaignPorts, runFiniteCloudflareCampaign } from './cloudflare-campaign';
 type Report = Parameters<typeof runFiniteCloudflareCampaign>[1];
 type BaseEntryPolicy<P extends Report['prior']> = {
-  stem: 'cloudflare-revision' | 'cloudflare-recovery' | 'cloudflare-grounded' | 'cloudflare-nonthinking' | 'cloudflare-diagnostic' | 'cloudflare-probe' | 'cloudflare-probe-2' | 'cloudflare-probe-3' | 'cloudflare-python-quality' | 'cloudflare-probe-4' | 'cloudflare-probe-5' | 'cloudflare-probe-6';
+  stem: 'cloudflare-revision' | 'cloudflare-recovery' | 'cloudflare-grounded' | 'cloudflare-nonthinking' | 'cloudflare-diagnostic' | 'cloudflare-probe' | 'cloudflare-probe-2' | 'cloudflare-probe-3' | 'cloudflare-python-quality' | 'cloudflare-probe-4' | 'cloudflare-probe-5' | 'cloudflare-probe-6' | 'cloudflare-probe-7';
   liveCampaign?: GroundedCloudflareEvaluationCampaign;
   authorizationEnv: string; authorization: string;
   schemas(): readonly string[]; initialReplays: 1 | 2;

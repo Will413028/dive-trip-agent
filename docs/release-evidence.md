@@ -95,7 +95,13 @@ Domain unit tests 驗費用與規則；真 PostgreSQL integration tests 驗交�
 
 新限額診斷只保存六種固定私有分類，區分 final_answer／budget／其他業務工具／混合／未宣告名稱／異常名稱 shape；不保存原值、不增加表或擴大對外事件。分類先於參數驗證，不證明候選合法；上限、整批拒絕、重試與 unknown 保守結算均維持。transaction 防線仍用舊泛碼；probe-6 歷史不回填。
 
-新純分類 tests 在修改前13 failed／23 passed；最終同次 tool contract＋provider SDK＋response diagnostic **93 passed**，包括四種實際 native Temporal／隔離 PostgreSQL 超限失敗路徑，七筆已知 call usage、六筆工具、零提案／版本變更、private history 固定碼與 public 不洩漏。Ruff／strict mypy（85 source files）通過，獨立 correctness／privacy review 無阻擋 findings；兩個 coverage 建議已補測。沒有真模型呼叫。新分類來源完整 CI 尚待；十六 scopes 新單案入口未準備，模型需另取當次有界授權。詳細分類與順序見 [P5](release-completion-plan.md#工具上限候選分類診斷2026-10-01)。
+新純分類 tests 在修改前13 failed／23 passed；最終同次 tool contract＋provider SDK＋response diagnostic **93 passed**，包括四種實際 native Temporal／隔離 PostgreSQL 超限失敗路徑，七筆已知 call usage、六筆工具、零提案／版本變更、private history 固定碼與 public 不洩漏。Ruff／strict mypy（85 source files）通過，獨立 correctness／privacy review 無阻擋 findings；兩個 coverage 建議已補測。沒有真模型呼叫。新分類 `54a184201a6bb6da90fbecd8e6489c100242053f` 的 [完整來源 CI 36742545503](https://github.com/Will413028/dive-trip-agent/actions/runs/36742545503) 唯一job `109980378232` 與全部27 steps success，exact SHA／必要gate已核對。後續probe-7及十六scopes carry已進入準備，模型需另取當次有界授權。詳細分類與順序見 [P5](release-completion-plan.md#工具上限候選分類診斷2026-10-01)。
+
+### 2026-10-01 probe-7 單案入口與十六 scopes carry 準備
+
+新入口使用固定工具上限候選分類，仍只准synthetic unknown-cost、Cloudflare Free-only、固定Gemma 4、最多1 invocation／7 calls；準備不授權generation。原probe-6完整source／report／replay／22表／paired Temporal execution雙輪一致後，exclusive create保存ignored profile；完整十六scopes reader雙輪一致，累計51 invocations／83 calls、9 unknown保留，成本null不回填。actual inventory dry在claim open(wx)前攔截、零claim／report／generation credential；profile-6 omission mutation為1 failed／13 controls passed。
+
+Design-review的replay kind ladder已改成fixed policy descriptor共用bounded-reader迴圈，歷史版本adapter／DB與Temporal格式耦合記入盤點；改1／記1／提0／駁回0，複查無新findings。獨立correctness無actionable bug，ignored指令僅新增current pointer。focused898通過；首份全unit2 failed／3814 passed，既有SDK子程序與tools declaration失敗，根因未定。descriptor修正後完整 `pnpm test:unit --maxWorkers=1` **3816 passed／120 files**，原timeout不變；typecheck／lint通過，當次唯一Compose collector integration **17 passed／1 live skip**，只停止當次容器、volumes保留。沒有新模型呼叫；新入口來源完整CI待驗證，實際執行需當次明確授權、Free與完整歷史再查核。唯一順序見 [P5](release-completion-plan.md#probe-7-單案入口準備2026-10-01)。
 
 ### 2026-09-29 Free-only one-case probe stop
 
