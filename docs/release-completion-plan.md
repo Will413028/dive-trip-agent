@@ -135,6 +135,10 @@ P9 案例頁已對齊新架構與三個 probe 的實際結果，移除舊 ADK �
 
 Consumer 證據：`git grep -n -E 'actions/checkout|actions/setup-node|pnpm/action-setup|actions/setup-python|astral-sh/setup-uv'` 得 `.github/workflows/ci.yml` 五個 uses 與 `docs/toolchain.md` 的 interpreter 安裝說明。後續保留 `persist-credentials:false`、固定產品版本、`run_install:false`、fixture-only、concurrency／唯一 DB／always cleanup；新增版本的 cache 與 PR checkout 預設須明確核對。此盤點未完成 P6 的實作／驗收，順序仍由主清單及使用者後續方向決定。
 
+升級差異補查：checkout 的 [固定版本 README](https://github.com/actions/checkout/blob/v7.0.1/README.md) 說明 Node 24 最低 runner v2.327.1；v6 的 credential 檔案搬移不影響本案 `persist-credentials:false`，v7 的 unsafe fork 拒絕適用於目前未使用的 `pull_request_target`／`workflow_run`。setup-node 的 [固定版本 README](https://github.com/actions/setup-node/blob/v7.0.0/README.md) 同樣要求 runner v2.327.1，自動 cache 只在 npm metadata 下啟用；本案 packageManager 為 pnpm，實作時仍可明示 `package-manager-cache:false` 保持現行行為。現有 setup-python／setup-uv 的 Node 24 steps 已在 probe-4 exact CI 通過，證明當次 hosted runner 可執行 Node 24，候選 Actions 本身仍需升級後 CI。
+
+pnpm 的 [固定版本 README](https://github.com/pnpm/action-setup/blob/v6.1.0/README.md) 提供改用 `pnpm/setup` 的遷移路徑：可同時安裝 Node 與 pnpm，但 `install` 預設 true，需明示 false 才保留獨立 frozen install；cache 預設與 input 名稱也須逐項對照。兩種流程仍獲官方支援：分步流程便於分別驗證固定版本；合併流程減少步驟，但需重驗 PATH／runtime 與 install 預設。本案建議保留分步流程並明示關閉 cache，原因是現有獨立 frozen install 與工具鏈驗證仍成立；不為 Node runtime 維護引入另一次 launcher 遷移。此輪只補查核證據，未修改 workflow 或模型來源。
+
 - [ ] 查官方 Actions 版本與 runtime 支援，檢查 workflow consumers 與升級差異。
 - [ ] 更新需維護的 Actions；固定產品 toolchain、fixture-only 邊界、concurrency、隔離 DB 與 always cleanup 契約維持。
 - [ ] 執行 workflow 靜態檢查及同 SHA 完整 Fixture CI；核對 job 與全部必要 steps。
