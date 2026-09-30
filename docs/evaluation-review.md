@@ -110,7 +110,7 @@ Replay 僅取既有 captured events，不為錄影加送模型。標示 syntheti
 
 ## Failure diagnosis
 
-- 新 runtime 的 response guard 使用固定私有 `AGENT_MODEL_RESPONSE_*` 分類：`EMPTY_PARTS`、`NON_TOOL_PARTS` 為模型回應 parts 邊界；混合回應依 SDK 型別細分 `MIXED_TEXT`、`MIXED_THINKING`、`MIXED_TEXT_THINKING`、`MIXED_OTHER`，任一其他種類優先歸入 OTHER，不推論其餘種類不存在。舊 `MIXED_PARTS` 保留且不回填；`CANDIDATES_SHAPE`、`EMPTY_CALLS`、`REUSED_CALL_ID`、`DUPLICATE_CALL_ID` 為候選 call 邊界。`DIAGNOSTIC_INVALID` 表示內部拒絕診斷不符合型別，不能推定模型原值錯誤。只保存白名單固定代碼，不新增原值、動態 part class 名稱、數量、call ID、正文或錯誤細節。分類只回答 SDK 解析後的種類，不代表 provider 原始欄位、內容語義或可安全忽略；全部 mixed 仍拒絕。公開事件及未知成本政策不變。
+- 新 runtime 的 response guard 使用固定私有 `AGENT_MODEL_RESPONSE_*` 分類：`EMPTY_PARTS`、`NON_TOOL_PARTS` 為模型回應 parts 邊界；混合回應依 SDK 型別細分 `MIXED_TEXT`、`MIXED_THINKING`、`MIXED_TEXT_THINKING`、`MIXED_OTHER`，任一其他種類優先歸入 OTHER，不推論其餘種類不存在。舊 `MIXED_PARTS` 保留且不回填；`CANDIDATES_SHAPE`、`EMPTY_CALLS`、`REUSED_CALL_ID`、`DUPLICATE_CALL_ID` 為候選 call 邊界。`DIAGNOSTIC_INVALID` 表示內部拒絕診斷不符合型別，不能推定模型原值錯誤。只保存白名單固定代碼，不新增原值、動態 part class 名稱、數量、call ID、正文或錯誤細節。分類只回答 SDK 解析後的種類，不代表 provider 原始欄位或內容語義。當回應含至少一個ToolCallPart、其餘全為TextPart時，丟棄TextPart及自由response metadata，再以原有完整候選驗證接受結構化calls；文字不進原生後续messages、Temporal保存或公開事件。ThinkingPart／未知種類仍拒絕，純文字不作fallback；未知或失敗用量不能因文字被丟棄而改為已知。舊mixed拒絕與成本紀錄不回填。公開事件及未知成本政策不變。
 - 舊 `AGENT_MODEL_RESPONSE` 不回填；保留 stack location 若能與當次 source 對照，只能定位該 guard，不能推論其未保存的 parts／參數。分類測試與 Temporal／公開事件／保守結算邊界在 `backend/tests/test_response_diagnostic.py`、`test_tool_contract.py`。
 - `AGENT_TOOL_ARGUMENTS` 只保存白名單工具與有界 issue type/path；原值未存就不能猜是哪個非法值，也不能回填更早失敗的根因。
 - `AGENT_PROVIDER_ERROR` 的舊固定碼無法區分所有 transport、parse 或 provider 分支；沒有 structured stage/reason 就保持未知。

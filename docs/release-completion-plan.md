@@ -173,7 +173,17 @@ P9 案例頁已對齊新架構與三個 probe 的實際結果，移除舊 ADK �
 
 `node /tmp/dive-trip-probe5-postrun.mjs` 雙輪核對原始report／replay、22表完整rows、paired Temporal execution及當次source全部一致；`node /tmp/dive-trip-probe5-carry-audit.mjs --verify` 既有14 scopes也一致。report、replay、claim、retained DB及SQLite保留，owned lease正常釋放。沒有提案、確認或行程版本變更，quality gate false。這次授權與永久claim已消耗，不可重開。
 
-下一步先離線評估「忽略TextPart、僅接受經驗證的結構化ToolCallPart」是否符合現行契約，再決定修正；保留mixed嚴格拒絕並調整prompt／模型亦是選項，尚未改guard、不另做真模型呼叫。固定種類只證明SDK形狀，不證明文字正文、工具參數或品質正確。
+使用者後續選定「忽略TextPart、僅接受經驗證的結構化ToolCallPart」的離線修正，不另做真模型呼叫。固定種類只證明SDK形狀，不證明文字正文、工具參數或品質正確。
+
+### Mixed Text 相容修正（離線）
+
+今日仍需strict AnswerPlan／Evidence、工具參數與call identity驗證、usage先保存及原生Temporal durability。從零設計採server-owned結構化投影：丟棄模型正文、保留必要typed usage／model／timestamp／finish reason，完整calls在原交易驗證後才交原生迴圈。沿用candidate validator與complete_model交易，不另建平行工具dispatcher；ID、六工具／七模型上限、unknown settlement及無重試保持原契約。只放行ToolCallPart＋TextPart，ThinkingPart／其他種類及純文字仍拒絕；response自由metadata也不帶入投影。停止的原始history不修改，日後新model實驗另需15 scopes carry及當次授權。
+
+- [x] 以離線Temporal／隔離DB驗證：工具與final_answer兩步可完成；正文及metadata不進後續messages／完整history／public events；無提案或版本變更。
+- [x] mixed-invalid／duplicate／reused仍經原validator拒絕，thinking／both／other／empty／純文字仍拒絕；accounting與未知政策不變。
+- [ ] 受影響完整命令、靜態檢查、獨立review與exact完整CI通過，再記錄可用範圍；不宣稱真模型品質已修復。
+
+同次 `DOCKER_CONTEXT=desktop-linux backend/.venv/bin/pytest backend/tests/test_response_diagnostic.py backend/tests/test_provider_sdk.py backend/tests/test_evaluation_generation.py -q --tb=short` 為50 passed，包含9個真實Temporal／隔離DB案例；Ruff／strict mypy通過。擴大至 `DOCKER_CONTEXT=desktop-linux backend/.venv/bin/pytest backend/tests/test_response_diagnostic.py backend/tests/test_provider_sdk.py backend/tests/test_evaluation_generation.py backend/tests/test_temporal_sdk.py -q --tb=short` 同次59 passed，含9個SDK／Temporal provider及failure案例；Ruff通過。原guard下新增行為2 failed／13 passed，證明有效混合回應被拒絕；修正後首輪49 passed／1 failed為測試錯用completed，核對契約狀態succeeded後整份命令50 passed。測試程序內移除projection，單案1 failed／14 deselected，失敗點為第二次請求包含合成正文；tracked source未變。沒有新真模型呼叫／憑證讀取；獨立design-review無findings；correctness/privacy P2發現history.to_json將payload base64而使明文檢查失效，已改查每個event原始protobuf bytes。只略過最後final_answer投影的mutation為1 failed／14 deselected，正確失敗於history檢查；同類掃描 `rg -n 'history.to_json\(|fetch_history' backend/tests` 發現SDK Temporal案例也用此形式，一併修正。複核P2 fixed、無新findings，ledger無open；design 0、correctness 1，改1／記0／提0／駁回0。指令檔對帳無需tracked修改。exact完整CI待完成，不算品質通過。
 
 ## P6 CI Actions runtime 維護
 

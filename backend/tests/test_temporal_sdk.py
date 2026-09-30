@@ -112,9 +112,11 @@ async def test_native_sdk_temporal_persists_before_dispatch_and_never_retries_un
                         else:
                             assert (await handle.result())["body"]["kind"] == "clarify"
                     history = await handle.fetch_history()
-                    serialized = history.to_json()
-                    assert "PRIVATE_REMOTE_FAILURE" not in serialized
-                    assert "synthetic-not-a-real-key" not in serialized
+                    serialized = b"".join(
+                        event.SerializeToString() for event in history.events
+                    )
+                    assert b"PRIVATE_REMOTE_FAILURE" not in serialized
+                    assert b"synthetic-not-a-real-key" not in serialized
                     scheduled = [
                         event.activity_task_scheduled_event_attributes
                         for event in history.events

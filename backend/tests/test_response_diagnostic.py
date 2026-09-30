@@ -33,7 +33,7 @@ from dive_trip.modules.usage.provider import GEMINI_MODEL, ProviderBinding
     [
         ("empty", "AGENT_MODEL_RESPONSE_EMPTY_PARTS", 1),
         ("text", "AGENT_MODEL_RESPONSE_NON_TOOL_PARTS", 1),
-        ("mixed", "AGENT_MODEL_RESPONSE_MIXED_TEXT", 1),
+        ("mixed-invalid", "AGENT_TOOL_ARGUMENTS_REJECTED", 1),
         ("thinking", "AGENT_MODEL_RESPONSE_MIXED_THINKING", 1),
         ("both", "AGENT_MODEL_RESPONSE_MIXED_TEXT_THINKING", 1),
         ("other", "AGENT_MODEL_RESPONSE_MIXED_OTHER", 1),
@@ -55,8 +55,17 @@ async def test_private_response_codes_do_not_escape_or_authorize_settlement(
             return ModelResponse(parts=[])
         if mode == "text":
             return ModelResponse(parts=[TextPart("SECRET_RESPONSE_VALUE")])
-        if mode == "mixed":
-            return ModelResponse(parts=[call, TextPart("SECRET_RESPONSE_VALUE")])
+        if mode == "mixed-invalid":
+            return ModelResponse(
+                parts=[
+                    ToolCallPart(
+                        "calculate_budget",
+                        {"extra": True},
+                        tool_call_id="synthetic-call",
+                    ),
+                    TextPart("SECRET_RESPONSE_VALUE"),
+                ]
+            )
         if mode == "thinking":
             return ModelResponse(parts=[call, ThinkingPart("SECRET_RESPONSE_VALUE")])
         if mode == "both":
@@ -70,14 +79,14 @@ async def test_private_response_codes_do_not_escape_or_authorize_settlement(
         if mode == "other":
             return ModelResponse(parts=[call, CompactionPart("SECRET_RESPONSE_VALUE")])
         if mode == "duplicate":
-            return ModelResponse(parts=[call, call])
+            return ModelResponse(parts=[call, TextPart("SECRET_RESPONSE_VALUE"), call])
         assert mode == "reused"
         assert not any(
             isinstance(part, ToolReturnPart) and part.tool_name != "calculate_budget"
             for message in messages
             for part in message.parts
         )
-        return ModelResponse(parts=[call])
+        return ModelResponse(parts=[call, TextPart("SECRET_RESPONSE_VALUE")])
 
     monkeypatch.setattr(agent_runtime, "fixture_response", scenario)
     async with await WorkflowEnvironment.start_local(
@@ -109,12 +118,19 @@ async def test_private_response_codes_do_not_escape_or_authorize_settlement(
             if event.HasField("activity_task_failed_event_attributes")
         ]
         assert any(failure.message == code for failure in failures)
-        assert "SECRET_RESPONSE_VALUE" not in history.to_json()
+        assert all(
+            b"SECRET_RESPONSE_VALUE" not in event.SerializeToString()
+            for event in history.events
+        )
         evidence = read_usage_evidence(database, binding, provider)
         assert evidence.status == "failed"
         assert len(evidence.calls) == calls
         assert all(call.event.usage is not None for call in evidence.calls)
-        assert evidence.invocations[0].actual_cost_micros is None
+        assert (
+            (evidence.invocations[0].actual_cost_micros is not None)
+            if mode == "mixed-invalid"
+            else (evidence.invocations[0].actual_cost_micros is None)
+        )
         assert len(evidence.tools) == (1 if mode == "reused" else 0)
         with database.transaction() as connection:
             events = connection.execute(
@@ -155,3 +171,97 @@ def test_mixed_classification_uses_only_known_types(parts, code):
     assert agent_runtime.mixed_response_code(response) == code
     response.parts.reverse()
     assert agent_runtime.mixed_response_code(response) == code
+
+
+async def test_mixed_text_runs_validated_tools_without_persisting_or_reusing_prose(
+    database, monkeypatch
+):
+    identity, trip, _, catalog = setup(database)
+    binding, _, _ = start(AdmissionService(database, catalog), identity, trip)
+    provider = ProviderBinding(provider="gemini", model=GEMINI_MODEL)
+    service = PlanningService(database, [], accounting=RuntimeAccounting(provider))
+    original = agent_runtime.fixture_response
+    requests = []
+
+    def scenario(messages, info):
+        serialized = agent_runtime.ModelMessagesTypeAdapter.dump_json(messages)
+        assert b"SECRET_RESPONSE_VALUE" not in serialized
+        requests.append(serialized)
+        response = (
+            original(messages, info)
+            if any(
+                isinstance(part, ToolReturnPart)
+                for message in messages
+                for part in message.parts
+            )
+            else ModelResponse(
+                parts=[
+                    ToolCallPart("calculate_budget", {}, tool_call_id="fixture-read")
+                ]
+            )
+        )
+        response.metadata = {"raw": "SECRET_RESPONSE_VALUE"}
+        response.provider_details = {"raw": "SECRET_RESPONSE_VALUE"}
+        response.parts = [
+            TextPart(
+                "SECRET_RESPONSE_VALUE",
+                provider_details={"raw": "SECRET_RESPONSE_VALUE"},
+            ),
+            *response.parts,
+        ]
+        return response
+
+    monkeypatch.setattr(agent_runtime, "fixture_response", scenario)
+    async with await WorkflowEnvironment.start_local(
+        plugins=[PydanticAIPlugin()]
+    ) as environment:
+        queue = f"mixed-text-{uuid4().hex}"
+        with bind_worker_service(
+            service, SyntheticGeneration(provider, "synthetic-not-a-real-key")
+        ):
+            async with Worker(
+                environment.client,
+                task_queue=queue,
+                workflows=[TripWorkflow],
+                activities=ACTIVITIES,
+            ):
+                handle = await environment.client.start_workflow(
+                    TripWorkflow.run,
+                    id=f"dive-trip-v1:{binding.runId}",
+                    task_queue=queue,
+                    execution_timeout=timedelta(seconds=60),
+                )
+                async with asyncio.timeout(30):
+                    result = await handle.result()
+        history = await handle.fetch_history()
+        assert all(
+            b"SECRET_RESPONSE_VALUE" not in event.SerializeToString()
+            for event in history.events
+        )
+        evidence = read_usage_evidence(database, binding, provider)
+        assert evidence.status == "succeeded"
+        assert len(requests) == len(evidence.calls) == 2
+        assert len(evidence.tools) == 1
+        assert evidence.invocations[0].actual_cost_micros is not None
+        with database.transaction() as connection:
+            events = connection.execute(
+                "SELECT event FROM agent_run_events "
+                "WHERE run_id = %s ORDER BY sequence",
+                (binding.runId,),
+            ).fetchall()
+            public = json.dumps(events)
+            assert "SECRET_RESPONSE_VALUE" not in public
+            assert "dive_trip.answer.v1" in public
+            assert (
+                connection.execute("SELECT count(*) AS n FROM proposals").fetchone()[
+                    "n"
+                ]
+                == 0
+            )
+            assert (
+                connection.execute(
+                    "SELECT current_version FROM trips WHERE id = %s", (trip.id,)
+                ).fetchone()["current_version"]
+                == trip.version
+            )
+        assert result is not None

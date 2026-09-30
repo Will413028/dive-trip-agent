@@ -363,7 +363,22 @@ class GuardedFixtureModel(WrapperModel):
         if not any(isinstance(part, ToolCallPart) for part in response.parts):
             raise DomainError("AGENT_MODEL_RESPONSE_NON_TOOL_PARTS")
         if any(not isinstance(part, ToolCallPart) for part in response.parts):
-            raise DomainError(mixed_response_code(response))
+            if any(
+                not isinstance(part, (ToolCallPart, TextPart))
+                for part in response.parts
+            ):
+                raise DomainError(mixed_response_code(response))
+            # Only structured calls reach the native loop and durable history.
+            # Do not carry free-form part or response metadata into that projection.
+            response = ModelResponse(
+                parts=[
+                    part for part in response.parts if isinstance(part, ToolCallPart)
+                ],
+                usage=response.usage,
+                model_name=response.model_name,
+                timestamp=response.timestamp,
+                finish_reason=response.finish_reason,
+            )
         calls = [
             {
                 "id": part.tool_call_id,
