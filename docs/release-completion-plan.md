@@ -86,7 +86,7 @@ P4 不預設模型犯了哪一種錯，也不要求每次 live 後一定修改�
 
 **驗收**：離線證據支持修正，且來源對應的 CI 通過。無可證明缺陷時記錄結論與下一個待決假設，禁止猜值、放寬 gate 或回填歷史。
 
-P4 當次實作：`backend/src/dive_trip/application/agent_runtime.py` 的共用 Agent instructions 補上一般任務選擇：查詢既有行程／費用使用 read tools 與本回合 evidence 的 AnswerPlan；未知費用不能推定預算足夠；只對使用者要求的候選修改／比較驗證，不為查詢捏造修改或建立無差異提案。沒有新增 no-op Domain 拒絕或 case-ID 特例，schema、工具／模型上限與 grade 不變。指引遺漏是可觀察事實，但補指引能否改善模型選擇仍是待驗假設，不宣稱根因已證實。既有 strict AnswerPlan、工具契約及 SDK 合成回歸 59 passed，Ruff／strict mypy 通過；Web typecheck／lint 通過。`857133a` 的 CI run `36667675006` 靜態／unit／integration／backend／production build 通過，但兩個案例頁 E2E 還斷言舊 ADK 架構與歷史成功而失敗；已更新該 consumer 至現行 Python／Temporal 與任務失敗證據，新的完整 CI 仍待後續 commit／push 查核。
+P4 當次實作：`backend/src/dive_trip/application/agent_runtime.py` 的共用 Agent instructions 補上一般任務選擇：查詢既有行程／費用使用 read tools 與本回合 evidence 的 AnswerPlan；未知費用不能推定預算足夠；只對使用者要求的候選修改／比較驗證，不為查詢捏造修改或建立無差異提案。沒有新增 no-op Domain 拒絕或 case-ID 特例，schema、工具／模型上限與 grade 不變。指引遺漏是可觀察事實，但補指引能否改善模型選擇仍是待驗假設，不宣稱根因已證實。既有 strict AnswerPlan、工具契約及 SDK 合成回歸 59 passed，Ruff／strict mypy 通過；Web typecheck／lint 通過。`857133a` 的 CI run `36667675006` 靜態／unit／integration／backend／production build 通過，但兩個案例頁 E2E 還斷言舊 ADK 架構與歷史成功而失敗；已更新該 consumer 至現行 Python／Temporal 與任務失敗證據，後續 `44e0ae9` 的完整 CI 唯一 job 與全部 steps success，結果見 P5。
 
 P9 案例頁已對齊新架構與三個 probe 的實際結果，移除舊 ADK 成功套用為新版的敘述；隔離 fixture stack 的桌面與 390px 手機呈現已檢查。網站尚未公開，影片與正式驗收仍未完成。
 
@@ -96,7 +96,7 @@ P9 案例頁已對齊新架構與三個 probe 的實際結果，移除舊 ADK �
 
 另獲當次完整上限授權、當下 Free 與完整歷史 preflight 通過後，首案 `unknown-cost` 執行 1 invocation／2 model calls。兩次 token 用量都已保存，第一步完成 calculate_budget，第二步 `AGENT_MODEL_RESPONSE` activity failure；invocation 結算成本 null，保守 reservation 保留，按 `UNKNOWN_USAGE_STOP` 停止。其餘 29 案未 dispatch，沒有提案／確認／行程變更，未進入兩案雙審，品質 gate=false。永久 claim 已消耗，完整 report／replay／DB／Temporal 保留；事後舊歷史及本次 22 表、artifacts／execution／來源雙輪核對相符。新的固定碼有多個分支，尚不能反推原始 response parts 或 call 值。下一步先唯讀／離線釐清可觀測邊界，再決定後續品質路線；不自動建下一個 probe。
 
-使用者選定先補固定 response 分類診斷，未授權新模型呼叫。保留的 stack location 對照 `44e0ae9` 指向 `agent_runtime.py:340` 的 parts guard；只能定位 guard，不能分辨原始 parts。已把既有拒絕分支拆成不保存原值的固定私有代碼，見 [Failure diagnosis](evaluation-review.md#failure-diagnosis)。隔離 PostgreSQL／Temporal 與工具契約同次 **28 passed**；將新代碼在測試 process 內退回舊泛碼的反轉驗證為 **8 failed／20 passed**，未修改原始 source 或歷史。Ruff／strict mypy 通過，公開錯誤、無重送、工具／模型上限及成本結算規則不變。當次完整 CI 待 commit／push 後查核；這項改動只改善可觀測性，尚未證明模型品質。
+使用者選定先補固定 response 分類診斷，未授權新模型呼叫。保留的 stack location 對照 `44e0ae9` 指向 `agent_runtime.py:340` 的 parts guard；只能定位 guard，不能分辨原始 parts。已把既有拒絕分支拆成不保存原值的固定私有代碼，見 [Failure diagnosis](evaluation-review.md#failure-diagnosis)。隔離 PostgreSQL／Temporal 與工具契約同次 **28 passed**；將新代碼在測試 process 內退回舊泛碼的反轉驗證為 **8 failed／20 passed**，未修改原始 source 或歷史。Ruff／strict mypy 通過，公開錯誤、無重送、工具／模型上限及成本結算規則不變。`29cb24e3ae8003a4e7c74491fbb8e7909866a72e` 的 [完整 CI run 36675629436](https://github.com/Will413028/dive-trip-agent/actions/runs/36675629436) 唯一 job `109759850131` 及全部 steps success；這項改動只改善可觀測性，尚未證明模型品質。停止後 dashboard 當日用量 164.74／10,000 Neurons，帳號總額不代替本機未知結算。
 
 - [x] 依 [evaluation](evaluation.md#coverage-and-acceptance) 固定 10 情境 × 3 rounds、fixture／model identity、invocation／model call／額度總上限與停止政策，取得新的完整 campaign 授權。
 - [ ] 完成新版入口與歷史 preflight；先執行兩案，依 [review 方法](evaluation-review.md) 做 primary／independent 內容與任務審查，通過既有 gate 才繼續。
@@ -105,7 +105,33 @@ P9 案例頁已對齊新架構與三個 probe 的實際結果，移除舊 ADK �
 
 **驗收**：恰好 30 個唯一 live attempts；每 round 至少 8 成功、零 safety failure；每個 attempt latency／cost 已知、latency 小於 60 秒、工具至多 6 次，並滿足既有逐案與 review gates。失敗／取消／逾時保留分母，skipped 不冒充已執行。單案診斷、fixture 或舊模型成功不得抵數。
 
+### 新單案 response 診斷入口
+
+使用者已選定準備 `cloudflare-probe-4`：固定合成 `unknown-cost`、Gemma 4、Free-only，最多 1 invocation／7 calls。這是入口準備授權；當次真模型呼叫另取明確授權。新 carry 納入停止的 Python quality，保留兩筆已知 call token 與未知 invocation 成本，品質 gate 仍 false。原始 claim／report／replay、22 表與 Temporal execution 雙輪唯讀核對，source manifest 逐檔核對原始 `44e0ae9`；私有 profile 以 exclusive create 保存，不公開身份或原始 rows。
+
+| 機制 | 今天的約束 | 從零設計 | 本次決定及重評條件 |
+| --- | --- | --- | --- |
+| 固定 scope 與永久 claim | 每次模型呼叫需獨立有界授權，舊 claim 不可重開 | 獨立 capability 與一次性 claim（本案設計判斷） | 共用既有 claim lifecycle，新增獨立 scope；授權契約改變時重評 |
+| 私有 profile、完整 rows 與雙輪 capture | 13 scopes 必須保留 unknown、身份與原始證據 | 封閉清單、不可變指紋、完整綁定 | 新外層雙輪，底層只 capture 一輪；若取得跨 schema 原子快照能力再重評 |
+| 共用 technical scheduler | 單案、不重試、逐次 dispatch 查核，失敗保留證據 | 有界單案 scheduler 與停止政策 | 沿用既有 scheduler，不引入品質 review barrier；診斷範圍改變時重評 |
+| 固定私有 response 代碼 | 不保存原始 parts、公開流不洩漏模型文字 | 固定分類與通用公開錯誤 | 使用已通過 CI 的分類，舊 history 不回填；有新可重現失敗才擴充分類 |
+| Scope-specific 歷史 comparator | 原始 report／來源不可變，未來驗收 dataset 可變 | 期望值綁定原始版本（本案設計判斷） | 固定停止當次 schedule，不讀今天的 cases.json；新增歷史 scope 時建立其獨立綁定 |
+
+- [x] 原始停止證據唯讀查核及新私有 profile。
+- [x] 新 carry／入口／永久 claim、離線負向與 mutation 驗證。
+- [x] 獨立 design／correctness review。
+- [ ] 完整來源 CI。
+- [ ] CI 通過後另取當次 1 invocation／7 calls 授權，再查核當下 Free／完整歷史並執行一次。
+
+離線驗證：`pnpm test:unit` 為 3480 passed／114 files；修正歷史清單綁定後，以 `pnpm exec vitest run tests/unit/cloudflare-python-quality-carry.test.ts tests/unit/cloudflare-probe-4-campaign.test.ts tests/unit/cloudflare-probe-entry.test.ts tests/unit/cloudflare-revision-claim.test.ts tests/unit/cloudflare-evaluation-authority.test.ts --maxWorkers=1` 同次 632 passed，包含成本正規化、版本／snapshot、skip order、native marker 等反例。`pnpm typecheck`／`pnpm lint` 通過。獨立 Compose PostgreSQL 的 `cloudflare-http.test.ts`、`cloudflare-evaluation-collector.test.ts`、新 opt-in live test 同次 21 passed／1 live skip；未讀憑證或發模型請求。首輪 integration 因尚未啟動該隔離 Compose project 失敗，啟動既有本機 image 後整份命令重跑通過，未變更測試 timeout。
+
+獨立 design-review：1 finding，改 1／記 0／提 0／駁回 0；已將停止當次 schedule 固定，排除與未來 dataset 的耦合並補盤點。後續 correctness/security review 無 findings，確認先前修正未回歸。指令檔對帳未發現需改的 tracked 規則；ignored 本機指標承接 P5 的新入口狀態。原始 13 scopes reader 的雙輪核對也通過；公開合成 vectors 不充當此查核證據。
+
 ## P6 CI Actions runtime 維護
+
+等待上述 CI 期間已做唯讀來源盤點，未修改 workflow。官方候選版本為 [checkout v7.0.1](https://github.com/actions/checkout/releases/tag/v7.0.1)、[setup-node v7.0.0](https://github.com/actions/setup-node/releases/tag/v7.0.0)、[pnpm/action-setup v6.1.0](https://github.com/pnpm/action-setup/releases/tag/v6.1.0)，其 tag 對應的 `action.yml` 均宣告 Node 24。對應 commit 為 `3d3c42e5aac5ba805825da76410c181273ba90b1`、`820762786026740c76f36085b0efc47a31fe5020`、`ea17c68df8912ef543352723c149a84f56e3d413`（pnpm annotated tag 已解至 commit）；實際升級前仍查核當下版本、完整差異與 runner 支援。現行固定 setup-python／setup-uv 已宣告 Node 24，runtime 邊界已有保護，無需為此換版。
+
+Consumer 證據：`git grep -n -E 'actions/checkout|actions/setup-node|pnpm/action-setup|actions/setup-python|astral-sh/setup-uv'` 得 `.github/workflows/ci.yml` 五個 uses 與 `docs/toolchain.md` 的 interpreter 安裝說明。後續保留 `persist-credentials:false`、固定產品版本、`run_install:false`、fixture-only、concurrency／唯一 DB／always cleanup；新增版本的 cache 與 PR checkout 預設須明確核對。此盤點未完成 P6 的實作／驗收，順序仍由主清單及使用者後續方向決定。
 
 - [ ] 查官方 Actions 版本與 runtime 支援，檢查 workflow consumers 與升級差異。
 - [ ] 更新需維護的 Actions；固定產品 toolchain、fixture-only 邊界、concurrency、隔離 DB 與 always cleanup 契約維持。

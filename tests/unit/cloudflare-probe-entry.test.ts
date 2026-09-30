@@ -36,6 +36,10 @@ vi.mock('../../evals/cloudflare-python-probe-2-carry', async original => ({
   ...await original<typeof import('../../evals/cloudflare-python-probe-2-carry')>(),
   readCloudflarePythonProbe2Carry: m.carry,
 }));
+vi.mock('../../evals/cloudflare-python-quality-carry', async original => ({
+  ...await original<typeof import('../../evals/cloudflare-python-quality-carry')>(),
+  readCloudflarePythonQualityCarry: m.carry,
+}));
 vi.mock('../../evals/cloudflare-campaign-claim', () => ({ claimCloudflareCampaign: m.claim }));
 vi.mock('../../evals/live-evaluation-lock', () => ({ withEvaluationLock: m.lock, assertEvaluationLock: m.assertLock }));
 vi.mock('../support/database', () => ({ testDatabaseUrl: m.databaseUrl }));
@@ -46,6 +50,8 @@ import { PROBE_AUTHORIZATION, runCloudflareProbeEntry } from '../../evals/cloudf
 import { PROBE_2_AUTHORIZATION, runCloudflareProbe2Entry } from '../../evals/cloudflare-probe-2-entry.ts';
 
 import { PROBE_3_AUTHORIZATION, runCloudflareProbe3Entry } from '../../evals/cloudflare-probe-3-entry.ts';
+
+import { PROBE_4_AUTHORIZATION, runCloudflareProbe4Entry } from '../../evals/cloudflare-probe-4-entry.ts';
 
 const hash = (s: string) => createHash('sha256').update(s).digest('hex');
 const prior = () => ({ sourceSha256: hash('synthetic stopped Python report'), historyConsistent: true,
@@ -177,4 +183,48 @@ test.each(['claim', 'history', 'source', 'lease'])('third probe %s denial cannot
   if (failure === 'lease') m.assertLock.mockRejectedValue(new Error('EVAL_LOCK_NOT_OWNED'));
   await expect(runCloudflareProbe3Entry()).rejects.toThrow();
   expect(m.credential).not.toHaveBeenCalled();
+});
+
+test('new technical entry requires its own grant and claim before loading credentials', async () => {
+  await expect(runCloudflareProbe4Entry()).rejects.toThrow('EVAL_AUTHORIZATION_REQUIRED');
+  expect(m.claim).not.toHaveBeenCalled();
+  vi.stubEnv('DIVE_TRIP_CLOUDFLARE_PROBE_4_AUTHORIZATION', PROBE_4_AUTHORIZATION);
+  m.claim.mockImplementation(async (lease, kind) => { expect(lease).toBe(m.lease); expect(kind).toBe('probe4'); return m.save; });
+  m.carry.mockImplementation(async (pools, lease) => {
+    expect(pools).toEqual(m.pools); expect(lease).toBe(m.lease); return { ...probe2Prior(), invocations: 48, modelCalls: 72, chargedMicros: 1133641, historicalUnknownReceipts: 6,
+      observedTokens: 291929, remainingInvocationCeiling: 52, remainingReferenceMicros: 1866359 };
+  });
+  await expect(runCloudflareProbe4Entry()).resolves.toBeUndefined();
+  expect(m.claim).toHaveBeenCalledExactlyOnceWith(m.lease, 'probe4');
+  expect(m.pools).toHaveLength(8);
+  expect(m.options).toMatchObject({ accountId: recoveryAccount, priorChargedMicros: 1133641,
+    liveCampaign: 'cloudflare-probe-4-one-case', retention: 'retain' });
+  expect(m.execute).toHaveBeenCalledExactlyOnceWith('unknown-cost', expect.any(Function));
+  expect(m.credential).toHaveBeenCalledExactlyOnceWith('cloudflare');
+  expect(m.carry).toHaveBeenCalledTimes(3);
+  expect(m.source).toHaveBeenCalledTimes(3);
+  expect(m.save.mock.calls.at(-1)![0]).toMatchObject({ stopped: null,
+    diagnosticComplete: true, invocations: 1, maxInvocations: 1, maxModelCalls: 7,
+    evaluationGatePassed: false });
+});
+
+
+test.each(['claim', 'history', 'source', 'lease'])('fourth probe %s denial cannot load credentials', async failure => {
+  vi.stubEnv('DIVE_TRIP_CLOUDFLARE_PROBE_4_AUTHORIZATION', PROBE_4_AUTHORIZATION);
+  m.claim.mockResolvedValue(m.save);
+  const history = { ...probe2Prior(), invocations: 48, modelCalls: 72, chargedMicros: 1133641, historicalUnknownReceipts: 6,
+    observedTokens: 291929, remainingInvocationCeiling: 52, remainingReferenceMicros: 1866359 };
+  m.carry.mockResolvedValue(history);
+  if (failure === 'claim') m.claim.mockRejectedValue(new Error('EVAL_ALREADY_CLAIMED'));
+  if (failure === 'history') m.carry.mockResolvedValueOnce(history).mockRejectedValue(new Error('EVAL_HISTORY_CHANGED'));
+  if (failure === 'source') m.source.mockResolvedValueOnce(source).mockResolvedValue({ ...source, sha256: hash('changed') });
+  if (failure === 'lease') m.assertLock.mockRejectedValue(new Error('EVAL_LOCK_NOT_OWNED'));
+  await expect(runCloudflareProbe4Entry()).rejects.toThrow();
+  expect(m.credential).not.toHaveBeenCalled();
+});
+
+test.each([undefined, '', PROBE_3_AUTHORIZATION])('fourth probe rejects missing or consumed grant %s', async grant => {
+  vi.stubEnv('DIVE_TRIP_CLOUDFLARE_PROBE_4_AUTHORIZATION',grant);
+  await expect(runCloudflareProbe4Entry()).rejects.toThrow('EVAL_AUTHORIZATION_REQUIRED');
+  for(const fn of [m.lock,m.claim,m.pool,m.carry,m.database,m.credential])expect(fn).not.toHaveBeenCalled();
 });

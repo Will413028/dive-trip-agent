@@ -166,7 +166,7 @@ export async function readPinnedPythonProbeProfile(lease: EvaluationLockLease,
 }
 
 export async function capturePinnedPythonProbeFiles(profile: PythonProbeProfile, lease: EvaluationLockLease,
-  stem: 'cloudflare-probe' | 'cloudflare-probe-2' | 'cloudflare-probe-3') {
+  stem: 'cloudflare-probe' | 'cloudflare-probe-2' | 'cloudflare-probe-3' | 'cloudflare-python-quality') {
   await assertEvaluationLock(lease);
   const report = await withBoundedArtifactDirectory([root, artifacts], async directory => {
     const claim = await directory.read(`${stem}.claim`, { minBytes: 0, maxBytes: 0 });
@@ -176,13 +176,14 @@ export async function capturePinnedPythonProbeFiles(profile: PythonProbeProfile,
     const replayRef = probeReplayFromReport(value, stem);
     if (replayRef.runId !== profile.runId) invalid();
     const oldName = (name: string) => name.startsWith(stem)
-      && !(stem === 'cloudflare-probe' && /^cloudflare-probe-[23](?:\.|-)/.test(name));
+      && !(stem === 'cloudflare-probe' && /^cloudflare-probe-[234](?:\.|-)/.test(name))
+      && name !== 'cloudflare-python-quality-history.json';
     const expected = [`${stem}.claim`, `${stem}.json`, replayRef.file].sort();
     if (!isDeepStrictEqual((await readdir(artifacts)).filter(oldName).sort(), expected)) invalid();
     const replay = await directory.read(replayRef.file, { minBytes: 1, maxBytes: 2_000_000 });
     if (sha256(replay.bytes) !== replayRef.sha256
       || !isDeepStrictEqual((await readdir(artifacts)).filter(oldName).sort(), expected)) invalid();
-    if (stem === 'cloudflare-probe-3') {
+    if (stem === 'cloudflare-probe-3' || stem === 'cloudflare-python-quality') {
       const bundle = parseReplayBundle(JSON.parse(replay.bytes.toString('utf8')));
       if (bundle.afterStart.runs.runs[0].id !== profile.runId || bundle.initial.trip.id !== profile.tripId
         || bundle.resumeEvents.length !== 0) invalid();
@@ -207,7 +208,8 @@ export async function capturePinnedPythonProbeFiles(profile: PythonProbeProfile,
       const nodes = db.prepare('SELECT data FROM history_node').all() as { data: Uint8Array }[];
       const native = { workflowMatches: executions.filter(row => row.workflow_id === profile.workflowId).length,
         executionMatches: executions.filter(row => Buffer.from(row.run_id).equals(Buffer.from(profile.executionRunId.replaceAll('-', ''), 'hex'))).length,
-        argumentMarkers: nodes.filter(row => Buffer.from(row.data).includes(Buffer.from('AGENT_TOOL_ARGUMENTS_REJECTED'))).length };
+        argumentMarkers: nodes.filter(row => Buffer.from(row.data).includes(Buffer.from('AGENT_TOOL_ARGUMENTS_REJECTED'))).length,
+        responseMarkers: nodes.filter(row => Buffer.from(row.data).includes(Buffer.from('AGENT_MODEL_RESPONSE'))).length };
       return { native, context: context.snapshot, sqlite: sqlite.snapshot, directory: directory.snapshot };
     } finally { db.close(); }
   });

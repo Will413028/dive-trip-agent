@@ -55,7 +55,9 @@ Domain unit tests 驗費用與規則；真 PostgreSQL integration tests 驗交�
 
 本輪沒有自動重送。Owned worker 已收尾，永久 claim、report／replay、隔離 PostgreSQL 及 Temporal SQLite 保留。事後完整舊 12 scopes 雙輪 audit 一致；本次雙輪比對 22 表 raw rows／fingerprint、bounded artifacts／digests、正式 replay schema／phase、實際 execution 與來源相符。保留 stack location 對照當次 source，將失敗定位於 `agent_runtime.py:340` 的 parts guard；原始 parts 未保存，不能區分空、純非工具或混合 parts。一般指引效果仍未證明，新的失敗結算不回填。
 
-使用者選定先補固定 response 分類，當次離線實作及驗證見 [P5](release-completion-plan.md#p5-task-11-真模型品質驗收)，代碼邊界見 [Failure diagnosis](evaluation-review.md#failure-diagnosis)。本輪未再讀模型憑證或 dispatch；新分類不回填舊 history，完整來源 CI 待查核，品質 gate 仍 false。
+使用者選定先補固定 response 分類，當次離線實作及驗證見 [P5](release-completion-plan.md#p5-task-11-真模型品質驗收)，代碼邊界見 [Failure diagnosis](evaluation-review.md#failure-diagnosis)。`29cb24e` 的 [完整來源 CI](https://github.com/Will413028/dive-trip-agent/actions/runs/36675629436) 唯一 job 與全部 steps success。本輪未再讀模型憑證或 dispatch；新分類不回填舊 history，品質 gate 仍 false。停止後 dashboard 當日 Neurons 164.74／10,000，是 account 用量，不解除未知結算。
+
+使用者後續選定準備 `cloudflare-probe-4` 單案診斷入口；完整 13 scopes carry、獨立永久 claim、1 invocation／7 calls 上限已實作，3480 unit、632 affected、21 integration／1 live skip 與靜態檢查通過，design／correctness review 完成。完整來源 CI 尚待核對；實際模型呼叫另取當次授權，未執行新 probe。詳細步驟見 [新單案 response 診斷入口](release-completion-plan.md#新單案-response-診斷入口)。
 
 ### 2026-09-30：第三次 Free-only 單案技術結果與任務失敗
 

@@ -13,6 +13,8 @@ test.each([
   ['cloudflare-probe-2-one-case', true, true],
   ['cloudflare-probe-3-one-case', true, true],
   ['cloudflare-probe-3-one-case-extra', false, false],
+  ['cloudflare-probe-4-one-case', true, true],
+  ['cloudflare-probe-4-one-case-extra', false, false],
   ['cloudflare-python-quality-30-cases', true, true],
   ['cloudflare-python-quality-30-cases-extra', false, false],
   ['cloudflare-probe-one-case-extra', false, false],
@@ -68,7 +70,7 @@ test('live credential validation rejects the offline placeholder and control cha
 });
 
 test.each(['cloudflare-grounded-30-cases', 'cloudflare-nonthinking-one-case', 'cloudflare-diagnostic-30-cases',
-  'cloudflare-probe-one-case', 'cloudflare-probe-2-one-case', 'cloudflare-probe-3-one-case', 'cloudflare-python-quality-30-cases'] as const)(
+  'cloudflare-probe-one-case', 'cloudflare-probe-2-one-case', 'cloudflare-probe-3-one-case', 'cloudflare-probe-4-one-case', 'cloudflare-python-quality-30-cases'] as const)(
   '%s is a separate server marker and never supplies a credential grant', async liveCampaign => {
   const base = campaignContext();
   const context = { ...base, evaluation: { ...base.evaluation, liveCampaign } };
