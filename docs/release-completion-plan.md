@@ -121,13 +121,17 @@ P9 案例頁已對齊新架構與三個 probe 的實際結果，移除舊 ADK �
 - [x] 新 carry／入口／永久 claim、離線負向與 mutation 驗證。
 - [x] 獨立 design／correctness review。
 - [x] 完整來源 CI。
-- [ ] CI 通過後另取當次 1 invocation／7 calls 授權，再查核當下 Free／完整歷史並執行一次。
+- [x] CI 通過後取得當次 1 invocation／7 calls 授權，查核當下 Free／完整歷史並執行一次；已停止，品質未通過。
 
 離線驗證：`pnpm test:unit` 為 3480 passed／114 files；修正歷史清單綁定後，以 `pnpm exec vitest run tests/unit/cloudflare-python-quality-carry.test.ts tests/unit/cloudflare-probe-4-campaign.test.ts tests/unit/cloudflare-probe-entry.test.ts tests/unit/cloudflare-revision-claim.test.ts tests/unit/cloudflare-evaluation-authority.test.ts --maxWorkers=1` 同次 632 passed，包含成本正規化、版本／snapshot、skip order、native marker 等反例。`pnpm typecheck`／`pnpm lint` 通過。獨立 Compose PostgreSQL 的 `cloudflare-http.test.ts`、`cloudflare-evaluation-collector.test.ts`、新 opt-in live test 同次 21 passed／1 live skip；未讀憑證或發模型請求。首輪 integration 因尚未啟動該隔離 Compose project 失敗，啟動既有本機 image 後整份命令重跑通過，未變更測試 timeout。
 
 獨立 design-review：1 finding，改 1／記 0／提 0／駁回 0；已將停止當次 schedule 固定，排除與未來 dataset 的耦合並補盤點。後續 correctness/security review 無 findings，確認先前修正未回歸。指令檔對帳未發現需改的 tracked 規則；ignored 本機指標承接 P5 的新入口狀態。原始 13 scopes reader 的雙輪核對也通過；公開合成 vectors 不充當此查核證據。
 
-`0b9ec5c3949b86c63bea0f129a7f624ee44eecf3` 的 [完整 Fixture CI run 36679415004](https://github.com/Will413028/dive-trip-agent/actions/runs/36679415004) 唯一 job `109771388122` 與全部 steps success，包含 integration、backend、production build、桌面／手機 E2E 及 always cleanup。入口準備完成；當次模型呼叫仍未授權／執行。本段後續純文件更新不改稱新程式驗收。
+`0b9ec5c3949b86c63bea0f129a7f624ee44eecf3` 的 [完整 Fixture CI run 36679415004](https://github.com/Will413028/dive-trip-agent/actions/runs/36679415004) 唯一 job `109771388122` 與全部 steps success，包含 integration、backend、production build、桌面／手機 E2E 及 always cleanup。入口準備完成；後續當次授權與執行結果見下段。本段後續純文件更新不改稱新程式驗收。
+
+當次單案執行：使用者明確授權上述上限後，確認 Workers Free Active、當日 164.74／10,000 Neurons，完整 13 scopes preflight 通過，執行一次後按 `UNKNOWN_USAGE_STOP` 停止。結果為 1 invocation／2 model calls；兩筆 call 用量均已知，但 invocation actual cost 仍 null，保守扣帳 183505 reference micros，沒有重試。第一步完成 calculate_budget，第二步失敗，未建立提案或變更行程。固定私有分類為 `AGENT_MODEL_RESPONSE_MIXED_PARTS`，只證明 ToolCallPart 與至少一種非 ToolCallPart 共存，不辨認非工具 part 種類或原值，也不回推舊 P5 的分類。diagnosticComplete／evaluationGatePassed 皆 false。
+
+停止後 `node /tmp/dive-trip-probe4-postrun.mjs` 雙輪唯讀核對 report／replay、22 表、Temporal execution 與 source manifest 全部符合，新增一筆 unknown receipt；`node /tmp/dive-trip-probe4-carry-audit.mjs --verify` 再核對既有 13 scopes 通過。原始 claim／report／replay、DB／Temporal 保留，claim 已消耗；不得重新執行入口。先前同時啟動的唯讀查核遇到 owned lease EEXIST，未清 lock，待持有者完成釋放後順序查核通過。下一步先評估 mixed response 的相容策略或更細固定種類診斷；新實驗需獨立入口與當次有界授權。
 
 ## P6 CI Actions runtime 維護
 
