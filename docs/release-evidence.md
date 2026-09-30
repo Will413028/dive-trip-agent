@@ -8,6 +8,8 @@ Release acceptance 尚未通過，沒有 public deployment。Public repository �
 
 本節承接原 Task 1–12 主計畫，為剩餘工作的唯一排序；各項證據在本頁及其連結維護，不新增平行 roadmap。使用者新選核心重構，先完成下列 0，再回到新版真模型品質；託管平台遷移維持暫停。文件本身不攜帶模型或部署授權。
 
+剩餘工作的執行步驟、相依、驗收及 rollback 見 [真模型驗收與公開發布計畫](release-completion-plan.md)；本節維持唯一優先清單，細部進度在該計畫維護。
+
 0. **Python／Temporal 核心重構：已完成本機切換與遠端 Fixture CI。** 產品等價、帳務／歷史、跨程序故障、完整離線gates及獨立review已通過；原demo備份還原演練、migration與持久重啟已驗證。精確範圍見 [核心重構](architecture-refactor.md)。新版CI同SHA完整gate通過，不代表真模型品質。
 
 1. **Fixture 穩定性：新版指定版本完整 gate 已通過。** `bfaafdc` 同次 CI 的結果與 skip 見 Latest checkpoint；舊本機逾時根因及跨環境穩定性未證實。Action runtime deprecation 仍待維護升級與重新驗證；後續程式修改須跑 affected checks，不能沿用舊測試數當新 revision 通過。
@@ -46,6 +48,8 @@ Domain unit tests 驗費用與規則；真 PostgreSQL integration tests 驗交�
 ## Latest checkpoint
 
 ### 2026-09-30 Offline change kind diagnostic
+
+後續 exact SHA `b00e9701285e08865911aabb09b5e08a793fb4f1` 的 [Fixture CI run 36661012219](https://github.com/Will413028/dive-trip-agent/actions/runs/36661012219) 已完成：唯一 job `lint-typecheck-unit-integration-build-e2e` 及 27 steps 均 success。這是該 revision 的離線驗證，不是新的 live 執行或品質通過。
 
 私有診斷新增 `kind_missing`／`kind_invalid`，只依 `validate_changes` 變更項目的 Pydantic discriminator 錯誤型別與位置分類，不保存原值或錯誤正文；其他分類與舊證據維持原樣。合成契約及 evaluation generation 測試同次 **22 passed**，Ruff、strict mypy **85 source files** 通過；將新分類改回泛碼的反轉驗證為 **4 failed／17 passed**。本輪沒有真模型呼叫，也沒有完整 backend／CI 或品質通過結論。下一次實驗可沿用單案 `unknown-cost`、1 invocation／7 calls 的診斷範圍，但須另建完整歷史 carry 與永久 claim，重新確認 Free 狀態並取得當次有界授權後才可 dispatch。
 
