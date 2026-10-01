@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { backendShare } from '../../../server/backend';
+import { headers } from 'next/headers';
+import { backendShare, hostedShare } from '../../../server/backend';
+import { hostedConfig } from '../../../server/hosted';
 import PublicTripView from '../../../features/sharing/PublicTripView';
 
 export const dynamic = 'force-dynamic';
@@ -8,7 +10,9 @@ export const metadata: Metadata = { title: '唯讀行程快照 · 潛旅筆記',
 export default async function SharedTrip({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   if (!process.env.DIVE_BACKEND_ORIGIN) throw new Error('SERVICE_UNAVAILABLE');
-  const trip = await backendShare(process.env.DIVE_BACKEND_ORIGIN, token);
+  const config = hostedConfig();
+  const trip = config ? await hostedShare(config, token, new Headers(await headers()))
+    : await backendShare(process.env.DIVE_BACKEND_ORIGIN, token);
   if (!trip) notFound();
   return <main id="main" className="landing"><section className="panel">
     <p className="eyebrow">A SHARED SNAPSHOT</p><h1>唯讀行程快照</h1>

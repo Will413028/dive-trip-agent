@@ -11,6 +11,7 @@
   "scripts": {
     "dev": "uv run --frozen --no-sync --project backend python -m dive_trip.bootstrap.local serve",
     "build": "node tests/support/next-command.ts build",
+    "build:hosted": "node tests/support/next-command.ts hosted-build",
     "start": "uv run --frozen --no-sync --project backend python -m dive_trip.bootstrap.local serve --production",
     "test:e2e": "playwright test",
     "dev:probe": "node tests/support/probe-dev.ts",

@@ -48,7 +48,7 @@
   - 不能動：local/evaluation授權政策、strict回答、quota、Domain、確認／刪除語義。
   - 驗收：config反例（http origin／任意upstream／provider env／secret mount）拒絕；破壞hosted origin及allowlist的mutation必須失敗；生成契約、lint、typecheck、完整CI；新PostgreSQL／Temporal端到端confirm／restart／delete。獨立design-review。
   - 停止：缺權限、測試失敗、意外generation能力、共享服務漂移。
-  - 子步驟2a：獨立hosted config／secret-file邊界；2b1：backend簽章、限流、容量與transactional journal；2b2：獨立recovery副本與restore reconciliation；2b3：Next可信入口與API／worker整合；2c：容器／edge、端到端與完整CI。依序各自驗收，不以任何子步驟完成宣稱步驟2完成。
+  - 子步驟2a：獨立hosted config／secret-file邊界；2b1：backend簽章、限流、容量與transactional journal；2b2：獨立recovery副本與restore reconciliation；2b3a：Next可信入口／API代理／SSR分享，驗固定upstream、簽章、body限界、原nonce/期限及實際API路徑重簽；2b3b：API／worker恢復gate、回應前export與maintenance CLI，驗跨程序封鎖與真正Temporal purge；2c：容器／edge、端到端與完整CI。依序各自驗收，不以任何子步驟完成宣稱步驟2完成。
 - [ ] **3. 候選部署與維運**（被擋於：1、2；與4必須連著做）
   - 範圍：exact SHA候選images、專用DB/Temporal migration與namespace、專用Worker/Tunnel/VPC、固定HTTPS origin，先維持maintenance入口。
   - 消費端：專用Compose與Worker；`rg -n 'image|volume|secret|ports|binding|origin' deploy`。
@@ -67,9 +67,10 @@
 | 1 | 完成 | SSH資源／目標路徑、OAuth權限、完整subscription、Worker name，獨立review四項已補契約 | 遠端寫入前須重查當下狀態 |
 | 2a | 完成 | 28tests、Ruff、strict mypy86files、mutation11預期失敗／17controls、design與correctness/privacy review無blocker | 完整新來源CI由2c核對；runtime未接 |
 | 2b1 | 完成 | 20tests、Ruff、strict mypy89files；簽章mutation3預期失敗／10controls；設計review兩項、安全review一項全部已修，複核無findings | runtime端到端由2b3驗；不是public-ready |
-| 2b2 | 完成 | Oracle獨立PostgreSQL完整54tests；Ruff／strict mypy91files；HMAC／epoch mutation各1預期失敗，16／10controls；獨立design／correctness複核無findings | runtime gate／CLI與真正Temporal purge串接由2b3驗；完整新來源CI待驗 |
-| 2b3 | 未開始 | 無 | Next可信入口與runtime整合 |
-| 2c–5 | 未開始 | 無 | 依前置步驟；最新168e7d0完整CI成功，新來源仍需自己的完整CI與部署驗收 |
+| 2b2 | 完成 | Oracle獨立PostgreSQL完整54tests；Ruff／strict mypy91files；HMAC／epoch mutation各1預期失敗，16／10controls；獨立design／correctness複核無findings；2bbbee2完整CI27步成功 | runtime gate／CLI與真正Temporal purge串接由2b3b驗 |
+| 2b3a | 完成 | 固定Node／pnpm下59unit、完整typecheck／lint、hosted production build；HMAC mutation9預期失敗／33controls；實際HTTP三入口503負例；獨立review無findings | backend恢復gate／CLI屬2b3b；實際Edge、container與完整新來源CI待驗，不可部署 |
+| 2b3b | 未開始 | 無 | API／worker恢復gate、export與maintenance CLI；被擋於2b3a |
+| 2c–5 | 未開始 | 無 | 依前置步驟；最新2bbbee2完整CI成功，新來源仍需自己的完整CI與部署驗收 |
 
 ## Review修正契約（四項全部改，駁回0）
 
@@ -132,3 +133,21 @@ secret file部署注意：Compose bind secret不會透過uid/gid/mode替來源�
 2b2實際驗收：ARM64 Oracle隔離環境，固定Python3.13.13、uv0.7.2及frozen lock，以自有pytest PostgreSQL跑完整test_hosted_recovery／test_hosted_recovery_file／test_hosted_storage／test_hosted_ingress／test_deletion／test_retention，54passed（19.02s）。實際pg_dump→備份後delete/revoke→pg_restore→reconcile，驗證決策不復活、完整prefix與冪等；DB commit後副本寫入失敗保留maintenance且可受控接續；絕對TTL與pending purge gate均驗證。單案restart使用專屬container並重查ephemeral port，未重啟其他服務。184個允許來源檔hash逐一核對（manifest SHA256 a2b0c8fe8d1355c3b0f9f6b090a940cb2cae7432bd6f4dce9d20e5ecf980b0d4）。
 
 Mutation僅pytest程序內patch：略過HMAC後錯key／篡改反例失敗、16controls通過；忽略DB epoch後未prepare restart錯誤放行反例失敗、10controls通過。Ruff全backend通過、strict mypy91files通過。獨立review先發現刪除orchestration重複，已抽共用transaction primitive；設計複核及包含fixture accounting防線的correctness/security複核無findings。DB tests直接complete僅驗產品purge邊界，不替Temporal history真正不可讀背書；API／worker／Next整合、operator CLI、專用recovery key配置與volume由2b3完成。
+
+### 2b3a Next入口沿用盤點
+
+| 機制 | 原始必要條件 | 從零設計 | 決定與重評條件 |
+| --- | --- | --- | --- |
+| local loopback backend | 原launcher只在本機服務 | hosted固定api:4320，独立fixture開關及secret loader | 不放寬local origin函式；改容器拓撲時同步改固定配置與反例 |
+| Origin／Cookie透傳 | Python HttpBoundary決定CSRF與owner | 只傳allowlist headers，公開origin取顯式config | 保留caller Origin交後端驗，不採Host／forwarded；Auth0啟用時重設身份邊界 |
+| HMAC時效與nonce | Backend PostgreSQL持久拒絕重放 | Next驗同一envelope，SSR對實際API path重簽但保留nonce／期限 | 不在Next另建memory replay authority，也不發新nonce延長有效性；一外部請求多API calls時重設dispatch契約 |
+| SSR share讀取 | 固定快照不得借owner cookie | Proxy驗原URL、覆寫SSR target；page重驗原簽章後簽署/api/shares/token | 分享fetch不帶Cookie；Next更新／URL normalization變更時跑query／Unicode反例及端到端 |
+| Request與SSE streaming | 斷線取消須傳達後端 | 有界body後驗簽，轉送保留AbortSignal及response stream | 原local helper共享forwarding primitive；不buffer SSE，不await tee取消，持久取消由2b3b／2c驗 |
+
+Next使用原生src/proxy.ts Node runtime，保留原path/query、不靠Host選upstream；hosted模式關閉Proxy URL normalization及trailing-slash自動redirect以維持簽章target，local defaults維持原狀。依固定安裝版config型別與[Next Proxy官方契約](https://nextjs.org/docs/app/api-reference/file-conventions/proxy)核對。Backend ingress簽章的UTF-8／IPv6／百分比query向量由Python獨立生成，Node測試對同一固定hex結果。
+
+`pnpm build:hosted`先沿用offlineNextEnvironment檔名拒絕與env allowlist，再給固定synthetic build origin、api:4320、fixture mode；不讀secret／provider、不借ambient origin。專用image在2c須使用此入口，runtime仍提供真正公開origin與owned secret mount；build placeholder不是公開URL。2bbbee2完整CI run36868028745唯一job與全27steps success，是本步之前的基線。
+
+2b3a最終驗收使用Node26.8.1／pnpm11.2.2：`vitest run tests/unit/hosted-ingress.test.ts tests/unit/backend-proxy.test.ts tests/unit/workbench-route.test.ts tests/unit/next-environment.test.ts` 59passed；`pnpm typecheck`（含原生worker graph）／`pnpm lint`／`pnpm build:hosted`全部exit0。產物required-server-files確認兩個target-preservation flags為true，包含Node Proxy。單一unit程序略過timingSafeEqual，method/path/query/body/client/nonce/stamp/mac八個篡改反例及Next入口路徑反例共9failed／33controls passed；產品source未變。
+
+以該production產物在loopback ephemeral port啟動Next，顯式mode0使loader在secret前失敗；首頁、API與SSR分享均實際503／no-store／固定SERVICE_UNAVAILABLE，own process有界SIGTERM退出。此負例只證明framework已接gate，不是signed成功互動或公開驗收；真正Edge簽章、DB持久replay、Temporal／恢復gate由2b3b與2c補驗。獨立design與correctness/security review，以及build入口補查無findings。共用平台migration、backend runtime與model history未改；指令檔產品契約仍成立。

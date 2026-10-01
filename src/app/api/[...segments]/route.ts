@@ -1,8 +1,13 @@
-import { proxyBackend } from '../../../server/backend';
+import { hostedProxy, proxyBackend } from '../../../server/backend';
+import { hostedConfig, hostedFailure } from '../../../server/hosted';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export async function GET(request: Request): Promise<Response> {
+  try {
+    const config = hostedConfig();
+    if (config) return hostedProxy(request, config);
+  } catch (error) { return hostedFailure(error); }
   // Next may normalize Request.url to an internal host. Do not trust Host or
   // X-Forwarded-* for CSRF or Secure cookies: use an explicit public origin.
   const origin = process.env.APP_ORIGIN;
