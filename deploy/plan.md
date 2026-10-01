@@ -48,6 +48,7 @@
   - 不能動：local/evaluation授權政策、strict回答、quota、Domain、確認／刪除語義。
   - 驗收：config反例（http origin／任意upstream／provider env／secret mount）拒絕；破壞hosted origin及allowlist的mutation必須失敗；生成契約、lint、typecheck、完整CI；新PostgreSQL／Temporal端到端confirm／restart／delete。獨立design-review。
   - 停止：缺權限、測試失敗、意外generation能力、共享服務漂移。
+  - 子步驟2a：獨立hosted config／secret-file邊界；2b：API／worker、可信入口／限流與恢復journal；2c：容器／edge、端到端與完整CI。依序各自驗收，不以2a完成宣稱步驟2完成。
 - [ ] **3. 候選部署與維運**（被擋於：1、2；與4必須連著做）
   - 範圍：exact SHA候選images、專用DB/Temporal migration與namespace、專用Worker/Tunnel/VPC、固定HTTPS origin，先維持maintenance入口。
   - 消費端：專用Compose與Worker；`rg -n 'image|volume|secret|ports|binding|origin' deploy`。
@@ -64,7 +65,8 @@
 | 步驟 | 狀態 | 已跑驗收 | 未跑與原因 |
 | --- | --- | --- | --- |
 | 1 | 完成 | SSH資源／目標路徑、OAuth權限、完整subscription、Worker name，獨立review四項已補契約 | 遠端寫入前須重查當下狀態 |
-| 2–5 | 未開始 | 無 | 依前置步驟 |
+| 2a | 完成 | 28tests、Ruff、strict mypy86files、mutation11預期失敗／17controls、design與correctness/privacy review無blocker | 完整新來源CI由2c核對；runtime未接 |
+| 2b–5 | 未開始 | 無 | 依前置步驟 |
 
 ## Review修正契約（四項全部改，駁回0）
 
@@ -74,3 +76,21 @@
 4. **維運**：operator為使用者Will；專用worker每5秒有界cleanup，100trips／100empty owners／1000receipts每pass；連續兩次失敗、backlog連兩輪不下降須有監督告警證據。每日成對DB/Temporal備份，最多7份／7天、0700目錄／0600檔、加密於本專案專用key，到期刪除不超30天；off-host/RPO承諾另決定，單機副本不稱災難復原。每個run只管自有服務，故障注入驗證告警；kill-switch阻止新start與寫入，再以原run deadline與shutdown20秒有界drain，驗證無新增dispatch，保留帳務與全部資料。rollback演練需保存版本、時間、資料指紋與維持receipt冪等的證據。
 
 四項核對來源：deployment.md Restore與維運gate、backend HttpBoundary、src/server/backend.ts、MapPanel.tsx與assets-license.md。獨立review僅只讀，primary重查引用與shared git scope後補入上述要求，並未宣稱程式已實作。
+
+### 2a沿用盤點
+
+| 沿用機制 | 原始必要條件 | 從零設計 | 決定與重評條件 |
+| --- | --- | --- | --- |
+| fixture環境deny與顯式設定 | 模型入口有界隔離 | hosted獨立config、先拒generation/ambient env再讀secret | 不共用local CLI、不放寬fixture_conninfo；live另有品質／授權後重評 |
+| PostgreSQL conninfo／密碼檔 | 隔離容器網路、專用DB | 固定db/user/port、owned bounded O_NOFOLLOW secret file | 不讀service/passfile；host網路或secret manager變更時重評 |
+| 固定Origin | 服務端同源 authority | canonical HTTPS domain，不採Host/forwarded | 保留HTTP boundary契約；公開網址變更同步驗收 |
+
+secret不進repr；固定64hex密碼與入口key不同。此模組尚未被任何runtime使用，沒有產品啟動或遠端寫入。
+
+### 2a驗證紀錄
+
+新模組只接受canonical HTTPS domain與固定專用DB binding。先拒generation／ambient env，再讀owned regular secret file；固定64hex、0400/0600、單一hardlink、O_NOFOLLOW、有界讀取，key不進repr且兩用途不同。本機fixture_conninfo／runtime／schema政策未改，`rg -n 'HostedFixtureConfig|hosted_config' backend/src backend/tests`只有新模組與測試，尚未有runtime consumer。
+
+第一輪27passed／1failed（HTTPS IP origin在讀secret前未被拒），修正後完整28passed。Ruff、strict mypy86source files通過。pytest程序內移除env guard mutation，完整命令預期11failed／17passed；tracked source未變，不能當產品pass。Design-review NO DESIGN FINDINGS，A/B/C均0；獨立correctness/privacy review無blocker。指令檔對帳：tracked AGENTS.md架構與local邊界仍成立，不需改；ignored部署pointer仍指P7/plan。下一步2b仍需hosted API/worker與可信入口、restore journal，2c容器／端到端／新revision完整CI仍待做，不能把config完成當公開runtime可用。
+
+secret file部署注意：Compose bind secret不會透過uid/gid/mode替來源檔案改owner，2c必須先在host設定成runtime UID與0400/0600；單機private network才使用無TLS DB，跨主機重評。
