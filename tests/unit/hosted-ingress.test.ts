@@ -63,6 +63,8 @@ describe('hosted configuration', () => {
       expect(hosted.readIngressKey(path)).toBe(key);
       chmodSync(path, 0o644);
       expect(() => hosted.readIngressKey(path)).toThrow('HOSTED_SECRET_FILE_INVALID');
+      chmodSync(path, 0o4600);
+      expect(() => hosted.readIngressKey(path)).toThrow('HOSTED_SECRET_FILE_INVALID');
       chmodSync(path, 0o600);
       symlinkSync(path, join(root, 'symlink'));
       expect(() => hosted.readIngressKey(join(root, 'symlink'))).toThrow();

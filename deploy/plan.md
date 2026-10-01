@@ -151,3 +151,5 @@ Next使用原生src/proxy.ts Node runtime，保留原path/query、不靠Host選u
 2b3a最終驗收使用Node26.8.1／pnpm11.2.2：`vitest run tests/unit/hosted-ingress.test.ts tests/unit/backend-proxy.test.ts tests/unit/workbench-route.test.ts tests/unit/next-environment.test.ts` 59passed；`pnpm typecheck`（含原生worker graph）／`pnpm lint`／`pnpm build:hosted`全部exit0。產物required-server-files確認兩個target-preservation flags為true，包含Node Proxy。單一unit程序略過timingSafeEqual，method/path/query/body/client/nonce/stamp/mac八個篡改反例及Next入口路徑反例共9failed／33controls passed；產品source未變。
 
 以該production產物在loopback ephemeral port啟動Next，顯式mode0使loader在secret前失敗；首頁、API與SSR分享均實際503／no-store／固定SERVICE_UNAVAILABLE，own process有界SIGTERM退出。此負例只證明framework已接gate，不是signed成功互動或公開驗收；真正Edge簽章、DB持久replay、Temporal／恢復gate由2b3b與2c補驗。獨立design與correctness/security review，以及build入口補查無findings。共用平台migration、backend runtime與model history未改；指令檔產品契約仍成立。
+
+收尾mode parity校正：Node原先只取低九個mode bits，04600會被當成0600；新增該反例後確實先失敗，改取完整permission/special bits，使0400／0600與Python read_secret一致。固定toolchain完整同四檔59unit與affected ESLint通過；之前hosted build／HTTP證據屬9a3f9c2，最新來源完整CI仍需獨立通過。此修正不改secret位置、讀取範圍或normal file的接受條件。

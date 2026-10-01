@@ -16,7 +16,7 @@ export function readIngressKey(path: string): string {
   try {
     const info = fstatSync(fd);
     if (!info.isFile() || info.uid !== process.getuid?.() || info.nlink !== 1
-      || ![0o400, 0o600].includes(info.mode & 0o777) || info.size !== 64) {
+      || ![0o400, 0o600].includes(info.mode & 0o7777) || info.size !== 64) {
       throw new Error('HOSTED_SECRET_FILE_INVALID');
     }
     const bytes = Buffer.alloc(65);
