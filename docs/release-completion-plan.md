@@ -319,12 +319,24 @@ probe-7舊NON_TOOL_PARTS只證明非空parts且沒有ToolCallPart，不回填其
 - [x] 新fixed grant／claim／replay registry與campaign authority consumers；上限1／7，先完整歷史後generation。
 - [x] 完整十七scopes reader雙輪一致：52invocations／89calls／10unknown、1867661charged reference micros／318609observed tokens；剩48invocations／1132339reference micros，不是Free餘額。actual inventory dry接受且未建claim/report；profile-7 omission mutation預期1 failed／14 controls passed／841 deselected。
 - [x] focused996、完整 `pnpm test:unit --maxWorkers=1` 3938 passed／122files（109.84秒）、typecheck／lint；獨立隔離collector integration18 passed／1 live skip，容器停止、volumes保留。design-review無findings；獨立correctness／privacy review無blocker。
-- [ ] 新入口來源完整Fixture CI。
-- [ ] 當次模型授權＋當下Free／完整歷史查核後才執行一次；unknown／限流／技術／安全／任務失敗即停。
+- [x] 448c30d18c22fb749832ee95fcbdc6f57276c99d完整CI 36757182637／唯一job110030288506，27steps全success。
+- [x] 取得當次明確授權，當下token API Free與完整十七scopes查核後只執行一次；UNKNOWN_USAGE_STOP，永久claim消耗，不重試。
 
-原始profile bootstrap `/tmp/dive-trip-pin-probe7-history.mjs` exclusive create只執行一次，不可重跑。新reader `/tmp/dive-trip-probe8-carry-audit.mjs --verify`；inventory dry `/tmp/dive-trip-probe8-inventory-dry.mjs` 在候選claim open(wx)前攔截。profile omission在Vite程序內變異，不修改tracked source；rawprofile與身份不搬入public fixture。所有工具／quota／unknown與公開事件契約維持，本輪零generation credential讀取、零真模型呼叫、零新claim/report。
+原始profile bootstrap `/tmp/dive-trip-pin-probe7-history.mjs` exclusive create只執行一次，不可重跑。新reader `/tmp/dive-trip-probe8-carry-audit.mjs --verify`；inventory dry `/tmp/dive-trip-probe8-inventory-dry.mjs` 在候選claim open(wx)前攔截。profile omission在Vite程序內變異，不修改tracked source；rawprofile與身份不搬入public fixture。所有工具／quota／unknown與公開事件契約維持，入口準備階段零generation credential讀取、零真模型呼叫、零新claim/report。
 
 指令檔對帳：`git ls-files '*AGENTS*' '*CLAUDE*'` 僅tracked AGENTS.md，產品規則未變；ignored current context新增1處probe-8準備pointer與停止新增入口規則。design-review：NO DESIGN FINDINGS，改0／記0／提0／駁回0，已檢查固定claim、adapter、完整rawrows、雙輪capture、quota、execution與authority。
+
+### probe-8 當次單案結果（2026-10-01）
+
+當次授權涵蓋既有token唯讀Free查核與最多1 invocation／7calls。完整subscriptions一頁僅R2、沒有Workers Paid；Free為完整清單推論，不冒稱dashboard Active。UTC同日用量283.24702548980713／10,000Neurons，證據exclusive保存於ignored storage；exact來源完整CI通過後執行一次。
+
+結果1 invocation／2 model calls：第一回合calculate_budget完成，第二回合原生失敗碼 `AGENT_MODEL_RESPONSE_NON_TOOL_TEXT`，表示非空parts只有TextPart、無ToolCallPart。不保存原文，因此不能斷言文字內容、任務意圖或provider忽略tool_choice的根因。既有required／enable_thinking=false wire設定已有測試保護。
+
+兩次call tokens1289／1535，共2824，private usage完整；invocation actual cost仍null，保守charge183505reference micros，campaign以UNKNOWN_USAGE_STOP停止。沒有proposal／decision，版本與snapshot未變；worker quiescent、quality=false。累計53 invocations／91 calls／11unknown，charged2051166reference micros、observed321433tokens；剩47invocations／948834reference micros，非Free額度。原始claim／report／replay／22表與Temporal保留，不重跑launcher、不回填unknown。
+
+事後唯讀雙輪audit通過：原十七scopes、report／replay／22表raw rows／paired Temporal execution／exact source一致，固定native碼TEXT相符。audit log為 `/tmp/dive-trip-probe8-postrun-audit.log`，不建立新profile、不修改歷史。
+
+下一步不新增probe：先離線核對工具結果後的prompt與final_answer選擇策略，提出最小修正及固定response regression；若現有模型仍不能遵守strict工具契約，再評估Free可用模型。任何新真模型驗證另取有界授權；30案品質尚未通過。
 
 ## P6 CI Actions runtime 維護
 

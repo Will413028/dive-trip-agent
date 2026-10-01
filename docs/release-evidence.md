@@ -113,11 +113,15 @@ Design-review的replay kind ladder已改成fixed policy descriptor共用bounded-
 
 在不保存原值下將新的非工具回覆分為固定TEXT／THINKING／TEXT_THINKING／OTHER；OTHER優先，與順序無關。舊probe-7泛碼不回填；接受條件、mixed行為、empty優先、公開事件、unknown／quota／重試不變。新增回歸先7 failed，Ruff／strict mypy85source與獨立privacy／correctness review通過；首份完整affected102 passed／1 failed（Temporal dev server啟動5秒期限，未進Agent），同份第二輪亦102 passed／1 failed（另一既有mixed-other案同樣啟動5秒期限）。兩輪都不算完整通過，不拼湊局部結果、不放寬期限；新增分類案例均通過。零真模型呼叫，來源 `0232f21131ba1c0300ada0a741659b23351c006a` 的[完整CI36753103333](https://github.com/Will413028/dive-trip-agent/actions/runs/36753103333)唯一job `110016432836` 全27steps success；本機兩輪失敗保留。詳[P5](release-completion-plan.md#非工具-parts-固定分類2026-10-01)。
 
+### 2026-10-01 probe-8 最後單案停止
+
+當次明示授權與token API當下Free查核後，固定Gemma4只執行1 invocation／2calls。calculate_budget完成後回覆被分類AGENT_MODEL_RESPONSE_NON_TOOL_TEXT：有TextPart、沒有工具呼叫；沒有保存原文，語義根因未知。兩筆call usage共2824tokens，actual invocation cost null、保守charge183505reference micros，UNKNOWN_USAGE_STOP；沒有提案／decision或版本改變，worker quiescent，quality=false。事後雙輪audit核對原十七scopes、report／replay／22表rawrows／pairedexecution／exactsource一致；claim與原始retained證據保留，不重試、不再新增診斷入口。下一步離線修正prompt／工具策略或評估模型；30案品質未通過，詳[P5結果](release-completion-plan.md#probe-8-當次單案結果2026-10-01)。
+
 ### 2026-10-01 probe-8 最後一次入口準備
 
 使用者選定只再準備probe-8，結果後停止增加診斷入口，轉prompt／工具策略或模型評估。新grant／claim／capability保持最多1 invocation／7calls、Free-only固定Gemma4及合成unknown-cost。probe-7原始report／replay／raw22表／execution／6666248source雙輪一致後exclusive保存ignored profile；新十七scopes reader核對52invocations／89calls／10unknown，原null成本與失敗碼保留。
 
-focused996、完整unit3938／122files、typecheck／lint通過，隔離integration18 passed／1 live skip；只停止當次容器、volumes保留。actual inventory dry未建claim/report，profile omission mutation預期1 failed／14 controls passed。design-review無findings，獨立correctness／privacy review無blocker；新入口來源完整CI尚待驗證。準備不授權模型操作，本輪零真模型呼叫、零generation credential讀取；詳[P5](release-completion-plan.md#probe-8-最後一次單案診斷入口準備2026-10-01)。
+focused996、完整unit3938／122files、typecheck／lint通過，隔離integration18 passed／1 live skip；只停止當次容器、volumes保留。actual inventory dry未建claim/report，profile omission mutation預期1 failed／14 controls passed。design-review無findings，獨立correctness／privacy review無blocker；新來源448c30d完整CI36757182637／唯一job110030288506，27steps全success。準備階段不授權模型操作，當時零真模型呼叫、零generation credential讀取；詳[P5](release-completion-plan.md#probe-8-最後一次單案診斷入口準備2026-10-01)。
 
 ### 2026-09-29 Free-only one-case probe stop
 
