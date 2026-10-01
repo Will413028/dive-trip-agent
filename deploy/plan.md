@@ -48,7 +48,7 @@
   - 不能動：local/evaluation授權政策、strict回答、quota、Domain、確認／刪除語義。
   - 驗收：config反例（http origin／任意upstream／provider env／secret mount）拒絕；破壞hosted origin及allowlist的mutation必須失敗；生成契約、lint、typecheck、完整CI；新PostgreSQL／Temporal端到端confirm／restart／delete。獨立design-review。
   - 停止：缺權限、測試失敗、意外generation能力、共享服務漂移。
-  - 子步驟2a：獨立hosted config／secret-file邊界；2b：API／worker、可信入口／限流與恢復journal；2c：容器／edge、端到端與完整CI。依序各自驗收，不以2a完成宣稱步驟2完成。
+  - 子步驟2a：獨立hosted config／secret-file邊界；2b1：backend簽章、限流、容量與transactional journal；2b2：獨立recovery副本與restore reconciliation；2b3：Next可信入口與API／worker整合；2c：容器／edge、端到端與完整CI。依序各自驗收，不以任何子步驟完成宣稱步驟2完成。
 - [ ] **3. 候選部署與維運**（被擋於：1、2；與4必須連著做）
   - 範圍：exact SHA候選images、專用DB/Temporal migration與namespace、專用Worker/Tunnel/VPC、固定HTTPS origin，先維持maintenance入口。
   - 消費端：專用Compose與Worker；`rg -n 'image|volume|secret|ports|binding|origin' deploy`。
@@ -66,7 +66,9 @@
 | --- | --- | --- | --- |
 | 1 | 完成 | SSH資源／目標路徑、OAuth權限、完整subscription、Worker name，獨立review四項已補契約 | 遠端寫入前須重查當下狀態 |
 | 2a | 完成 | 28tests、Ruff、strict mypy86files、mutation11預期失敗／17controls、design與correctness/privacy review無blocker | 完整新來源CI由2c核對；runtime未接 |
-| 2b–5 | 未開始 | 無 | 依前置步驟 |
+| 2b1 | 完成 | 20tests、Ruff、strict mypy89files；簽章mutation3預期失敗／10controls；設計review兩項、安全review一項全部已修，複核無findings | runtime端到端由2b3驗；不是public-ready |
+| 2b2–2b3 | 未開始 | 無 | recovery副本／reconcile、Next可信入口與runtime整合 |
+| 2c–5 | 未開始 | 無 | 依前置步驟；032a0fe完整CI因聊天409 E2E失敗，不得部署 |
 
 ## Review修正契約（四項全部改，駁回0）
 
@@ -94,3 +96,15 @@ secret不進repr；固定64hex密碼與入口key不同。此模組尚未被任�
 第一輪27passed／1failed（HTTPS IP origin在讀secret前未被拒），修正後完整28passed。Ruff、strict mypy86source files通過。pytest程序內移除env guard mutation，完整命令預期11failed／17passed；tracked source未變，不能當產品pass。Design-review NO DESIGN FINDINGS，A/B/C均0；獨立correctness/privacy review無blocker。指令檔對帳：tracked AGENTS.md架構與local邊界仍成立，不需改；ignored部署pointer仍指P7/plan。下一步2b仍需hosted API/worker與可信入口、restore journal，2c容器／端到端／新revision完整CI仍待做，不能把config完成當公開runtime可用。
 
 secret file部署注意：Compose bind secret不會透過uid/gid/mode替來源檔案改owner，2c必須先在host設定成runtime UID與0400/0600；單機private network才使用無TLS DB，跨主機重評。
+
+### 2b1 backend驗證紀錄
+
+新增獨立hosted bootstrap、HMAC入口、transactional replay／global與client limits、容量trigger及刪除／撤銷journal；共用產品Domain、fixture dispatcher、持久outbox與cleanup，不改local launcher或共用migration。部署SQL只安裝專用空DB；原始評估schema及歷史表數不變。
+
+設計review兩項全部改：獨立hosted migration版本鏈保留checksum與首次空DB guard；五項限額集中於HostedLimits，由migrate發布至單一DB row，admission與trigger共用。第二輪獨立複核兩項已修、無設計回歸。journal與產品決策同交易，counter rollback不留洞，產品purge後保留journal，snapshot拒缺漏、UPDATE／DELETE／TRUNCATE被拒。
+
+初輪17tests完整命令通過，涵蓋簽章竄改、replay、限流、容量、禁止挪用有資料DB、ledger漂移、刪除journal原子與purge後保留。一次限流測試跨分鐘而失敗，改為固定飽和當前與相鄰窗口後重跑；未放寬產品limit。獨立security review P1已修：body讀取上限10秒，body完成及DB admission返回均重驗stamp，新增慢body、讀取期間與admission等待期間過期反例；第二輪複核NO FINDINGS，design B1/B2未回歸。獨立副本export／restore reconcile、Next／Edge簽章consumer、容器與runtime端到端仍未完成；以上不是public-ready。
+
+032a0fe完整CI run36854352037已失敗：production desktop聊天409後送出按鈕未恢復，66browser passed／1failed／5skip；尚未查明根因，不視為flake或通過。該run沒有可下載artifact，已保留failed log；2c須重現、修正或查明原因後重新完整gate，不拼局部pass。
+
+最終完整命令20tests通過，Ruff與strict mypy89files通過。pytest程序內破壞HMAC比對後，路徑／query／body三個反例預期失敗、10個controls通過，tracked source未變。指令檔对帳：AGENTS.md固定fixture／歷史隔離仍成立、ignored pointer指P7／plan，不需變更規則；下一步2b2，不以新bootstrap當runtime已驗證。
