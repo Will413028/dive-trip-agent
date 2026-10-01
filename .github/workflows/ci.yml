@@ -82,9 +82,19 @@ jobs:
       - name: Install CI Chromium
         run: pnpm exec playwright install --with-deps chromium
       - name: Production desktop and mobile E2E (fixture)
+        id: production-e2e
         env:
           E2E_PRODUCTION: '1'
         run: pnpm test:e2e
+      - name: Preserve failed fixture browser evidence
+        if: failure() && steps.production-e2e.outcome == 'failure'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: fixture-browser-failure-${{ github.run_id }}-${{ github.run_attempt }}
+          path: test-results/
+          if-no-files-found: error
+          retention-days: 3
+          include-hidden-files: false
       - name: Remove this run's disposable database
         if: always()
         run: docker compose --env-file /dev/null -f compose.test.yml down --volumes --remove-orphans

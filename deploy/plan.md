@@ -153,3 +153,5 @@ Next使用原生src/proxy.ts Node runtime，保留原path/query、不靠Host選u
 以該production產物在loopback ephemeral port啟動Next，顯式mode0使loader在secret前失敗；首頁、API與SSR分享均實際503／no-store／固定SERVICE_UNAVAILABLE，own process有界SIGTERM退出。此負例只證明framework已接gate，不是signed成功互動或公開驗收；真正Edge簽章、DB持久replay、Temporal／恢復gate由2b3b與2c補驗。獨立design與correctness/security review，以及build入口補查無findings。共用平台migration、backend runtime與model history未改；指令檔產品契約仍成立。
 
 收尾mode parity校正：Node原先只取低九個mode bits，04600會被當成0600；新增該反例後確實先失敗，改取完整permission/special bits，使0400／0600與Python read_secret一致。固定toolchain完整同四檔59unit與affected ESLint通過；之前hosted build／HTTP證據屬9a3f9c2，最新來源完整CI仍需獨立通過。此修正不改secret位置、讀取範圍或normal file的接受條件。
+
+9a3f9c2完整CI run36876437703失敗：production mobile同一409草稿案例在送出按鈕恢復處失敗，66passed／1failed／5skip。該run artifacts API為0，runner的trace路徑並未保存；現有日誌不能判定refresh失敗、等待或其他blocked狀態，根因未定，不標為flake或修復。已補上只在E2E失敗時保存synthetic fixture的test-results（固定upload-artifact版本、保留3天）；不保存env、backend資料或其他目錄，不改assertion、timeout或retry。下一完整CI須包含mode修正與此證據入口；若失敗先讀trace，若通過亦不反推舊失敗原因。2c公開部署gate仍未通過。
