@@ -68,9 +68,9 @@
 | 2a | 完成 | 28tests、Ruff、strict mypy86files、mutation11預期失敗／17controls、design與correctness/privacy review無blocker | 完整新來源CI由2c核對；runtime未接 |
 | 2b1 | 完成 | 20tests、Ruff、strict mypy89files；簽章mutation3預期失敗／10controls；設計review兩項、安全review一項全部已修，複核無findings | runtime端到端由2b3驗；不是public-ready |
 | 2b2 | 完成 | Oracle獨立PostgreSQL完整54tests；Ruff／strict mypy91files；HMAC／epoch mutation各1預期失敗，16／10controls；獨立design／correctness複核無findings；2bbbee2完整CI27步成功 | runtime gate／CLI與真正Temporal purge串接由2b3b驗 |
-| 2b3a | 完成 | 固定Node／pnpm下59unit、完整typecheck／lint、hosted production build；HMAC mutation9預期失敗／33controls；實際HTTP三入口503負例；獨立review無findings | backend恢復gate／CLI屬2b3b；實際Edge、container與完整新來源CI待驗，不可部署 |
+| 2b3a | 完成 | 固定Node／pnpm下59unit、完整typecheck／lint、hosted production build；HMAC mutation9預期失敗／33controls；實際HTTP三入口503負例；獨立review無findings；b5eddba完整CI成功 | backend恢復gate／CLI屬2b3b；實際Edge／container未驗，舊409根因未知，不可部署 |
 | 2b3b | 未開始 | 無 | API／worker恢復gate、export與maintenance CLI；被擋於2b3a |
-| 2c–5 | 未開始 | 無 | 依前置步驟；最新2bbbee2完整CI成功，新來源仍需自己的完整CI與部署驗收 |
+| 2c–5 | 未開始 | 無 | 依前置步驟；最新b5eddba完整CI成功，後續新來源仍需自己的完整CI與部署驗收 |
 
 ## Review修正契約（四項全部改，駁回0）
 
@@ -155,3 +155,5 @@ Next使用原生src/proxy.ts Node runtime，保留原path/query、不靠Host選u
 收尾mode parity校正：Node原先只取低九個mode bits，04600會被當成0600；新增該反例後確實先失敗，改取完整permission/special bits，使0400／0600與Python read_secret一致。固定toolchain完整同四檔59unit與affected ESLint通過；之前hosted build／HTTP證據屬9a3f9c2，最新來源完整CI仍需獨立通過。此修正不改secret位置、讀取範圍或normal file的接受條件。
 
 9a3f9c2完整CI run36876437703失敗：production mobile同一409草稿案例在送出按鈕恢復處失敗，66passed／1failed／5skip。該run artifacts API為0，runner的trace路徑並未保存；現有日誌不能判定refresh失敗、等待或其他blocked狀態，根因未定，不標為flake或修復。已補上只在E2E失敗時保存synthetic fixture的test-results（固定upload-artifact版本、保留3天）；不保存env、backend資料或其他目錄，不改assertion、timeout或retry。下一完整CI須包含mode修正與此證據入口；若失敗先讀trace，若通過亦不反推舊失敗原因。2c公開部署gate仍未通過。
+
+b5eddba完整CI run36880643504／job110431237141完成success：28steps中27success，只有failure-only artifact step依預期skipped；static、完整unit／integration／backend、production build、desktop/mobile E2E與disposable cleanup均通過，browser67passed／5skip。409本輪未重現，舊根因仍未知；artifact上傳在實際失敗時的行為尚未驗。此來源包含0b335b9 mode修正，下一步2b3b；並非Edge／公開部署驗收。
