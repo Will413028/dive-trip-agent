@@ -2,6 +2,8 @@
 
 潛旅行程互動作品，透過對話與卡片編輯行程，提供鎖定、差異確認、復原及唯讀分享。使用 Next.js／AG-UI、FastAPI／PydanticAI、Temporal 與 PostgreSQL。仍在開發中，尚未公開部署，不提供預訂或潛水安全判斷。
 
+目前可操作的功能與尚未完成的部分見 [功能現況](docs/current-features.md)。
+
 本 repository 提供去識別化的離線 regression vectors。模型提出結構化意圖與證據引用，由服務端計算、驗證及呈現；數值邊界不證明真模型能理解需求或完成任務。原始不可刪 claims、reports、usage 與歷史資料庫留在 ignored local storage，不能從 public fixtures 重建或重設真實 quota。
 
 ## 產品與互動契約
