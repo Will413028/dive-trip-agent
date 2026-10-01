@@ -338,6 +338,14 @@ probe-7舊NON_TOOL_PARTS只證明非空parts且沒有ToolCallPart，不回填其
 
 下一步不新增probe：先離線核對工具結果後的prompt與final_answer選擇策略，提出最小修正及固定response regression；若現有模型仍不能遵守strict工具契約，再評估Free可用模型。任何新真模型驗證另取有界授權；30案品質尚未通過。
 
+### 工具結果後的 final_answer 指示修正（2026-10-01）
+
+離線核對：現有prompt說Return AnswerPlan，卻未明說終局必須以final_answer tool call提交；SDK已送required，不能將這個歧義當已證實根因。比較明確prompt（最小修改）、動態tool限制（可能妨礙合法任務）、換模型（需新品質驗收），先採第一種。
+
+已明確禁止以message text／raw JSON交出AnswerPlan；當current-cost工具回傳evidenceRef，透過final_answer提交version字串1、budget kind與原引用，不敘述工具結果，也不對未變行程重算。沒有parser fallback、額外模型請求、重試或quota改動，TextPart仍拒絕。
+
+Ruff通過；既有synthetic SDK native-loop兩案通過（2passed／34deselected），只證明工具結果與output-tool wire流程，不能證明prompt效果或真模型品質。未呼叫模型，完整新來源CI待驗證；之後先評估這個策略，必要真模型驗證需fresh bounded grant，不新增診斷入口。
+
 ## P6 CI Actions runtime 維護
 
 等待上述 CI 期間已做唯讀來源盤點，未修改 workflow。官方候選版本為 [checkout v7.0.1](https://github.com/actions/checkout/releases/tag/v7.0.1)、[setup-node v7.0.0](https://github.com/actions/setup-node/releases/tag/v7.0.0)、[pnpm/action-setup v6.1.0](https://github.com/pnpm/action-setup/releases/tag/v6.1.0)，其 tag 對應的 `action.yml` 均宣告 Node 24。對應 commit 為 `3d3c42e5aac5ba805825da76410c181273ba90b1`、`820762786026740c76f36085b0efc47a31fe5020`、`ea17c68df8912ef543352723c149a84f56e3d413`（pnpm annotated tag 已解至 commit）；實際升級前仍查核當下版本、完整差異與 runner 支援。現行固定 setup-python／setup-uv 已宣告 Node 24，runtime 邊界已有保護，無需為此換版。
