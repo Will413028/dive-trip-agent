@@ -67,8 +67,9 @@
 | 1 | 完成 | SSH資源／目標路徑、OAuth權限、完整subscription、Worker name，獨立review四項已補契約 | 遠端寫入前須重查當下狀態 |
 | 2a | 完成 | 28tests、Ruff、strict mypy86files、mutation11預期失敗／17controls、design與correctness/privacy review無blocker | 完整新來源CI由2c核對；runtime未接 |
 | 2b1 | 完成 | 20tests、Ruff、strict mypy89files；簽章mutation3預期失敗／10controls；設計review兩項、安全review一項全部已修，複核無findings | runtime端到端由2b3驗；不是public-ready |
-| 2b2–2b3 | 未開始 | 無 | recovery副本／reconcile、Next可信入口與runtime整合 |
-| 2c–5 | 未開始 | 無 | 依前置步驟；032a0fe完整CI因聊天409 E2E失敗，不得部署 |
+| 2b2 | 完成 | Oracle獨立PostgreSQL完整54tests；Ruff／strict mypy91files；HMAC／epoch mutation各1預期失敗，16／10controls；獨立design／correctness複核無findings | runtime gate／CLI與真正Temporal purge串接由2b3驗；完整新來源CI待驗 |
+| 2b3 | 未開始 | 無 | Next可信入口與runtime整合 |
+| 2c–5 | 未開始 | 無 | 依前置步驟；最新168e7d0完整CI成功，新來源仍需自己的完整CI與部署驗收 |
 
 ## Review修正契約（四項全部改，駁回0）
 
@@ -108,3 +109,26 @@ secret file部署注意：Compose bind secret不會透過uid/gid/mode替來源�
 032a0fe完整CI run36854352037已失敗：production desktop聊天409後送出按鈕未恢復，66browser passed／1failed／5skip；尚未查明根因，不視為flake或通過。該run沒有可下載artifact，已保留failed log；2c須重現、修正或查明原因後重新完整gate，不拼局部pass。
 
 最終完整命令20tests通過，Ruff與strict mypy89files通過。pytest程序內破壞HMAC比對後，路徑／query／body三個反例預期失敗、10個controls通過，tracked source未變。指令檔对帳：AGENTS.md固定fixture／歷史隔離仍成立、ignored pointer指P7／plan，不需變更規則；下一步2b2，不以新bootstrap當runtime已驗證。
+
+### 2b2 recovery契約與沿用盤點
+
+獨立RecoveryStore使用專用64hex key，不借DB／ingress key；受保護目錄0700、檔案0600、owned regular/no-follow/no-hardlink、有界讀取，HMAC封存嚴格schema及連續序號。檔案lock拒並行寫入，temp file fsync→atomic replace→directory fsync；副本不在DB／Temporal備份volume內，不宣稱off-host災難恢復。來源：[Python fsync／replace](https://docs.python.org/3.13/library/os.html)、[PostgreSQL SQL dump](https://www.postgresql.org/docs/18/backup-dump.html)。
+
+受控還原由prepare先凍結DB journal決策，再保存完整外部checkpoint；匯出不得倒退instance／epoch／prefix。reconcile驗證舊DB prefix，補齊immutable journal，重套產品delete/revoke並重新計算絕對TTL；只有現有DeletionWorker完成history查無及內容purge後才finish。副本缺失、損毀或DB啟動epoch變更而無prepare，均拒serving；已消耗checkpoint不能直接重用。API回應前export、worker啟動/背景export、maintenance role與operator CLI由2b3接入，不以本步primitive驗收宣稱已部署。
+
+此恢復格式只適用全新fixture DB：FixtureDispatcher／PlanningService不經model admission；hosted第二個獨立migration拒絕四張模型帳務表新增，所有recovery入口拒絕已有quota_reservations／quota_daily_totals／agent_invocations／model_calls的DB。不得用它恢復live/evaluation資料或以旧空備份減少模型帳務；未能證明fixture-only時維持關閉。原平台migration及第一個hosted migration未改。
+
+| 機制 | 原始必要條件 | 從零設計 | 決定與重評條件 |
+| --- | --- | --- | --- |
+| PostgreSQL journal／交易trigger | delete/revoke与產品同交易 | 不變序號與產品effect分離保存 | 保留trigger，還原先import決策避免重複序號；產品新增其他撤銷effect時補類型與測試 |
+| 專用外部副本 | DB/Temporal可能一起倒退 | 私有簽章檔案、版本/prefix/epoch完整性 | 單機DEMO使用獨立volume與file lock；off-host需另選目的地與成本 |
+| restore先maintenance | 其他產品在線、只有自有入口可停 | 先fence產品決策再取live high-water，雙資源錯誤fail closed | 保留DB旗標＋外部phase；新增部署節點時改共享控制authority |
+| 既有DeletionWorker | Temporal ACK不等於history已不可讀 | 重用實際history查無與purge用例 | 不以journal聲稱已刪、不回填quota；Temporal retention/archival改動時重驗 |
+| deletion intent orchestration | 一般入口驗owner、expiry入口驗TTL、recovery驗checkpoint，三者仍需相同writer fence | application共用接收既有transaction connection的persist_deletion_intent | 抽取既有同一流程、不改入口authorization／expiry判斷；executor／fencing變更時三入口共同驗證 |
+| 成本／quota不得倒退 | 舊部署契約有真模型帳務，本DEMO永久禁模型 | fixture-only資料庫拒絕任何模型帳務寫入，recovery拒絕污染DB | 不移植live ledger恢復工具；新增generation能力時須重新設計完整accounting reconciliation |
+
+168e7d0完整CI run36858531004／job110356742107全部27步success；是上一來源的完整證據。032a0fe的409 browser失敗本輪未重現，根因仍未知，不宣稱修好了或標成flake；新來源仍需自己的完整CI。
+
+2b2實際驗收：ARM64 Oracle隔離環境，固定Python3.13.13、uv0.7.2及frozen lock，以自有pytest PostgreSQL跑完整test_hosted_recovery／test_hosted_recovery_file／test_hosted_storage／test_hosted_ingress／test_deletion／test_retention，54passed（19.02s）。實際pg_dump→備份後delete/revoke→pg_restore→reconcile，驗證決策不復活、完整prefix與冪等；DB commit後副本寫入失敗保留maintenance且可受控接續；絕對TTL與pending purge gate均驗證。單案restart使用專屬container並重查ephemeral port，未重啟其他服務。184個允許來源檔hash逐一核對（manifest SHA256 a2b0c8fe8d1355c3b0f9f6b090a940cb2cae7432bd6f4dce9d20e5ecf980b0d4）。
+
+Mutation僅pytest程序內patch：略過HMAC後錯key／篡改反例失敗、16controls通過；忽略DB epoch後未prepare restart錯誤放行反例失敗、10controls通過。Ruff全backend通過、strict mypy91files通過。獨立review先發現刪除orchestration重複，已抽共用transaction primitive；設計複核及包含fixture accounting防線的correctness/security複核無findings。DB tests直接complete僅驗產品purge邊界，不替Temporal history真正不可讀背書；API／worker／Next整合、operator CLI、專用recovery key配置與volume由2b3完成。

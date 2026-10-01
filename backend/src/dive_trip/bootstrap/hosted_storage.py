@@ -6,9 +6,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from psycopg import Connection
+
 from dive_trip.platform.database import Database
 
-HOSTED_MIGRATIONS = ("hosted_schema.sql",)
+HOSTED_MIGRATIONS = ("hosted_schema.sql", "hosted_recovery_002.sql")
 
 
 @dataclass(frozen=True)
@@ -167,18 +169,23 @@ class HostedIngressStore:
 def recovery_snapshot(database: Database) -> dict[str, Any]:
     """Bounded journal projection for the independent recovery exporter."""
     with database.transaction() as connection:
-        control = connection.execute(
-            "SELECT * FROM hosted_control WHERE singleton FOR SHARE"
-        ).fetchone()
-        if control is None:
-            raise ValueError("HOSTED_RECOVERY_CONTROL_REQUIRED")
-        rows = connection.execute(
-            "SELECT * FROM hosted_recovery_journal ORDER BY sequence LIMIT 100001"
-        ).fetchall()
-        if len(rows) > 100000:
-            raise ValueError("HOSTED_RECOVERY_CAPACITY_REACHED")
-        if control["last_sequence"] != len(rows) or any(
-            row["sequence"] != position for position, row in enumerate(rows, start=1)
-        ):
-            raise ValueError("HOSTED_RECOVERY_HISTORY_INCOMPLETE")
-        return {"control": control, "records": rows}
+        return recovery_view(connection)
+
+
+def recovery_view(connection: Connection[dict[str, Any]]) -> dict[str, Any]:
+    control = connection.execute(
+        "SELECT *,pg_postmaster_start_time() AS db_epoch "
+        "FROM hosted_control WHERE singleton FOR SHARE"
+    ).fetchone()
+    if control is None:
+        raise ValueError("HOSTED_RECOVERY_CONTROL_REQUIRED")
+    rows = connection.execute(
+        "SELECT * FROM hosted_recovery_journal ORDER BY sequence LIMIT 100001"
+    ).fetchall()
+    if len(rows) > 100000:
+        raise ValueError("HOSTED_RECOVERY_CAPACITY_REACHED")
+    if control["last_sequence"] != len(rows) or any(
+        row["sequence"] != position for position, row in enumerate(rows, start=1)
+    ):
+        raise ValueError("HOSTED_RECOVERY_HISTORY_INCOMPLETE")
+    return {"control": control, "records": rows}

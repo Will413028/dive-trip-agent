@@ -5,6 +5,7 @@ import re
 from datetime import timedelta
 from typing import Any
 
+from psycopg import Connection
 from temporalio.api.common.v1 import WorkflowExecution
 from temporalio.api.enums.v1 import ArchivalState
 from temporalio.api.workflowservice.v1 import (
@@ -26,6 +27,20 @@ from dive_trip.platform.errors import DomainError
 from dive_trip.platform.workflow_lock import workflow_lock
 
 
+def persist_deletion_intent(
+    connection: Connection[dict[str, Any]], owner: str, trip_id: str
+) -> None:
+    """Caller owns authorization/expiry and locks; all paths share the same fence."""
+    rows = planning.deletion_runs(connection, trip_id)
+    planning.fence_deletion(connection, trip_id)
+    trips.deletion.request(
+        connection,
+        owner,
+        trip_id,
+        [row["workflow_id"] for row in rows if row["executor"] == "temporal-v1"],
+    )
+
+
 class DeletionService:
     def __init__(self, database: Database) -> None:
         if database.schema != "workbench_demo" and not re.fullmatch(
@@ -43,18 +58,7 @@ class DeletionService:
             if existing is not None:
                 return {"status": existing["status"]}
             trips.get_trip(connection, owner, trip_id, lock=True)
-            rows = planning.deletion_runs(connection, trip_id)
-            planning.fence_deletion(connection, trip_id)
-            trips.deletion.request(
-                connection,
-                owner,
-                trip_id,
-                [
-                    row["workflow_id"]
-                    for row in rows
-                    if row["executor"] == "temporal-v1"
-                ],
-            )
+            persist_deletion_intent(connection, owner, trip_id)
             require_owner(connection, owner)
             return {"status": "deleting"}
 
@@ -85,18 +89,7 @@ class DeletionService:
             ).fetchone()
             if expired is None:
                 return False
-            rows = planning.deletion_runs(connection, trip_id)
-            planning.fence_deletion(connection, trip_id)
-            trips.deletion.request(
-                connection,
-                owner,
-                trip_id,
-                [
-                    row["workflow_id"]
-                    for row in rows
-                    if row["executor"] == "temporal-v1"
-                ],
-            )
+            persist_deletion_intent(connection, owner, trip_id)
             return True
 
     def pending(self) -> list[str]:
