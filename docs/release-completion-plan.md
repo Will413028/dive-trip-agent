@@ -364,6 +364,8 @@ pnpm 的 [固定版本 README](https://github.com/pnpm/action-setup/blob/v6.1.0/
 
 ## P7 公開部署與維運
 
+使用者2026-10-01選定Oracle VM＋Cloudflare公開HTTPS fixture DEMO，模型保持關閉；執行階段與驗收見 [Oracle部署計畫](../deploy/plan.md)，不以此完成P5 live品質。
+
 - [ ] 先選定符合現行 Python／Temporal／PostgreSQL 的 hosting、預算、ingress／proxy／可信 IP 與持久儲存方案，參照 [deployment](deployment.md)；舊 ADK 託管敘述須逐項重新評估。
 - [ ] 完成可審查的配置與 immutable artifact：secret 管理、模型 admission／預算、retention schedule、告警／backlog、備份／restore、RPO／RTO、kill-switch／rollback。
 - [ ] 完成 P8，取得部署授權後部署，填入 [Public release 待填欄位](release-evidence.md#public-release-待填欄位)。
