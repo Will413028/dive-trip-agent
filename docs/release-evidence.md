@@ -47,6 +47,10 @@ Domain unit tests 驗費用與規則；真 PostgreSQL integration tests 驗交�
 
 ## Latest checkpoint
 
+### 2026-10-01 final_answer prompt 離線驗證
+
+明確要求AnswerPlan透過final_answer tool call提交，current-cost evidence後收尾，不回純文字／raw JSON或重算未變行程。這是prompt歧義的最小修正，未證實真模型失敗根因。Ruff與synthetic wire兩案通過；exact來源d5a5ad216dae4d64a66eda5edd012323fde9f17d完整CI36797284578／唯一job110163517388、27steps全部success，包括integration、backend、build、桌面／手機E2E與cleanup。零真模型呼叫，prompt效果與30案品質仍未驗證；不新增診斷入口，真模型驗證需新的有界授權。
+
 ### 2026-09-30：新 Python quality campaign 首案失敗，完整證據保留
 
 `44e0ae9f9d6d050140d4a7298655244db6339092` 的 [Fixture CI run 36672253529](https://github.com/Will413028/dive-trip-agent/actions/runs/36672253529) 唯一 job `109749572996` 與全部 steps success，包含 integration、backend、production build 及桌面／手機 E2E。一般任務指引、完整 12 scopes carry 與新固定 `cloudflare-python-quality` 入口已完成離線驗證及獨立 design／correctness review；不是模型品質通過。

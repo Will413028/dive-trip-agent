@@ -344,7 +344,7 @@ probe-7舊NON_TOOL_PARTS只證明非空parts且沒有ToolCallPart，不回填其
 
 已明確禁止以message text／raw JSON交出AnswerPlan；當current-cost工具回傳evidenceRef，透過final_answer提交version字串1、budget kind與原引用，不敘述工具結果，也不對未變行程重算。沒有parser fallback、額外模型請求、重試或quota改動，TextPart仍拒絕。
 
-Ruff通過；既有synthetic SDK native-loop兩案通過（2passed／34deselected），只證明工具結果與output-tool wire流程，不能證明prompt效果或真模型品質。未呼叫模型，完整新來源CI待驗證；之後先評估這個策略，必要真模型驗證需fresh bounded grant，不新增診斷入口。
+Ruff通過；既有synthetic SDK native-loop兩案通過（2passed／34deselected），只證明工具結果與output-tool wire流程，不能證明prompt效果或真模型品質。未呼叫模型；新來源d5a5ad216dae4d64a66eda5edd012323fde9f17d完整CI36797284578／唯一job110163517388，27steps全部success，包括backend、build、桌面／手機E2E與cleanup。之後先評估這個策略，必要真模型驗證需fresh bounded grant，不新增診斷入口。
 
 ## P6 CI Actions runtime 維護
 
