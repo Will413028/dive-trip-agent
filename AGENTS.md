@@ -8,6 +8,7 @@ Python 後端採業務模組優先的 Modular Monolith。預設 Web／launcher �
 - 模型 activity／SDK／transport 不自動重送未知請求；保存 call-start 後才送模型，未知保守結算。確認後直接以交易 receipt 產生回答，不再呼 Agent。
 - 沿用斷線取消與原執行期限；API 斷線的取消意圖必須有界傳達，worker 取消失聯不能使寫入資格永久保留。新旧 runtime 不同時寫同一 run，舊 ADK history 不轉譯為新的成功紀錄。
 - Python 套件放 `backend/src/dive_trip/`，Web 經版本化契約使用後端。Auth0、Workers／Oracle 託管及跨裝置保存不隨本次核心重構啟用。
+- 決策紀錄（ADR）：[docs/adr/](docs/adr/)。
 
 ## 產品與回答契約
 
