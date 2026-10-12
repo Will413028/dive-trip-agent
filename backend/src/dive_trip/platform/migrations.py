@@ -28,6 +28,7 @@ MIGRATIONS = (
     "019-evaluation-fault",
     "020-active-executor",
     "021-tool-argument-diagnostic",
+    "022-deposits",
 )
 
 
