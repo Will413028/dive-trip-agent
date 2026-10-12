@@ -180,7 +180,7 @@ async def reconcile_booking(booking_id: str) -> dict[str, str]:
     return await service.reconcile(ctx.database, ctx.paypal, booking_id)
 
 
-DEPOSIT_ACTIVITIES = [
+DEPOSIT_ACTIVITIES: list[Callable[..., Any]] = [
     assess_booking,
     execute_approved,
     finalize_booking,

@@ -1,0 +1,262 @@
+"""Group deposit routes for the PayPal demo profile.
+
+The caller's anonymous session is the workspace: each judge's browser sees only its own
+bookings. Money moves only in the workflow or in the explicit join/reset calls, always
+through stored money commands.
+"""
+
+from collections.abc import Callable
+from datetime import UTC, date, datetime, time
+from typing import Annotated, Any, Literal, Protocol
+
+from fastapi import Depends, FastAPI
+from pydantic import Field
+
+from dive_trip.application.deposits import (
+    DepositsContext,
+    create_booking,
+)
+from dive_trip.modules.deposits import service
+from dive_trip.modules.deposits import transactions as tx
+from dive_trip.modules.deposits.domain import CauseRule, Mandate, RefundPolicy
+from dive_trip.platform.db_async import run_db
+from dive_trip.platform.errors import DomainError
+from dive_trip.platform.schema import (
+    CalendarDate,
+    Nonempty,
+    NonnegativeInt,
+    PositiveInt,
+    WireModel,
+)
+
+
+class Workflows(Protocol):
+    async def start(self, booking_id: str, settle_at: datetime) -> None: ...
+    async def check_now(self, booking_id: str) -> None: ...
+    async def approve(self, booking_id: str, settlement_id: str) -> None: ...
+    async def stop(self, booking_id: str) -> None: ...
+
+
+class CreateBooking(WireModel):
+    title: Annotated[Nonempty, Field(max_length=120)]
+    startsOn: CalendarDate
+    tripDays: Annotated[PositiveInt, Field(le=14)]
+    siteLat: Annotated[float, Field(ge=-90, le=90)]
+    siteLon: Annotated[float, Field(ge=-180, le=180)]
+    depositMinor: Annotated[PositiveInt, Field(le=500000)]
+    rules: Annotated[list[CauseRule], Field(min_length=1, max_length=2)]
+    mandate: Mandate
+    seedDivers: Annotated[NonnegativeInt, Field(le=4)]
+
+
+class Join(WireModel):
+    name: Annotated[Nonempty, Field(max_length=60)]
+
+
+class AddEvidence(WireModel):
+    kind: Literal["notice", "alert"]
+    body: Annotated[Nonempty, Field(max_length=4000)]
+
+
+class SimulateStorm(WireModel):
+    cancelledDays: Annotated[list[PositiveInt], Field(min_length=1, max_length=14)]
+
+
+class Decide(WireModel):
+    decision: Literal["approve", "reject"]
+
+
+def view(connection: tx.ConnectionType, row: dict[str, Any]) -> dict[str, Any]:
+    booking_id = str(row["id"])
+    return {
+        "id": booking_id,
+        "title": row["title"],
+        "startsOn": row["starts_on"].isoformat(),
+        "tripDays": row["trip_days"],
+        "site": {"lat": float(row["site_lat"]), "lon": float(row["site_lon"])},
+        "depositMinor": row["deposit_minor"],
+        "policy": row["policy"],
+        "mandate": row["mandate"],
+        "divers": [
+            {
+                "id": str(d["id"]),
+                "name": d["display_name"],
+                "seeded": d["seeded"],
+                "state": d["state"],
+                "authorizedMinor": d["authorized_minor"],
+                "capturedMinor": d["captured_minor"],
+                "refundedMinor": d["refunded_minor"],
+                "authorizationId": d["authorization_id"],
+            }
+            for d in tx.divers(connection, booking_id)
+        ],
+        "evidence": [
+            {
+                "id": str(e["id"]),
+                "kind": e["kind"],
+                "body": e["body"],
+                "createdAt": e["created_at"].isoformat(),
+            }
+            for e in tx.evidence(connection, booking_id)
+        ],
+        "settlements": [
+            {
+                "id": str(s["id"]),
+                "source": s["source"],
+                "facts": s["facts"],
+                "plan": s["plan"],
+                "withinMandate": s["within_mandate"],
+                "reasons": s["reasons"],
+                "status": s["status"],
+            }
+            for s in tx.settlements(connection, booking_id)
+        ],
+        "timeline": [
+            {
+                "kind": t["kind"],
+                "detail": t["detail"],
+                "at": t["created_at"].isoformat(),
+            }
+            for t in tx.timeline(connection, booking_id)
+        ],
+    }
+
+
+def register_deposits(
+    app: FastAPI,
+    ctx: DepositsContext,
+    workflows: Workflows,
+    workspace_of: Callable[..., str],
+) -> None:
+    database = ctx.database
+    Workspace = Annotated[str, Depends(workspace_of)]
+
+    def owned(workspace: str, booking_id: str) -> dict[str, Any]:
+        with database.transaction() as connection:
+            return tx.booking(connection, workspace, booking_id)
+
+    def read(workspace: str, booking_id: str) -> dict[str, Any]:
+        with database.transaction() as connection:
+            return view(connection, tx.booking(connection, workspace, booking_id))
+
+    @app.get("/api/deposits/bookings")
+    def list_bookings(workspace: Workspace) -> list[dict[str, Any]]:
+        with database.transaction() as connection:
+            return [
+                view(connection, tx.booking(connection, workspace, booking_id))
+                for booking_id in tx.workspace_bookings(connection, workspace)
+            ]
+
+    @app.post("/api/deposits/bookings")
+    async def create(body: CreateBooking, workspace: Workspace) -> dict[str, Any]:
+        with database.transaction() as connection:
+            if len(tx.workspace_bookings(connection, workspace)) >= 5:
+                raise DomainError("DEPOSIT_WORKSPACE_FULL")
+        starts_on = date.fromisoformat(body.startsOn)
+        booking_id = await create_booking(
+            ctx,
+            workspace=workspace,
+            title=body.title,
+            starts_on=starts_on,
+            site=(body.siteLat, body.siteLon),
+            policy=RefundPolicy(
+                version=1,
+                currency="USD",
+                depositMinor=body.depositMinor,
+                tripDays=body.tripDays,
+                rules=body.rules,
+            ),
+            mandate=body.mandate,
+            seed_divers=body.seedDivers,
+        )
+        await workflows.start(
+            booking_id, datetime.combine(starts_on, time.min, tzinfo=UTC)
+        )
+        return await run_db(read, workspace, booking_id)
+
+    @app.get("/api/deposits/bookings/{booking_id}")
+    def get(booking_id: str, workspace: Workspace) -> dict[str, Any]:
+        return read(workspace, booking_id)
+
+    @app.post("/api/deposits/bookings/{booking_id}/join")
+    async def join(booking_id: str, body: Join, workspace: Workspace) -> dict[str, Any]:
+        owned(workspace, booking_id)
+        await service.authorize_diver(
+            database, ctx.paypal, booking_id, body.name, ctx.seed_card, seeded=False
+        )
+        return read(workspace, booking_id)
+
+    @app.post("/api/deposits/bookings/{booking_id}/evidence")
+    def add_evidence(
+        booking_id: str, body: AddEvidence, workspace: Workspace
+    ) -> dict[str, Any]:
+        owned(workspace, booking_id)
+        with database.transaction() as connection:
+            tx.add_evidence(connection, booking_id, body.kind, body.body)
+        return read(workspace, booking_id)
+
+    @app.post("/api/deposits/bookings/{booking_id}/simulate-storm")
+    def simulate(
+        booking_id: str, body: SimulateStorm, workspace: Workspace
+    ) -> dict[str, Any]:
+        owned(workspace, booking_id)
+        days = sorted(set(body.cancelledDays))
+        with database.transaction() as connection:
+            tx.add_evidence(
+                connection,
+                booking_id,
+                "simulated",
+                "SIMULATED storm for the demo: boats cancelled on day(s) "
+                + ", ".join(str(day) for day in days),
+                {"cancelledDays": days},
+            )
+        return read(workspace, booking_id)
+
+    @app.post("/api/deposits/bookings/{booking_id}/check")
+    async def check(booking_id: str, workspace: Workspace) -> dict[str, bool]:
+        owned(workspace, booking_id)
+        await workflows.check_now(booking_id)
+        return {"requested": True}
+
+    @app.post("/api/deposits/bookings/{booking_id}/settlements/{settlement_id}")
+    async def decide(
+        booking_id: str, settlement_id: str, body: Decide, workspace: Workspace
+    ) -> dict[str, Any]:
+        owned(workspace, booking_id)
+        decision: Literal["approved", "rejected"] = (
+            "approved" if body.decision == "approve" else "rejected"
+        )
+        with database.transaction() as connection:
+            tx.decide_settlement(
+                connection, booking_id, settlement_id, decision, "organizer"
+            )
+        if decision == "approved":
+            await workflows.approve(booking_id, settlement_id)
+        return read(workspace, booking_id)
+
+    @app.post("/api/deposits/reset")
+    async def reset(workspace: Workspace) -> dict[str, int]:
+        """Release this workspace's holds, stop its workflows, delete its bookings."""
+        with database.transaction() as connection:
+            booking_ids = tx.workspace_bookings(connection, workspace)
+        for booking_id in booking_ids:
+            await workflows.stop(booking_id)
+            with database.transaction() as connection:
+                held = [
+                    tx.record_command(
+                        connection,
+                        booking_id=booking_id,
+                        diver_id=str(d["id"]),
+                        kind="void",
+                        amount_minor=0,
+                    )
+                    for d in tx.divers(connection, booking_id)
+                    if d["state"] == "authorized"
+                ]
+            for command in held:
+                await service.execute(database, ctx.paypal, str(command["id"]))
+            with database.transaction() as connection:
+                connection.execute(
+                    "DELETE FROM deposit_bookings WHERE id=%s", (booking_id,)
+                )
+        return {"deleted": len(booking_ids)}
