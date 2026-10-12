@@ -115,6 +115,7 @@ This module uses its own light governance and does not change the repository's e
 - **Seeded group**: on workspace create or reset, the server authorizes the other group members itself through Orders v2 with `payment_source.card` and **sandbox test cards**. No buyer login is needed. (Sending raw card data from a server is acceptable only for sandbox test cards; production would use PayPal-hosted card fields.)
 - **The judge pays exactly one deposit** as a guest card payment in the PayPal checkout. If the week-1 spike shows that guest card authorization fails in sandbox, the fallback is one shared sandbox buyer account, documented in the Devpost testing notes and kept out of the public repository.
 - **README "Try it in 3 steps"**: (1) open the demo and join the seeded group, (2) pay your deposit with the listed sandbox test card, (3) flip "Simulated storm" or paste the sample operator notice, press fast-forward, and watch the agent propose, execute, or ask.
+- **Synthetic text only**: the operator notice input says "Paste demo text only", because pasted text goes to a free-tier model, and offers a one-click synthetic sample notice that the agent can read and the threshold rules cannot.
 - A **"PayPal sandbox status"** note links PayPal's status page and explains what to do if the sandbox is degraded. A **recorded fallback video** shows the full flow.
 
 ## 7. Deployment: separate demo profile
