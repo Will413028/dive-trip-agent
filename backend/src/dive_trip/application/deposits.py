@@ -50,6 +50,8 @@ class DepositsContext:
     seed_card: SandboxCard
     assessor: Assessor | None = None
     daily_live_cap: int = 50
+    # Public sandbox client ID for the browser's PayPal checkout; None disables it.
+    paypal_client_id: str | None = None
 
 
 _context: DepositsContext | None = None
@@ -203,6 +205,14 @@ async def assess(ctx: DepositsContext, booking_id: str) -> dict[str, Any]:
         )
     facts = agent.facts if agent and agent.facts else rules
     if facts is None:
+        # Visible on the timeline, so a check that changes nothing is not silent.
+        with ctx.database.transaction() as connection:
+            tx.append(
+                connection,
+                booking_id,
+                "no_cancellation_found",
+                {"agent": "ran" if agent else unavailable or "not_configured"},
+            )
         return {"settlementId": None, "reason": "NO_CANCELLATION_EVIDENCE"}
     source: Literal["ai", "no_ai"] = "ai" if agent and agent.facts else "no_ai"
     with ctx.database.transaction() as connection:

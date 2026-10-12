@@ -2,14 +2,14 @@ export class ApiError extends Error {
   constructor(public status: number, public code: string) { super(code); }
 }
 
-export async function request<T>(url: string, body?: unknown, method?: 'DELETE'): Promise<T> {
+export async function request<T>(url: string, body?: unknown, method?: 'DELETE', timeoutMs = 15_000): Promise<T> {
   const serialized = body === undefined ? undefined : JSON.stringify(body);
   if (serialized && new TextEncoder().encode(serialized).length >= 32 * 1024) {
     throw new ApiError(400, 'REQUEST_TOO_LARGE');
   }
   const response = await fetch(url, {
     method: method ?? (serialized === undefined ? 'GET' : 'POST'), cache: 'no-store',
-    signal: AbortSignal.timeout(15_000),
+    signal: AbortSignal.timeout(timeoutMs),
     credentials: 'same-origin',
     ...(serialized === undefined ? {} : { headers: { 'Content-Type': 'application/json' }, body: serialized }),
   });

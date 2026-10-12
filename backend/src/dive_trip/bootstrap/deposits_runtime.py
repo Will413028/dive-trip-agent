@@ -44,7 +44,7 @@ from dive_trip.modules.deposits.paypal import PayPalClient, SandboxCard
 from dive_trip.platform.database import Database, fixture_conninfo
 from dive_trip.platform.migrations import migrate
 
-from .api import create_app
+from .deposits_api import create_deposits_app
 
 SCHEMA = "deposits_demo"
 # PayPal's published sandbox test Visa; only ever sent to the sandbox API.
@@ -151,14 +151,12 @@ async def run(args: argparse.Namespace) -> None:
             seed_card=SEED_CARD,
             assessor=SettlementAgent(model) if model else None,
             daily_live_cap=int(os.environ.get("DEPOSITS_AI_DAILY_CAP", "50")),
+            paypal_client_id=os.environ["PAYPAL_CLIENT_ID"],
         )
         client = await Client.connect(args.temporal_address)
         if args.role == "api":
-            app = create_app(
-                database,
-                [],
-                args.origin,
-                deposits=(ctx, TemporalWorkflows(client, args.task_queue)),
+            app = create_deposits_app(
+                database, args.origin, ctx, TemporalWorkflows(client, args.task_queue)
             )
             server = uvicorn.Server(
                 uvicorn.Config(app, host=args.host, port=args.port, access_log=False)

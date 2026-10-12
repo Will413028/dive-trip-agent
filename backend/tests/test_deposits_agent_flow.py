@@ -173,3 +173,17 @@ async def test_daily_cap_replays_recorded_results_then_stops_live_calls(
     assert runs == 1
     modes = [(c["mode"], c["booking_id"] is None) for c in calls(ctx)]
     assert modes == [("live", True), ("recorded", False), ("capped", False)]
+
+
+async def test_a_check_that_finds_nothing_is_recorded_on_the_timeline(database, paypal):
+    ctx = app.DepositsContext(database, paypal, CARD)  # no agent: rules only
+    booking_id = await booking(ctx, storm=False)
+    result = await app.assess(ctx, booking_id)
+    assert result["reason"] == "NO_CANCELLATION_EVIDENCE"
+    with database.transaction() as connection:
+        last = tx.timeline(connection, booking_id)[-1]
+        assert tx.settlements(connection, booking_id) == []
+    assert (last["kind"], last["detail"]) == (
+        "no_cancellation_found",
+        {"agent": "not_configured"},
+    )

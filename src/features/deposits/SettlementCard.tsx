@@ -33,8 +33,8 @@ export default function SettlementCard({ settlement, divers, evidence, busy, onD
       </tr>)}</tbody>
     </table>
     {settlement.reasons.length > 0
-      ? <><p><strong>Needs organizer approval:</strong></p><ul className="reasons">{settlement.reasons.map((r) => <li key={r}>{REASON_LABEL[r] ?? r}</li>)}</ul></>
-      : <p className="muted">Inside the mandate; executed by the agent without approval.</p>}
+      ? <><p><strong>{settlement.status === 'proposed' ? 'Needs organizer approval:' : 'Why it went to the organizer:'}</strong></p><ul className="reasons">{settlement.reasons.map((r) => <li key={r}>{REASON_LABEL[r] ?? r}</li>)}</ul></>
+      : <p className="muted">Inside the mandate; the agent executed it without approval.</p>}
     {settlement.status === 'proposed' && onDecide && <div className="actions">
       <button className="primary" disabled={busy} onClick={() => onDecide('approve')}>Approve and execute</button>
       <button disabled={busy} onClick={() => onDecide('reject')}>Reject</button>

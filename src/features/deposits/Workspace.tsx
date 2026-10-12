@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { request } from '../../lib/api';
-import { depositError } from './BookingView';
+import { PAYPAL_TIMEOUT_MS, depositError } from './BookingView';
 import { usd } from './format';
 import type { Booking } from './types';
 
@@ -57,11 +57,11 @@ export default function Workspace() {
     <div className="actions">
       <button className="primary large" disabled={busy}
         onClick={() => void run(async () => {
-          const booking = await request<Booking>('/api/deposits/bookings', demoBooking());
+          const booking = await request<Booking>('/api/deposits/bookings', demoBooking(), undefined, PAYPAL_TIMEOUT_MS);
           router.push(`/deposits/${encodeURIComponent(booking.id)}`);
         })}>{busy ? 'Placing sandbox holds…' : 'Create demo group'}</button>
       <button disabled={busy || !bookings?.length}
-        onClick={() => void run(async () => { await request('/api/deposits/reset', {}); setBookings([]); })}>
+        onClick={() => void run(async () => { await request('/api/deposits/reset', {}, undefined, PAYPAL_TIMEOUT_MS); setBookings([]); })}>
         Reset workspace</button>
     </div>
     <p className="muted">Your workspace is private to this browser. Reset releases its open holds and deletes its bookings.</p>

@@ -30,14 +30,19 @@ async def send(
 ) -> dict[str, Any]:
     kind, request_id = command["kind"], command["request_id"]
     if kind == "authorize":
-        if card is None:
+        if card is not None:
+            auth = await client.create_card_authorization(
+                invoice_id=command["invoice_id"],
+                amount_minor=command["amount_minor"],
+                card=card,
+                request_id=request_id,
+            )
+        elif diver["order_id"]:  # the buyer's own checkout order
+            auth = await client.authorize_order(
+                diver["order_id"], request_id=request_id
+            )
+        else:
             raise DomainError("DEPOSIT_CARD_REQUIRED")
-        auth = await client.create_card_authorization(
-            invoice_id=command["invoice_id"],
-            amount_minor=command["amount_minor"],
-            card=card,
-            request_id=request_id,
-        )
         if auth.status != "CREATED" or auth.amountMinor != command["amount_minor"]:
             raise DomainError("PAYPAL_AUTHORIZATION_UNEXPECTED")
         return {
@@ -140,6 +145,79 @@ async def authorize_diver(
             amount_minor=row["deposit_minor"],
         )
     return diver_id, await execute(database, client, str(command["id"]), card)
+
+
+async def start_checkout(
+    database: Database, client: PayPalClient, booking_id: str, name: str
+) -> tuple[str, str]:
+    """Add a diver whose deposit hold the buyer approves in PayPal's checkout.
+
+    The authorize command is stored first; `complete_checkout` (or a reconcile)
+    sends it once PayPal reports the order approved.
+    """
+    with database.transaction() as connection:
+        row = connection.execute(
+            "SELECT deposit_minor FROM deposit_bookings WHERE id=%s", (booking_id,)
+        ).fetchone()
+        if row is None:
+            raise DomainError("NOT_FOUND")
+        # A declined checkout leaves the diver without a hold; retrying reuses it.
+        diver_id = tx.retry_checkout_diver(connection, booking_id, name) or (
+            tx.add_diver(connection, booking_id, name, seeded=False)
+        )
+        command = tx.record_command(
+            connection,
+            booking_id=booking_id,
+            diver_id=diver_id,
+            kind="authorize",
+            amount_minor=row["deposit_minor"],
+        )
+    try:
+        order_id = await client.create_checkout_order(
+            invoice_id=command["invoice_id"],
+            amount_minor=command["amount_minor"],
+            request_id=f"{command['request_id']}-order",
+        )
+    except DomainError as error:
+        # No order means nothing the buyer could approve: close the hold attempt.
+        with database.transaction() as connection:
+            tx.complete_command(
+                connection, str(command["id"]), "rejected", error_code=error.code
+            )
+        raise
+    with database.transaction() as connection:
+        tx.set_checkout_order(connection, diver_id, order_id)
+    return diver_id, order_id
+
+
+async def complete_checkout(
+    database: Database,
+    client: PayPalClient,
+    booking_id: str,
+    diver_id: str,
+    order_id: str,
+) -> str:
+    with database.transaction() as connection:
+        command = connection.execute(
+            "SELECT c.id FROM deposit_money_commands c JOIN deposit_divers d "
+            "ON d.id=c.diver_id WHERE c.booking_id=%s AND c.diver_id=%s "
+            "AND c.kind='authorize' AND c.status IN ('pending','unknown') "
+            "AND d.order_id=%s",
+            (booking_id, diver_id, order_id),
+        ).fetchone()
+        if command is None:
+            raise DomainError("MONEY_COMMAND_NOT_OPEN")
+    outcome = await execute(database, client, str(command["id"]))
+    if outcome == "unknown":  # a reconcile retries it with the same request id
+        raise PayPalUnknownOutcome()
+    if outcome == "rejected":
+        with database.transaction() as connection:
+            closed = connection.execute(
+                "SELECT error_code FROM deposit_money_commands WHERE id=%s",
+                (command["id"],),
+            ).fetchone()
+        raise DomainError((closed or {}).get("error_code") or "PAYPAL_REJECTED")
+    return outcome
 
 
 async def execute_settlement(

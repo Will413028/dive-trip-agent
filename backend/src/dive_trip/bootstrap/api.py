@@ -9,7 +9,6 @@ from pydantic import Field
 
 from dive_trip.application.deletion import DeletionService
 from dive_trip.application.demo import DemoScenario, demo_snapshot
-from dive_trip.application.deposits import DepositsContext
 from dive_trip.application.dispatch import AgentDispatcher
 from dive_trip.application.run_queries import RunQueries
 from dive_trip.application.sharing import SharingService
@@ -33,7 +32,6 @@ from .chat import (
     observe,
     start_while_connected,
 )
-from .deposits_api import Workflows, register_deposits
 from .http_boundary import HttpBoundary
 
 
@@ -80,7 +78,6 @@ def create_app(
     origin: str,
     *,
     dispatcher: AgentDispatcher | None = None,
-    deposits: tuple[DepositsContext, Workflows] | None = None,
 ) -> FastAPI:
     app = FastAPI(title="Dive Trip API", version="0.1.0")
     app.add_middleware(HttpBoundary, origin=origin)
@@ -97,10 +94,6 @@ def create_app(
 
     @app.exception_handler(DomainError)
     async def domain_error(request: Request, error: DomainError) -> JSONResponse:
-        if error.code.startswith(
-            ("SETTLEMENT_", "MONEY_COMMAND_", "DEPOSIT_", "PAYPAL_")
-        ):
-            return JSONResponse({"error": error.code}, status_code=409)
         status = (
             404
             if error.code == "NOT_FOUND"
@@ -147,9 +140,6 @@ def create_app(
                 path="/",
             )
         return owner
-
-    if deposits is not None:
-        register_deposits(app, deposits[0], deposits[1], ensure_session)
 
     @app.get("/api/trips/{trip_id}/runs")
     def runs(trip_id: str, owner: str = Depends(require_owner)) -> dict[str, Any]:

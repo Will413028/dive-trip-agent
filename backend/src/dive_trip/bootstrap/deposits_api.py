@@ -9,7 +9,9 @@ from collections.abc import Callable
 from datetime import UTC, date, datetime, time
 from typing import Annotated, Any, Literal, Protocol
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Request, Response
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from pydantic import Field
 
 from dive_trip.application.deposits import (
@@ -19,6 +21,8 @@ from dive_trip.application.deposits import (
 from dive_trip.modules.deposits import service
 from dive_trip.modules.deposits import transactions as tx
 from dive_trip.modules.deposits.domain import CauseRule, Mandate, RefundPolicy
+from dive_trip.modules.identity.public import Sessions
+from dive_trip.platform.database import Database
 from dive_trip.platform.db_async import run_db
 from dive_trip.platform.errors import DomainError
 from dive_trip.platform.schema import (
@@ -28,6 +32,8 @@ from dive_trip.platform.schema import (
     PositiveInt,
     WireModel,
 )
+
+from .http_boundary import HttpBoundary
 
 
 class Workflows(Protocol):
@@ -51,6 +57,10 @@ class CreateBooking(WireModel):
 
 class Join(WireModel):
     name: Annotated[Nonempty, Field(max_length=60)]
+
+
+class Authorize(WireModel):
+    orderId: Annotated[str, Field(pattern=r"^[A-Z0-9]{8,32}$")]
 
 
 class AddEvidence(WireModel):
@@ -203,6 +213,33 @@ def register_deposits(
         )
         return read(workspace, booking_id)
 
+    @app.get("/api/deposits/config")
+    def config() -> dict[str, str | None]:
+        return {"paypalClientId": ctx.paypal_client_id}
+
+    @app.post("/api/deposits/bookings/{booking_id}/checkout")
+    async def checkout(
+        booking_id: str, body: Join, workspace: Workspace
+    ) -> dict[str, str]:
+        """Start the judge's own deposit: an order they approve in PayPal checkout."""
+        owned(workspace, booking_id)
+        if ctx.paypal_client_id is None:
+            raise DomainError("DEPOSIT_CHECKOUT_DISABLED")
+        diver_id, order_id = await service.start_checkout(
+            database, ctx.paypal, booking_id, body.name
+        )
+        return {"diverId": diver_id, "orderId": order_id}
+
+    @app.post("/api/deposits/bookings/{booking_id}/divers/{diver_id}/authorize")
+    async def authorize(
+        booking_id: str, diver_id: str, body: Authorize, workspace: Workspace
+    ) -> dict[str, Any]:
+        owned(workspace, booking_id)
+        await service.complete_checkout(
+            database, ctx.paypal, booking_id, diver_id, body.orderId
+        )
+        return read(workspace, booking_id)
+
     @app.post("/api/deposits/bookings/{booking_id}/evidence")
     def add_evidence(
         booking_id: str, body: AddEvidence, workspace: Workspace
@@ -277,3 +314,53 @@ def register_deposits(
                     "DELETE FROM deposit_bookings WHERE id=%s", (booking_id,)
                 )
         return {"deleted": len(booking_ids)}
+
+
+def create_deposits_app(
+    database: Database, origin: str, ctx: DepositsContext, workflows: Workflows
+) -> FastAPI:
+    """The demo profile's whole API: an anonymous session plus deposit routes.
+
+    The planning product (trips, runs, sharing, deletion) is never mounted here.
+    """
+    app = FastAPI(title="Dive Trip group deposits demo", version="0.1.0")
+    app.add_middleware(HttpBoundary, origin=origin)
+    sessions = Sessions(database)
+
+    @app.exception_handler(RequestValidationError)
+    async def invalid_request(
+        request: Request, error: RequestValidationError
+    ) -> JSONResponse:
+        return JSONResponse({"error": "INVALID_REQUEST"}, status_code=400)
+
+    @app.exception_handler(DomainError)
+    async def domain_error(request: Request, error: DomainError) -> JSONResponse:
+        if error.code == "NOT_FOUND":
+            return JSONResponse({"error": error.code}, status_code=404)
+        if error.code.startswith(
+            ("SETTLEMENT_", "MONEY_COMMAND_", "DEPOSIT_", "PAYPAL_")
+        ):
+            return JSONResponse({"error": error.code}, status_code=409)
+        return JSONResponse({"error": "SERVICE_UNAVAILABLE"}, status_code=503)
+
+    @app.exception_handler(Exception)
+    async def unavailable(request: Request, error: Exception) -> JSONResponse:
+        return JSONResponse({"error": "SERVICE_UNAVAILABLE"}, status_code=503)
+
+    def workspace_of(request: Request, response: Response) -> str:
+        owner = sessions.resolve(";".join(request.headers.getlist("cookie")))
+        if owner is None:
+            owner, token = sessions.create()
+            response.set_cookie(
+                "dive_trip_session",
+                token,
+                max_age=2592000,
+                httponly=True,
+                secure=origin.startswith("https:"),
+                samesite="lax",
+                path="/",
+            )
+        return owner
+
+    register_deposits(app, ctx, workflows, workspace_of)
+    return app

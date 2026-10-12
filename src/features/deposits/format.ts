@@ -5,7 +5,7 @@ export function usd(minor: number): string {
 }
 
 export function depositState(diver: Diver): string {
-  if (diver.state === 'pending') return 'Authorizing…';
+  if (diver.state === 'pending') return 'No hold yet (checkout not completed)';
   if (diver.state === 'authorized') return `On hold, not charged · ${usd(diver.authorizedMinor)}`;
   if (diver.state === 'voided') return 'Hold released · charged USD 0.00';
   const net = diver.capturedMinor - diver.refundedMinor;

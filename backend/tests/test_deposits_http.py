@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 from test_deposits_service import CARD, FakePayPal
 
 from dive_trip.application import deposits as app
-from dive_trip.bootstrap.api import create_app
+from dive_trip.bootstrap.deposits_api import create_deposits_app
 from dive_trip.modules.deposits.paypal import PayPalClient
 
 pytestmark = pytest.mark.integration
@@ -66,7 +66,7 @@ def build(database):
     ctx = app.DepositsContext(database=database, paypal=paypal, seed_card=CARD)
     workflows = RecordingWorkflows(ctx)
     client = TestClient(
-        create_app(database, [], ORIGIN, deposits=(ctx, workflows)),
+        create_deposits_app(database, ORIGIN, ctx, workflows),
         base_url=ORIGIN,
         headers={"Origin": ORIGIN},
     )
@@ -122,4 +122,12 @@ def test_invalid_mandate_payload_is_rejected(database) -> None:
     with client:
         bad = {**BOOKING, "mandate": {**BOOKING["mandate"], "allowedCauses": ["x"]}}
         assert client.post("/api/deposits/bookings", json=bad).status_code == 400
+    asyncio.run(paypal.aclose())
+
+
+def test_demo_profile_mounts_only_session_backed_deposit_routes(database) -> None:
+    client, _, paypal = build(database)
+    paths = {getattr(route, "path", "") for route in client.app.routes}
+    api = {path for path in paths if path.startswith("/api/")}
+    assert api and all(path.startswith("/api/deposits/") for path in api)
     asyncio.run(paypal.aclose())

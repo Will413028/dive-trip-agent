@@ -196,7 +196,16 @@ Run against a US sandbox business account with the sandbox test Visa `4111 1111 
 
 A payee account outside the US (sandbox country C2) rejected the card order with `422 PAYEE_NOT_ENABLED_FOR_CARD_PROCESSING`, so the demo merchant must be a US sandbox business account.
 
+Guest card checkout (2026-10-13, local demo stack, JS SDK card button, `intent=authorize`): the server creates the AUTHORIZE order without `payment_source`, the buyer approves it in PayPal's inline card form, and `onApprove` asks the server to call `orders/{id}/authorize` under the stored money command's request ID.
+
+| Check | Result |
+| --- | --- |
+| Sandbox test Visa `4012 8888 8888 1881` from PayPal's card-testing list | authorization `CREATED`, diver on hold for USD 100.00 |
+| Generic `4111 1111 1111 1111` in the same guest form | `422 INSTRUMENT_DECLINED` on authorize (the same number works for the server-side `payment_source.card` seed) |
+| Form fields | the US billing form requires a mobile number; the SDK calls `createOrder` before field validation, so the page reuses the order it already started for that name |
+
+A declined attempt closes its command as rejected; retrying with the same name reuses the pending diver with a new command and order.
+
 Still open:
 
-1. Does a guest card payment through the PayPal JS SDK checkout (the judge's own deposit) complete `intent=AUTHORIZE`?
-2. Duplicate `invoice_id` responses and same-key retries for create and refund; how long PayPal keeps an idempotency key.
+1. Duplicate `invoice_id` responses and same-key retries for create and refund; how long PayPal keeps an idempotency key.

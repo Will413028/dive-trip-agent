@@ -170,6 +170,29 @@ class PayPalClient:
         )
         return authorization_of(order)
 
+    async def create_checkout_order(
+        self, *, invoice_id: str, amount_minor: int, request_id: str
+    ) -> str:
+        """An AUTHORIZE order the buyer approves in PayPal's checkout (guest card)."""
+        order = await self._call(
+            "POST",
+            "/v2/checkout/orders",
+            {
+                "intent": "AUTHORIZE",
+                "purchase_units": [
+                    {"invoice_id": invoice_id, "amount": usd(amount_minor)}
+                ],
+            },
+            request_id,
+        )
+        return str(order["id"])
+
+    async def authorize_order(self, order_id: str, *, request_id: str) -> Authorization:
+        order = await self._call(
+            "POST", f"/v2/checkout/orders/{order_id}/authorize", {}, request_id
+        )
+        return authorization_of(order)
+
     async def capture(
         self,
         authorization_id: str,

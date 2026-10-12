@@ -108,6 +108,32 @@ def add_diver(
     return diver_id
 
 
+def retry_checkout_diver(
+    connection: ConnectionType, booking_id: str, name: str
+) -> str | None:
+    """A non-seeded diver whose every hold attempt was rejected, ready to retry."""
+    row = connection.execute(
+        "UPDATE deposit_divers d SET order_id=NULL WHERE booking_id=%s "
+        "AND display_name=%s AND NOT seeded AND state='pending' AND NOT EXISTS ("
+        "SELECT 1 FROM deposit_money_commands c WHERE c.diver_id=d.id "
+        "AND c.status<>'rejected') RETURNING id",
+        (booking_id, name),
+    ).fetchone()
+    return str(row["id"]) if row else None
+
+
+def set_checkout_order(
+    connection: ConnectionType, diver_id: str, order_id: str
+) -> None:
+    row = connection.execute(
+        "UPDATE deposit_divers SET order_id=%s WHERE id=%s AND state='pending' "
+        "AND order_id IS NULL RETURNING id",
+        (order_id, diver_id),
+    ).fetchone()
+    if row is None:
+        raise DomainError("DEPOSIT_CHECKOUT_CONFLICT")
+
+
 def divers(connection: ConnectionType, booking_id: str) -> list[dict[str, Any]]:
     return connection.execute(
         "SELECT * FROM deposit_divers WHERE booking_id=%s ORDER BY created_at,id",
