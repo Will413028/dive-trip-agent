@@ -180,11 +180,21 @@ The demo runs as a **separate profile on the owner's own VM**: an independent co
 
 The README and AGENTS.md product contract currently say the product provides no booking or payment. A follow-up change will state that group booking deposits are in scope **for the demo profile only**, still with no real money and no dive-safety endorsement.
 
-## 13. Open questions (to verify in W1)
+## 13. Sandbox verification (W1, 2026-10-12)
 
-1. Does a guest card payment through the PayPal checkout complete `intent=AUTHORIZE` in sandbox?
-2. Does an Orders v2 create with `payment_source.card` and a sandbox test card return an authorization directly, or does it need a separate authorize call, and does it trigger 3-D Secure?
-3. After a partial capture with `final_capture=true`, is the uncaptured remainder released immediately, and does the authorization show as fully closed?
-4. Does void behave as documented on an authorization with no captures, and is it rejected after a final capture?
-5. Do full and partial refunds of a capture behave as documented in sandbox, including the duplicate-key and duplicate-invoice responses?
-6. Does a same-key retry within the idempotency window return the original result for create, authorize, capture, and refund?
+Run against a US sandbox business account with the sandbox test Visa `4111 1111 1111 1111`, USD 100.00 deposits:
+
+| Check | Result |
+| --- | --- |
+| Orders v2 create with `payment_source.card`, `intent=AUTHORIZE` | `201`, order `COMPLETED`, authorization `CREATED` in the same response; no buyer login, no 3-D Secure challenge; authorization expires 29 days later |
+| Partial capture USD 30.00 with `final_capture=true` | `201 COMPLETED`; authorization becomes `CAPTURED`; a further capture returns `422 AUTHORIZATION_ALREADY_CAPTURED`, so the remainder is closed |
+| Same `PayPal-Request-Id` retry of that capture | `200` with the same capture ID (no duplicate charge) |
+| Void with no captures | `200`; authorization `VOIDED` |
+| Full capture, then refund USD 40.00 | refund `201 COMPLETED`; capture `PARTIALLY_REFUNDED` |
+
+A payee account outside the US (sandbox country C2) rejected the card order with `422 PAYEE_NOT_ENABLED_FOR_CARD_PROCESSING`, so the demo merchant must be a US sandbox business account.
+
+Still open:
+
+1. Does a guest card payment through the PayPal JS SDK checkout (the judge's own deposit) complete `intent=AUTHORIZE`?
+2. Duplicate `invoice_id` responses and same-key retries for create and refund; how long PayPal keeps an idempotency key.
