@@ -25,7 +25,10 @@ dev = ["pytest>=8,<10", "pytest-asyncio>=1,<2", "httpx>=0.28,<1", "ruff>=0.12,<1
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
-markers = ["integration: isolated PostgreSQL or Temporal required"]
+markers = [
+  "integration: isolated PostgreSQL or Temporal required",
+  "paypal_sandbox: live PayPal sandbox calls, opt-in with RUN_PAYPAL_SANDBOX=1",
+]
 
 [tool.ruff]
 target-version = "py313"
