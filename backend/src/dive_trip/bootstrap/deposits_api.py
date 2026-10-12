@@ -66,6 +66,22 @@ class Decide(WireModel):
     decision: Literal["approve", "reject"]
 
 
+def agent_view(settlement: dict[str, Any]) -> dict[str, Any] | None:
+    """Which agent call backs a settlement; only verified quotes leave the server."""
+    if settlement["agent_mode"] is None:
+        return None
+    result = settlement["agent_result"] or {}
+    return {
+        "mode": settlement["agent_mode"],  # live, recorded, or capped
+        "status": settlement["agent_status"],  # a failed live call fell back to No AI
+        "model": settlement["agent_model"],
+        "at": settlement["agent_at"].isoformat(),
+        "confidence": result.get("confidence"),
+        "executionRequested": result.get("executionRequested"),
+        "citations": result.get("citations", []),
+    }
+
+
 def view(connection: tx.ConnectionType, row: dict[str, Any]) -> dict[str, Any]:
     booking_id = str(row["id"])
     return {
@@ -108,6 +124,7 @@ def view(connection: tx.ConnectionType, row: dict[str, Any]) -> dict[str, Any]:
                 "withinMandate": s["within_mandate"],
                 "reasons": s["reasons"],
                 "status": s["status"],
+                "agent": agent_view(s),
             }
             for s in tx.settlements(connection, booking_id)
         ],

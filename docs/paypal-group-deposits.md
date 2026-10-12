@@ -77,7 +77,7 @@ All inputs are data, never system instructions. Each input item gets an evidence
 | --- | --- | --- |
 | `get_booking` | Booking, divers, payment states, policy version, mandate | Read only |
 | `get_weather` | Normalized forecast plus stored notice and alert texts with evidence IDs | Read only |
-| `propose_settlement` | Submits **structured facts**: cause, affected days, evidence citations, confidence | Facts only, never amounts or percentages |
+| `propose_settlement` | Submits **structured facts**: cause, affected days, evidence citations, confidence; returns the server's per-diver actions and mandate preview | Facts only, never amounts or percentages; each citation is a short quote that must appear verbatim in the cited evidence |
 | `execute_within_mandate` | Asks the server to execute a stored proposal | Proposal ID only |
 | optional read-only PayPal Agent Toolkit order lookup | Lets the agent answer "what is the status of my deposit" | Read only; no money-moving toolkit tools are exposed |
 
@@ -87,6 +87,7 @@ All inputs are data, never system instructions. Each input item gets an evidence
 2. **Computes all amounts deterministically** from the immutable policy version and each diver's payment state, then picks void, partial capture, capture, or refund per diver.
 3. Runs **deterministic threshold rules** (wave height, alert present) as a **sanity guard, not a veto**. Disagreement does not discard the proposal, because an operator notice can legitimately cancel a day that the forecast numbers do not flag. It removes auto-execution and shows "AI and rules disagree" to the organizer.
 4. Checks the **mandate**: auto-execute cap per diver and per booking, allowed actions, allowed causes, expiry. Inside the mandate, `execute_within_mandate` creates money commands. Outside it, the agent stops and the organizer approves or rejects. The organizer can correct facts, not amounts; the server recomputes.
+5. Auto-executes only when every gate passes: the agent called `execute_within_mandate` on its latest proposal, rated its confidence high, agrees with the rules guard, and the mandate check passes. Each failed gate is a reason shown to the organizer (`AI_REQUESTED_REVIEW`, `AI_NOT_CONFIDENT`, `AI_AND_RULES_DISAGREE`, mandate reasons). The agent runs over a snapshot; its tools never touch the database or PayPal, and only verified quotes reach the UI.
 
 ### 4.4 Models and fallback
 
@@ -99,7 +100,7 @@ This module uses its own light governance and does not change the repository's e
 - synthetic data only;
 - an environment-configured daily cap (default **50 live runs/day**), with auto-stop when it is reached;
 - a separate call-log table owned by this module (existing quota tables are untouched);
-- when the cap is hit, the UI shows precomputed results, clearly labeled **"Recorded AI result"** with model and timestamp.
+- when the cap is hit, the UI shows precomputed results, clearly labeled **"Recorded AI result"** with model and timestamp. A recorded result is the latest successful live result for the same policy terms and the same evidence content (evidence IDs differ per booking and are remapped); with nothing to replay, the assessment is "No AI". Every started live run counts, including failures, and call rows outlive workspace resets.
 
 ## 5. Weather and time
 

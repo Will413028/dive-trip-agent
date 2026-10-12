@@ -10,7 +10,7 @@ from pathlib import Path
 from dive_trip.platform.database import Database
 from dive_trip.platform.errors import DomainError
 
-DEPOSIT_MIGRATIONS = ("001-deposits",)
+DEPOSIT_MIGRATIONS = ("001-deposits", "002-agent-calls")
 
 
 def migrate_deposits(database: Database) -> None:

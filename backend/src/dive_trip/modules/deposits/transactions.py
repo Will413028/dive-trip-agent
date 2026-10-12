@@ -247,11 +247,13 @@ def save_settlement(
     facts: SettlementFacts,
     plan: list[DiverSettlement],
     check: MandateCheck,
+    agent_call_id: str | None = None,
 ) -> str:
     settlement_id = str(uuid4())
     connection.execute(
         "INSERT INTO deposit_settlements(id,booking_id,source,facts,plan,"
-        "within_mandate,reasons,status) VALUES(%s,%s,%s,%s,%s,%s,%s,'proposed')",
+        "within_mandate,reasons,status,agent_call_id) "
+        "VALUES(%s,%s,%s,%s,%s,%s,%s,'proposed',%s)",
         (
             settlement_id,
             booking_id,
@@ -260,6 +262,7 @@ def save_settlement(
             Jsonb([item.model_dump(mode="json") for item in plan]),
             check.withinMandate,
             Jsonb(check.reasons),
+            agent_call_id,
         ),
     )
     append(
@@ -343,10 +346,85 @@ def evidence(connection: ConnectionType, booking_id: str) -> list[dict[str, Any]
 
 
 def settlements(connection: ConnectionType, booking_id: str) -> list[dict[str, Any]]:
+    """Settlements with the agent call behind them; a replay shows its original time."""
     return connection.execute(
-        "SELECT * FROM deposit_settlements WHERE booking_id=%s ORDER BY created_at,id",
+        "SELECT s.*,c.mode AS agent_mode,c.status AS agent_status,"
+        "c.model AS agent_model,c.result AS agent_result,"
+        "COALESCE(o.created_at,c.created_at) AS agent_at "
+        "FROM deposit_settlements s "
+        "LEFT JOIN deposit_agent_calls c ON c.id=s.agent_call_id "
+        "LEFT JOIN deposit_agent_calls o ON o.id=c.replay_of "
+        "WHERE s.booking_id=%s ORDER BY s.created_at,s.id",
         (booking_id,),
     ).fetchall()
+
+
+AGENT_CALL_LOCK = 724914
+
+
+def reserve_agent_call(
+    connection: ConnectionType,
+    booking_id: str,
+    *,
+    digest: str,
+    daily_cap: int,
+    today: date,
+) -> dict[str, Any]:
+    """Start a live call under the daily cap, else replay a recorded result or refuse.
+
+    Every started live call counts, even one that later fails or never finishes.
+    """
+    connection.execute("SELECT pg_advisory_xact_lock(%s,0)", (AGENT_CALL_LOCK,))
+    used = connection.execute(
+        "SELECT count(*) AS n FROM deposit_agent_calls WHERE day=%s AND mode='live'",
+        (today,),
+    ).fetchone()
+    call_id = str(uuid4())
+    if used is not None and used["n"] < daily_cap:
+        row = connection.execute(
+            "INSERT INTO deposit_agent_calls(id,booking_id,day,mode,status,"
+            "input_digest) VALUES(%s,%s,%s,'live','started',%s) RETURNING *",
+            (call_id, booking_id, today, digest),
+        ).fetchone()
+    else:
+        row = connection.execute(
+            "INSERT INTO deposit_agent_calls(id,booking_id,day,mode,status,"
+            "input_digest,model,replay_of,result,error_code,finished_at) "
+            "SELECT %s,%s,%s,CASE WHEN o.id IS NULL THEN 'capped' ELSE 'recorded' END,"
+            "CASE WHEN o.id IS NULL THEN 'failed' ELSE 'succeeded' END,%s,o.model,"
+            "o.id,o.result,CASE WHEN o.id IS NULL THEN 'DAILY_CAP_REACHED' END,"
+            "clock_timestamp() FROM (SELECT 1) one LEFT JOIN LATERAL ("
+            "SELECT id,model,result FROM deposit_agent_calls WHERE mode='live' "
+            "AND status='succeeded' AND input_digest=%s "
+            "ORDER BY created_at DESC LIMIT 1) o ON true RETURNING *",
+            (call_id, booking_id, today, digest, digest),
+        ).fetchone()
+    if row is None:
+        raise DomainError("AGENT_CALL_NOT_RECORDED")
+    return row
+
+
+def finish_agent_call(
+    connection: ConnectionType,
+    call_id: str,
+    *,
+    model: str | None,
+    result: dict[str, Any] | None,
+    error_code: str | None,
+) -> None:
+    row = connection.execute(
+        "UPDATE deposit_agent_calls SET status=%s,model=%s,result=%s,error_code=%s,"
+        "finished_at=clock_timestamp() WHERE id=%s AND status='started' RETURNING id",
+        (
+            "failed" if error_code else "succeeded",
+            model,
+            Jsonb(result) if result is not None else None,
+            error_code,
+            call_id,
+        ),
+    ).fetchone()
+    if row is None:
+        raise DomainError("AGENT_CALL_NOT_STARTED")
 
 
 def workspace_bookings(connection: ConnectionType, workspace: str) -> list[str]:
