@@ -310,3 +310,48 @@ def timeline(connection: ConnectionType, booking_id: str) -> list[dict[str, Any]
         "ORDER BY id",
         (booking_id,),
     ).fetchall()
+
+
+def add_evidence(
+    connection: ConnectionType,
+    booking_id: str,
+    kind: Literal["notice", "alert", "forecast", "simulated"],
+    body: str,
+    data: dict[str, Any] | None = None,
+) -> str:
+    evidence_id = str(uuid4())
+    connection.execute(
+        "INSERT INTO deposit_evidence(id,booking_id,kind,body,data) "
+        "VALUES(%s,%s,%s,%s,%s)",
+        (evidence_id, booking_id, kind, body, Jsonb(data) if data else None),
+    )
+    append(
+        connection,
+        booking_id,
+        "evidence_added",
+        {"evidenceId": evidence_id, "kind": kind, "excerpt": body[:200]},
+    )
+    return evidence_id
+
+
+def evidence(connection: ConnectionType, booking_id: str) -> list[dict[str, Any]]:
+    return connection.execute(
+        "SELECT id,kind,body,data,created_at FROM deposit_evidence "
+        "WHERE booking_id=%s ORDER BY created_at,id",
+        (booking_id,),
+    ).fetchall()
+
+
+def settlements(connection: ConnectionType, booking_id: str) -> list[dict[str, Any]]:
+    return connection.execute(
+        "SELECT * FROM deposit_settlements WHERE booking_id=%s ORDER BY created_at,id",
+        (booking_id,),
+    ).fetchall()
+
+
+def workspace_bookings(connection: ConnectionType, workspace: str) -> list[str]:
+    rows = connection.execute(
+        "SELECT id FROM deposit_bookings WHERE workspace_hash=%s ORDER BY created_at",
+        (workspace_hash(workspace),),
+    ).fetchall()
+    return [str(row["id"]) for row in rows]

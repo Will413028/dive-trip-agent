@@ -83,6 +83,18 @@ CREATE UNIQUE INDEX deposit_money_commands_once ON deposit_money_commands
   (diver_id, kind, COALESCE(settlement_id, '00000000-0000-0000-0000-000000000000'))
   WHERE status <> 'rejected';
 
+-- Cancellation evidence the settlement cites: operator notices, alerts, forecasts,
+-- and clearly labelled simulated storms. Evidence is data, never instructions.
+CREATE TABLE deposit_evidence (
+  id uuid PRIMARY KEY,
+  booking_id uuid NOT NULL REFERENCES deposit_bookings ON DELETE CASCADE,
+  kind text NOT NULL CHECK (kind IN ('notice', 'alert', 'forecast', 'simulated')),
+  body text NOT NULL CHECK (length(body) BETWEEN 1 AND 4000),
+  data jsonb CHECK (data IS NULL OR (jsonb_typeof(data) = 'object'
+    AND octet_length(data::text) <= 32768)),
+  created_at timestamptz NOT NULL DEFAULT clock_timestamp()
+);
+
 -- Append-only audit timeline; rows are removed only with their booking.
 CREATE TABLE deposit_timeline (
   id bigserial PRIMARY KEY,
