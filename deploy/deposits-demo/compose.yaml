@@ -109,6 +109,8 @@ services:
     environment:
       PAYPAL_ENV: sandbox
       DEPOSITS_AI_DAILY_CAP: ${DEPOSITS_AI_DAILY_CAP:-50}
+      # gemini-2.5-flash is closed to new API users (404 on 2026-10-14).
+      DEPOSITS_GEMINI_MODEL: ${DEPOSITS_GEMINI_MODEL:-gemini-3.8-flash}
     command:
       - --role=worker
       - --database-host=db

@@ -100,7 +100,7 @@ This module uses its own light governance and does not change the repository's e
 - synthetic data only;
 - an environment-configured daily cap (default **50 live runs/day**), with auto-stop when it is reached;
 - a separate call-log table owned by this module (existing quota tables are untouched);
-- when the cap is hit, the UI shows precomputed results, clearly labeled **"Recorded AI result"** with model and timestamp. A recorded result is the latest successful live result for the same policy terms and the same evidence content (evidence IDs differ per booking and are remapped); with nothing to replay, the assessment is "No AI". Every started live run counts, including failures, and call rows outlive workspace resets.
+- when the cap is hit, the UI shows precomputed results, clearly labeled **"Recorded AI result"** with model and timestamp. A recorded result is the latest successful live result for the same policy terms and the same evidence content (evidence IDs differ per booking and are remapped); the same replay also covers a failed live call (for example a free-tier rate limit); with nothing to replay, the assessment is "No AI". The call log records failures as short reasons such as `RATE_LIMITED` or `MODEL_NOT_FOUND`. Every started live run counts, including failures, and call rows outlive workspace resets.
 
 ## 5. Weather and time
 

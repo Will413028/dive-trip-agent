@@ -97,7 +97,7 @@ def settlement_model() -> Model | None:
         )
         models.append(
             GoogleModel(
-                os.environ.get("DEPOSITS_GEMINI_MODEL", "gemini-2.5-flash"),
+                os.environ.get("DEPOSITS_GEMINI_MODEL", "gemini-3.8-flash"),
                 provider=GoogleProvider(client=client),
             )
         )

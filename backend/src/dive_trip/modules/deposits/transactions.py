@@ -413,21 +413,32 @@ def reserve_agent_call(
             (call_id, booking_id, today, digest),
         ).fetchone()
     else:
-        row = connection.execute(
-            "INSERT INTO deposit_agent_calls(id,booking_id,day,mode,status,"
-            "input_digest,model,replay_of,result,error_code,finished_at) "
-            "SELECT %s,%s,%s,CASE WHEN o.id IS NULL THEN 'capped' ELSE 'recorded' END,"
-            "CASE WHEN o.id IS NULL THEN 'failed' ELSE 'succeeded' END,%s,o.model,"
-            "o.id,o.result,CASE WHEN o.id IS NULL THEN 'DAILY_CAP_REACHED' END,"
-            "clock_timestamp() FROM (SELECT 1) one LEFT JOIN LATERAL ("
-            "SELECT id,model,result FROM deposit_agent_calls WHERE mode='live' "
-            "AND status='succeeded' AND input_digest=%s "
-            "ORDER BY created_at DESC LIMIT 1) o ON true RETURNING *",
-            (call_id, booking_id, today, digest, digest),
-        ).fetchone()
+        row = (
+            replay_agent_call(connection, booking_id, digest=digest, today=today)
+            or connection.execute(
+                "INSERT INTO deposit_agent_calls(id,booking_id,day,mode,status,"
+                "input_digest,error_code,finished_at) VALUES(%s,%s,%s,'capped',"
+                "'failed',%s,'DAILY_CAP_REACHED',clock_timestamp()) RETURNING *",
+                (call_id, booking_id, today, digest),
+            ).fetchone()
+        )
     if row is None:
         raise DomainError("AGENT_CALL_NOT_RECORDED")
     return row
+
+
+def replay_agent_call(
+    connection: ConnectionType, booking_id: str, *, digest: str, today: date
+) -> dict[str, Any] | None:
+    """Record a replay of the latest successful live result for identical input."""
+    return connection.execute(
+        "INSERT INTO deposit_agent_calls(id,booking_id,day,mode,status,input_digest,"
+        "model,replay_of,result,finished_at) SELECT %s,%s,%s,'recorded','succeeded',"
+        "input_digest,model,id,result,clock_timestamp() FROM deposit_agent_calls "
+        "WHERE mode='live' AND status='succeeded' AND input_digest=%s "
+        "ORDER BY created_at DESC LIMIT 1 RETURNING *",
+        (str(uuid4()), booking_id, today, digest),
+    ).fetchone()
 
 
 def finish_agent_call(

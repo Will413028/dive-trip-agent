@@ -4,6 +4,7 @@ from datetime import date
 
 import httpx2 as httpx
 import pytest
+from pydantic_ai.exceptions import ModelHTTPError
 from test_deposits_agent import NOTICE, reader
 from test_deposits_service import CARD, POLICY
 from test_deposits_workflow import MANDATE, AlwaysCaptures
@@ -187,3 +188,26 @@ async def test_a_check_that_finds_nothing_is_recorded_on_the_timeline(database, 
         "no_cancellation_found",
         {"agent": "not_configured"},
     )
+
+
+async def test_a_failed_live_call_replays_a_recorded_result_for_the_same_evidence(
+    database, paypal
+):
+    calls_made = 0
+
+    async def flaky(snapshot: AgentInput) -> AgentAssessment:
+        nonlocal calls_made
+        calls_made += 1
+        if calls_made > 1:
+            raise ModelHTTPError(429, "gemini-test")
+        return await SettlementAgent(reader(days=[2]))(snapshot)
+
+    ctx = app.DepositsContext(database, paypal, CARD, assessor=flaky)
+    await app.assess(ctx, await booking(ctx))
+    second = await booking(ctx)
+    await app.assess(ctx, second)
+    replay = settlement(ctx, second)
+    assert (replay["source"], replay["agent_mode"]) == ("ai", "recorded")
+    assert "AI_UNAVAILABLE" not in replay["reasons"]
+    failed = [c for c in calls(ctx) if c["status"] == "failed"]
+    assert [(c["mode"], c["error_code"]) for c in failed] == [("live", "RATE_LIMITED")]

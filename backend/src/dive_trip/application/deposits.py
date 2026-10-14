@@ -129,6 +129,22 @@ def _replayed(
     return AgentAssessment.model_validate(recorded)
 
 
+def failure_code(error: BaseException) -> str:
+    """A short, secret-free reason for the call log (letters and underscores)."""
+    status = getattr(error, "status_code", None)
+    if isinstance(status, int):
+        if status == 429:
+            return "RATE_LIMITED"
+        if status in (401, 403):
+            return "PROVIDER_AUTH"
+        if status == 404:
+            return "MODEL_NOT_FOUND"
+        if status >= 500:
+            return "PROVIDER_UNAVAILABLE"
+        return "PROVIDER_REJECTED"
+    return re.sub(r"[^A-Za-z_]", "", type(error).__name__)[:80] or "ERROR"
+
+
 async def consult_agent(
     ctx: DepositsContext,
     assessor: Assessor,
@@ -152,11 +168,27 @@ async def consult_agent(
         return _replayed(call["result"], snapshot.evidence), call_id, None
     try:
         assessment = await assessor(snapshot)
-    except Exception as error:  # every model, tool, or limit failure means No AI
-        code = re.sub(r"[^A-Za-z_]", "", type(error).__name__)[:80] or "ERROR"
+    except Exception as error:  # any model, tool, or limit failure
         with ctx.database.transaction() as connection:
             tx.finish_agent_call(
-                connection, call_id, model=None, result=None, error_code=code
+                connection,
+                call_id,
+                model=None,
+                result=None,
+                error_code=failure_code(error),
+            )
+            # Identical evidence already read by a live run beats "No AI".
+            replay = tx.replay_agent_call(
+                connection,
+                booking_id,
+                digest=digest,
+                today=date.fromisoformat(snapshot.today),
+            )
+        if replay is not None:
+            return (
+                _replayed(replay["result"], snapshot.evidence),
+                str(replay["id"]),
+                None,
             )
         return None, call_id, "AI_UNAVAILABLE"
     with ctx.database.transaction() as connection:
