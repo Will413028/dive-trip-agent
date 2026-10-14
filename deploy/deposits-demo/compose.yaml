@@ -138,7 +138,7 @@ services:
   # its state volume across nightly rebuilds so the public hostname never changes.
   ts:
     <<: *hardening
-    image: tailscale/tailscale:${TS_IMAGE_TAG:-stable}
+    image: tailscale/tailscale:${TS_IMAGE_TAG:-v1.104.1}
     read_only: false
     hostname: dive-deposits
     environment:
