@@ -1,0 +1,151 @@
+# PayPal hackathon demo profile (docs/adr/2026-10-12-paypal-hackathon-demo-profile.md).
+# Synthetic data and the PayPal sandbox only; rebuilt from scratch every night.
+# Nothing publishes a host port: the only way in is the Cloudflare tunnel to web.
+#
+# Required host files under ${DEMO_SECRETS_DIR} (chmod 600, never committed):
+#   db_password    random database password
+#   tunnel_token   Cloudflare named-tunnel token
+#   paypal.env     PAYPAL_CLIENT_ID=..., PAYPAL_CLIENT_SECRET=... (sandbox app)
+#   models.env     GEMINI_API_KEY=..., GROQ_API_KEY=... (either may be empty)
+name: dive-deposits-demo
+
+x-hardening: &hardening
+  read_only: true
+  tmpfs: [/tmp]
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options: {max-size: 10m, max-file: "3"}
+
+x-runtime: &runtime
+  <<: *hardening
+  image: dive-deposits-backend:${DEMO_REVISION:?set DEMO_REVISION}
+  env_file:
+    - "${DEMO_SECRETS_DIR:?set DEMO_SECRETS_DIR}/paypal.env"
+  environment:
+    PAYPAL_ENV: sandbox
+  secrets: [db_password]
+  mem_limit: 512m
+  cpus: 0.5
+
+services:
+  db:
+    <<: *hardening
+    image: postgres:18-alpine
+    read_only: false  # the official image writes its socket and init files
+    cap_drop: []
+    environment:
+      POSTGRES_USER: deposits
+      POSTGRES_DB: deposits
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    secrets: [db_password]
+    volumes: [db-data:/var/lib/postgresql]
+    healthcheck:
+      test: [CMD, pg_isready, -U, deposits, -d, deposits]
+      interval: 5s
+      retries: 20
+    mem_limit: 512m
+    cpus: 0.5
+
+  temporal:
+    <<: *hardening
+    image: temporalio/temporal:1.9.1
+    command: [server, start-dev, --ip, 0.0.0.0, --headless, --db-filename, /data/temporal.db]
+    read_only: false
+    volumes: [temporal-data:/data]
+    mem_limit: 512m
+    cpus: 0.5
+
+  migrate:
+    <<: *runtime
+    restart: "no"
+    command:
+      - --role=migrate
+      - --database-host=db
+      - --database-port=5432
+      - --database-password-file=/run/secrets/db_password
+      - --temporal-address=temporal:7233
+      - "--origin=${DEMO_ORIGIN:?set DEMO_ORIGIN}"
+    depends_on:
+      db: {condition: service_healthy}
+
+  api:
+    <<: *runtime
+    command:
+      - --role=api
+      - --host=127.0.0.1
+      - --port=4420
+      - --database-host=db
+      - --database-port=5432
+      - --database-password-file=/run/secrets/db_password
+      - --temporal-address=temporal:7233
+      - "--origin=${DEMO_ORIGIN:?set DEMO_ORIGIN}"
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      temporal: {condition: service_started}
+
+  worker:
+    <<: *runtime
+    env_file:
+      - "${DEMO_SECRETS_DIR}/paypal.env"
+      - "${DEMO_SECRETS_DIR}/models.env"
+    environment:
+      PAYPAL_ENV: sandbox
+      DEPOSITS_AI_DAILY_CAP: ${DEPOSITS_AI_DAILY_CAP:-50}
+    command:
+      - --role=worker
+      - --database-host=db
+      - --database-port=5432
+      - --database-password-file=/run/secrets/db_password
+      - --temporal-address=temporal:7233
+      - "--origin=${DEMO_ORIGIN:?set DEMO_ORIGIN}"
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      temporal: {condition: service_started}
+
+  web:
+    <<: *hardening
+    image: dive-deposits-web:${DEMO_REVISION}
+    # Shares the API's network namespace so the backend proxy reaches 127.0.0.1:4420.
+    network_mode: service:api
+    environment:
+      APP_ORIGIN: ${DEMO_ORIGIN}
+      DIVE_BACKEND_ORIGIN: http://127.0.0.1:4420
+    tmpfs: [/tmp, /app/.next/cache]
+    depends_on: [api]
+    mem_limit: 512m
+    cpus: 0.5
+
+  tunnel:
+    <<: *hardening
+    image: cloudflare/cloudflared:2025.9.1
+    command: [tunnel, --no-autoupdate, run, --token-file, /run/secrets/tunnel_token]
+    secrets: [tunnel_token]
+    depends_on: [web]
+    mem_limit: 128m
+    cpus: 0.25
+
+  # Maintenance only (nightly-rebuild.sh): release every sandbox hold.
+  void-holds:
+    <<: *runtime
+    restart: "no"
+    profiles: [maintenance]
+    command:
+      - --role=void-holds
+      - --database-host=db
+      - --database-port=5432
+      - --database-password-file=/run/secrets/db_password
+      - --temporal-address=temporal:7233
+      - "--origin=${DEMO_ORIGIN:?set DEMO_ORIGIN}"
+    depends_on:
+      db: {condition: service_healthy}
+
+secrets:
+  db_password: {file: "${DEMO_SECRETS_DIR}/db_password"}
+  tunnel_token: {file: "${DEMO_SECRETS_DIR}/tunnel_token"}
+
+volumes:
+  db-data:
+  temporal-data:

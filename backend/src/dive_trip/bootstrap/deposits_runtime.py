@@ -12,6 +12,7 @@ See docs/adr/2026-10-12-paypal-hackathon-demo-profile.md.
 
 import argparse
 import asyncio
+import json
 import os
 import re
 import signal
@@ -22,6 +23,7 @@ import uvicorn
 from google.genai import Client as GoogleClient
 from google.genai.types import HttpOptions, HttpRetryOptions
 from openai import AsyncOpenAI
+from psycopg.conninfo import make_conninfo
 from pydantic_ai.models import Model
 from pydantic_ai.models.fallback import FallbackModel
 from pydantic_ai.models.google import GoogleModel
@@ -38,6 +40,7 @@ from dive_trip.application.deposits import (
     GroupBookingWorkflow,
     bind_deposits,
 )
+from dive_trip.modules.deposits import service
 from dive_trip.modules.deposits.assessor import SettlementAgent
 from dive_trip.modules.deposits.migrations import migrate_deposits
 from dive_trip.modules.deposits.paypal import PayPalClient, SandboxCard
@@ -118,8 +121,14 @@ def settlement_model() -> Model | None:
 
 def arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--role", choices=("api", "worker"), required=True)
+    parser.add_argument(
+        "--role", choices=("api", "worker", "migrate", "void-holds"), required=True
+    )
     parser.add_argument("--database-port", type=int, required=True)
+    # Compose deployment: a dedicated database host and password file. Without
+    # them the runtime uses the loopback fixture database (local demos).
+    parser.add_argument("--database-host")
+    parser.add_argument("--database-password-file")
     parser.add_argument("--temporal-address", default="127.0.0.1:7233")
     parser.add_argument("--task-queue", default="deposits-demo")
     parser.add_argument("--host", default="127.0.0.1")
@@ -130,11 +139,32 @@ def arguments() -> argparse.Namespace:
         parser.error("INVALID_ORIGIN")
     if os.environ.get("PAYPAL_ENV") != "sandbox":
         parser.error("PAYPAL_SANDBOX_REQUIRED")
+    if (args.database_host is None) != (args.database_password_file is None):
+        parser.error("DATABASE_HOST_AND_PASSWORD_FILE_GO_TOGETHER")
     return args
 
 
+def conninfo(args: argparse.Namespace) -> str:
+    if args.database_host is None:
+        return fixture_conninfo(args.database_port)
+    if not re.fullmatch(r"[a-z][a-z0-9-]{0,62}", args.database_host):
+        raise ValueError("INVALID_DATABASE_HOST")
+    with open(args.database_password_file, encoding="utf-8") as secret:
+        password = secret.read().strip()
+    return make_conninfo(
+        host=args.database_host,
+        port=args.database_port,
+        user="deposits",
+        dbname="deposits",
+        password=password,
+        passfile="/dev/null",
+        sslmode="disable",
+        application_name="dive-deposits-demo",
+    )
+
+
 async def run(args: argparse.Namespace) -> None:
-    database = Database(fixture_conninfo(args.database_port), SCHEMA)
+    database = Database(conninfo(args), SCHEMA)
     database.open()
     paypal = PayPalClient(
         os.environ["PAYPAL_CLIENT_ID"], os.environ["PAYPAL_CLIENT_SECRET"]
@@ -144,6 +174,22 @@ async def run(args: argparse.Namespace) -> None:
             connection.execute(f"CREATE SCHEMA IF NOT EXISTS {SCHEMA}")
         migrate(database)
         migrate_deposits(database)
+        if args.role == "migrate":
+            return
+        if args.role == "void-holds":
+            # Before the nightly rebuild: no sandbox hold outlives its booking.
+            outcomes = await service.void_all_holds(database, paypal)
+            print(
+                json.dumps(
+                    {
+                        "voided": list(outcomes.values()).count("succeeded"),
+                        "notVoided": [
+                            k for k, v in outcomes.items() if v != "succeeded"
+                        ],
+                    }
+                )
+            )
+            return
         model = settlement_model() if args.role == "worker" else None
         ctx = DepositsContext(
             database=database,

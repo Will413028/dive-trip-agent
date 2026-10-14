@@ -267,3 +267,27 @@ async def execute_settlement(
                 "agent" if actor == "agent" else "organizer",
             )
     return outcomes
+
+
+async def void_all_holds(database: Database, client: PayPalClient) -> dict[str, str]:
+    """Release every open hold in the schema, e.g. before a demo rebuild."""
+    with database.transaction() as connection:
+        held = connection.execute(
+            "SELECT id,booking_id FROM deposit_divers WHERE state='authorized'"
+        ).fetchall()
+        command_ids = [
+            str(
+                tx.record_command(
+                    connection,
+                    booking_id=str(row["booking_id"]),
+                    diver_id=str(row["id"]),
+                    kind="void",
+                    amount_minor=0,
+                )["id"]
+            )
+            for row in held
+        ]
+    return {
+        command_id: await execute(database, client, command_id)
+        for command_id in command_ids
+    }
