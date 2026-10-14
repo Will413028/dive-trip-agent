@@ -211,3 +211,15 @@ async def test_a_failed_live_call_replays_a_recorded_result_for_the_same_evidenc
     assert "AI_UNAVAILABLE" not in replay["reasons"]
     failed = [c for c in calls(ctx) if c["status"] == "failed"]
     assert [(c["mode"], c["error_code"]) for c in failed] == [("live", "RATE_LIMITED")]
+
+
+def test_a_fallback_failure_is_logged_with_the_last_models_reason() -> None:
+    group = ExceptionGroup(
+        "all models failed",
+        [
+            ModelHTTPError(503, "gemini-3.8-flash"),
+            ModelHTTPError(429, "openai/gpt-oss-120b"),
+        ],
+    )
+    assert app.failure_code(group) == "RATE_LIMITED"
+    assert app.failure_code(ExceptionGroup("x", [TimeoutError()])) == "TimeoutError"

@@ -131,6 +131,9 @@ def _replayed(
 
 def failure_code(error: BaseException) -> str:
     """A short, secret-free reason for the call log (letters and underscores)."""
+    if isinstance(error, BaseExceptionGroup) and error.exceptions:
+        # FallbackModel groups one error per model in order; the last model decided.
+        return failure_code(error.exceptions[-1])
     status = getattr(error, "status_code", None)
     if isinstance(status, int):
         if status == 429:
