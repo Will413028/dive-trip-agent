@@ -1,6 +1,6 @@
 # Dive Trip Agent
 
-潛旅行程互動作品，透過對話與卡片編輯行程，提供鎖定、差異確認、復原及唯讀分享。使用 Next.js／AG-UI、FastAPI／PydanticAI、Temporal 與 PostgreSQL。仍在開發中，尚未公開部署，不提供預訂或潛水安全判斷。
+潛旅行程互動作品，透過對話與卡片編輯行程，提供鎖定、差異確認、復原及唯讀分享。使用 Next.js／AG-UI、FastAPI／PydanticAI、Temporal 與 PostgreSQL。仍在開發中，潛旅規劃本體尚未公開部署，不提供預訂或潛水安全判斷。PayPal AI Hackathon 另有獨立的 [揪團訂金 demo](#paypal-group-deposits-demo)（PayPal sandbox、合成資料）。
 
 目前可操作的功能與尚未完成的部分見 [功能現況](docs/current-features.md)。
 
@@ -17,9 +17,23 @@
 - **費用與來源**：費用使用整數 TWD 分、單位、數量、來源與 DEMO／估算標記，由程式加總；未知維持 null＋原因，顯示已知小計與待確認項，明列排除的交通／裝備／餐飲等費用，不據缺漏宣稱預算達標。目錄保存來源網址、查核時間、真實／示範分類；圖片須有授權，外部正文不能變成指令。
 - **版本與接續**：TripVersion 保存需求、活動、鎖定、費用與引用的完整不可變快照；ownership、baseVersion、proposal、requestId 與 run lease 由交易核對。重送取既有結果，復原建立等同舊內容的新版本，地圖與預算同步；對話保留復原事件。刷新依最後成功保存內容，執行中斷顯示真實終態，不假裝背景仍在跑或盲目重送寫入。
 - **匿名公開邊界**：server-issued session／HttpOnly cookie，每次讀寫驗 ownership、同源及輸入；不承諾跨裝置恢復。預設匿名期限 30 天，告知期限及刪除入口；分享須預覽、脫敏、固定快照、可撤銷、不可編輯，期限不超過原行程，持有連結者可讀。技術日誌避免複製完整私人輸入，不保存／展示模型內部思考。
-- **明確不做**：預訂、付款、代寄訊息、保證名額、全球／跨目的地最佳化、無限制爬取、多人同步編輯、正式會員、語音、原生 app、適潛／醫療／保險建議或潛水剖面。安全、資格、健康與是否下水交由教練／業者；未核對的時間限制標待確認，不背書整份行程安全。
+- **明確不做**：預訂、付款（唯一例外是獨立 demo profile 的揪團訂金預授權，只走 PayPal sandbox 與合成資料，見 [設計](docs/paypal-group-deposits.md)）、代寄訊息、保證名額、全球／跨目的地最佳化、無限制爬取、多人同步編輯、正式會員、語音、原生 app、適潛／醫療／保險建議或潛水剖面。安全、資格、健康與是否下水交由教練／業者；未核對的時間限制標待確認，不背書整份行程安全。
 
 產品驗收目標及剩餘工作的唯一順序見 [release evidence](docs/release-evidence.md#執行交接)。以上為契約，不代表全部模型品質或 hosted 情境已驗收。
+
+## PayPal group deposits demo
+
+**Live demo:** https://dive-deposits.tail357fef.ts.net/deposits · PayPal **sandbox** only, synthetic data, no real money. Design: [docs/paypal-group-deposits.md](docs/paypal-group-deposits.md); decision: [ADR](docs/adr/2026-10-12-paypal-hackathon-demo-profile.md); deployment: [deploy/deposits-demo](deploy/deposits-demo/README.md).
+
+A cross-border dive group pays deposits to an operator abroad as PayPal **authorizations** (holds, not charges). When the weather turns, an AI agent reads the operator's free-text notice and alerts, cites them verbatim, and proposes which days were cancelled. The server computes every amount from the refund policy and picks void, partial final capture, capture or refund per diver; inside the organizer's mandate the agent executes, outside it the agent stops and asks.
+
+**Try it in 3 steps**
+
+1. Open the demo and press **Create demo group**: four divers abroad place USD 100 deposit holds in the PayPal sandbox.
+2. Switch to **Diver**, enter a display name and pay your own deposit with the **Debit or Credit Card** button, using the sandbox test Visa `4012 8888 8888 1881`, any future expiry and CVC, and made-up contact details. Your deposit shows *On hold, not charged*.
+3. Switch to **Organizer**, press **Use sample notice** then **Add evidence** (or **Simulate storm**), and press **Check evidence now**. Watch the proposal: cited evidence, server-computed amounts, and whether it ran inside the mandate or waits for your approval. Approve it and the timeline shows each sandbox void or capture.
+
+Notes: each browser gets its own private workspace; the whole demo resets daily at 10:00 UTC. AI calls are capped per day; when the cap is reached, identical evidence replays a clearly labelled *Recorded AI result*, otherwise the deterministic rules produce a *No AI* proposal that always needs approval. Paste demo text only: evidence text is sent to a free-tier model. Whether a boat goes out is always the operator's call; nothing here is a dive-safety judgment.
 
 ## 驗證狀態
 
