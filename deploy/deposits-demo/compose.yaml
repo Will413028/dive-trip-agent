@@ -52,11 +52,25 @@ services:
   temporal:
     <<: *hardening
     image: temporalio/temporal:1.9.1
-    command: [server, start-dev, --ip, 0.0.0.0, --headless, --db-filename, /data/temporal.db]
+    # The volume mounts on the image user's home so it inherits uid 1000 ownership.
+    command: [server, start-dev, --ip, 0.0.0.0, --headless, --db-filename, /home/temporal/temporal.db]
     read_only: false
-    volumes: [temporal-data:/data]
+    volumes: [temporal-data:/home/temporal]
+    healthcheck:
+      test: [CMD, temporal, operator, cluster, health, --address, 127.0.0.1:7233]
+      interval: 5s
+      retries: 30
     mem_limit: 512m
     cpus: 0.5
+
+  # Owns the network namespace that api and web share (like a pod's pause
+  # container): api restarts no longer strand web, and the API stays on loopback.
+  net:
+    <<: *hardening
+    image: dive-deposits-backend:${DEMO_REVISION}
+    entrypoint: [sleep, infinity]
+    mem_limit: 32m
+    cpus: 0.1
 
   migrate:
     <<: *runtime
@@ -73,6 +87,7 @@ services:
 
   api:
     <<: *runtime
+    network_mode: service:net
     command:
       - --role=api
       - --host=127.0.0.1
@@ -83,8 +98,9 @@ services:
       - --temporal-address=temporal:7233
       - "--origin=${DEMO_ORIGIN:?set DEMO_ORIGIN}"
     depends_on:
+      net: {condition: service_started}
       migrate: {condition: service_completed_successfully}
-      temporal: {condition: service_started}
+      temporal: {condition: service_healthy}
 
   worker:
     <<: *runtime
@@ -103,18 +119,18 @@ services:
       - "--origin=${DEMO_ORIGIN:?set DEMO_ORIGIN}"
     depends_on:
       migrate: {condition: service_completed_successfully}
-      temporal: {condition: service_started}
+      temporal: {condition: service_healthy}
 
   web:
     <<: *hardening
     image: dive-deposits-web:${DEMO_REVISION}
-    # Shares the API's network namespace so the backend proxy reaches 127.0.0.1:4420.
-    network_mode: service:api
+    # Shares net's namespace with api, so the backend proxy reaches 127.0.0.1:4420.
+    network_mode: service:net
     environment:
       APP_ORIGIN: ${DEMO_ORIGIN}
       DIVE_BACKEND_ORIGIN: http://127.0.0.1:4420
     tmpfs: [/tmp, /app/.next/cache]
-    depends_on: [api]
+    depends_on: [net, api]
     mem_limit: 512m
     cpus: 0.5
 

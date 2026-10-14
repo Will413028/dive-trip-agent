@@ -9,10 +9,11 @@
 | `db` | PostgreSQL 18，專用帳號 `deposits` | 無 |
 | `temporal` | Temporal dev server（SQLite volume） | 無 |
 | `migrate` | 一次性 migration，`api`／`worker` 等它成功才啟動 | 無 |
+| `net` | 只持有 network namespace（`sleep infinity`），api 與 web 加入；api 重啟不會讓 web 斷線 | 無 |
 | `api` | deposits HTTP API，只聽 `127.0.0.1:4420` | 無 |
-| `web` | Next production server，共用 `api` 的 network namespace，聽 `:3000` | 只經 `ts` |
+| `web` | Next production server，與 api 共用 `net` 的 namespace，聽 `:3000` | 只經 `ts` |
 | `worker` | Temporal worker、結算 agent（唯一讀模型 key 的容器） | 無 |
-| `ts` | 專用 Tailscale node（`tag:dive-demo`），Funnel 只轉送 `https://dive-deposits.<tailnet>.ts.net` → `http://api:3000`；不參與每晚重建，網址固定 | Tailscale Funnel |
+| `ts` | 專用 Tailscale node（`tag:dive-demo`），Funnel 只轉送 `https://dive-deposits.<tailnet>.ts.net` → `http://net:3000`；不參與每晚重建，網址固定 | Tailscale Funnel |
 | `void-holds` | maintenance profile：釋放全部 sandbox 預授權 | 無 |
 
 不發布任何 host port。容器 read-only、drop all capabilities、no-new-privileges、有記憶體與 CPU 上限、log 輪替。
