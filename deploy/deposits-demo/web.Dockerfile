@@ -3,7 +3,8 @@
 FROM node:26.8.1-bookworm-slim
 ENV NEXT_TELEMETRY_DISABLED=1
 WORKDIR /app
-RUN corepack enable && corepack prepare pnpm@11.2.2 --activate
+# Node 26 no longer bundles corepack; pin pnpm through npm instead.
+RUN npm install --global pnpm@11.2.2
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 COPY . .
