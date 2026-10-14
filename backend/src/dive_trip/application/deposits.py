@@ -8,6 +8,7 @@ a confident agent proposal that it asked to execute, that agrees with the rules,
 that fits the organizer's mandate executes without approval.
 """
 
+import logging
 import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
@@ -16,6 +17,8 @@ from typing import Any, Literal
 
 from temporalio import activity, workflow
 from temporalio.common import RetryPolicy
+
+logger = logging.getLogger(__name__)
 
 with workflow.unsafe.imports_passed_through():
     from dive_trip.modules.deposits import service
@@ -172,6 +175,9 @@ async def consult_agent(
     try:
         assessment = await assessor(snapshot)
     except Exception as error:  # any model, tool, or limit failure
+        # Provider error bodies carry no credentials; the call log keeps only the code.
+        for cause in getattr(error, "exceptions", None) or [error]:
+            logger.warning("settlement agent failed: %.500r", cause)
         with ctx.database.transaction() as connection:
             tx.finish_agent_call(
                 connection,
