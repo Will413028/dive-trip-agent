@@ -4,7 +4,6 @@
 #
 # Required host files under ${DEMO_SECRETS_DIR} (chmod 600, never committed):
 #   db_password    random database password
-#   ts_authkey     Tailscale auth key tagged tag:dive-demo (Funnel allowed by policy)
 #   paypal.env     PAYPAL_CLIENT_ID=..., PAYPAL_CLIENT_SECRET=... (sandbox app)
 #   models.env     GEMINI_API_KEY=..., GROQ_API_KEY=... (either may be empty)
 name: dive-deposits-demo
@@ -143,12 +142,12 @@ services:
     hostname: dive-deposits
     environment:
       TS_HOSTNAME: dive-deposits
-      TS_AUTHKEY: file:/run/secrets/ts_authkey
       TS_EXTRA_ARGS: --advertise-tags=tag:dive-demo
       TS_STATE_DIR: /var/lib/tailscale
       TS_USERSPACE: "true"
       TS_SERVE_CONFIG: /config/serve.json
-    secrets: [ts_authkey]
+    # First boot prints a login URL (docker compose logs ts); an admin who owns
+    # tag:dive-demo approves it once. The identity then lives in ts-state.
     volumes:
       - ts-state:/var/lib/tailscale
       - ./serve.json:/config/serve.json:ro
@@ -173,7 +172,6 @@ services:
 
 secrets:
   db_password: {file: "${DEMO_SECRETS_DIR}/db_password"}
-  ts_authkey: {file: "${DEMO_SECRETS_DIR}/ts_authkey"}
 
 volumes:
   db-data:

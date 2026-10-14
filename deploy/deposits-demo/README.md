@@ -33,7 +33,6 @@ DEMO_ORIGIN=https://dive-deposits.<tailnet>.ts.net
 | 檔案 | 權限 | 內容 |
 | --- | --- | --- |
 | `db_password` | 644（容器內非 root 使用者要讀；目錄 700 擋其他主機使用者） | 隨機密碼 |
-| `ts_authkey` | 644 | 綁 `tag:dive-demo` 的 Tailscale auth key；tailnet policy 須對此 tag 開 `funnel` |
 | `paypal.env` | 600 | `PAYPAL_CLIENT_ID`、`PAYPAL_CLIENT_SECRET`（sandbox app） |
 | `models.env` | 600 | `GEMINI_API_KEY`、`GROQ_API_KEY`；可留空，留空即 No AI |
 
@@ -57,6 +56,10 @@ docker compose -f compose.yaml up -d
 ```
 
 `.dockerignore` 是 allowlist：image 只含原始碼、lockfile 與 migrations；env 檔、`.artifacts`、`evals` 不進 build context。
+
+## 公開入口（第一次）
+
+tailnet policy 需有 `tagOwners` 的 `tag:dive-demo` 與對它開 `funnel` 的 `nodeAttrs`，DNS 頁開啟 MagicDNS 與 HTTPS Certificates。第一次 `up` 後，`docker compose -f compose.yaml logs ts` 會印出登入網址，由擁有該 tag 的 admin 核准；不使用 auth key。身分存於 `ts-state` volume，每晚重建不動它；若 volume 遺失，重新核准一次即可。
 
 ## 每晚重建
 
