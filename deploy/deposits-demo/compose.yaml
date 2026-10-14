@@ -1,10 +1,10 @@
 # PayPal hackathon demo profile (docs/adr/2026-10-12-paypal-hackathon-demo-profile.md).
 # Synthetic data and the PayPal sandbox only; rebuilt from scratch every night.
-# Nothing publishes a host port: the only way in is the Cloudflare tunnel to web.
+# Nothing publishes a host port: the only way in is Tailscale Funnel to web.
 #
 # Required host files under ${DEMO_SECRETS_DIR} (chmod 600, never committed):
 #   db_password    random database password
-#   tunnel_token   Cloudflare named-tunnel token
+#   ts_authkey     Tailscale auth key tagged tag:dive-demo (Funnel allowed by policy)
 #   paypal.env     PAYPAL_CLIENT_ID=..., PAYPAL_CLIENT_SECRET=... (sandbox app)
 #   models.env     GEMINI_API_KEY=..., GROQ_API_KEY=... (either may be empty)
 name: dive-deposits-demo
@@ -118,11 +118,24 @@ services:
     mem_limit: 512m
     cpus: 0.5
 
-  tunnel:
+  # Public entry: a dedicated Tailscale node with Funnel, proxying to web. It keeps
+  # its state volume across nightly rebuilds so the public hostname never changes.
+  ts:
     <<: *hardening
-    image: cloudflare/cloudflared:2025.9.1
-    command: [tunnel, --no-autoupdate, run, --token-file, /run/secrets/tunnel_token]
-    secrets: [tunnel_token]
+    image: tailscale/tailscale:${TS_IMAGE_TAG:-stable}
+    read_only: false
+    hostname: dive-deposits
+    environment:
+      TS_HOSTNAME: dive-deposits
+      TS_AUTHKEY: file:/run/secrets/ts_authkey
+      TS_EXTRA_ARGS: --advertise-tags=tag:dive-demo
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_USERSPACE: "true"
+      TS_SERVE_CONFIG: /config/serve.json
+    secrets: [ts_authkey]
+    volumes:
+      - ts-state:/var/lib/tailscale
+      - ./serve.json:/config/serve.json:ro
     depends_on: [web]
     mem_limit: 128m
     cpus: 0.25
@@ -144,8 +157,9 @@ services:
 
 secrets:
   db_password: {file: "${DEMO_SECRETS_DIR}/db_password"}
-  tunnel_token: {file: "${DEMO_SECRETS_DIR}/tunnel_token"}
+  ts_authkey: {file: "${DEMO_SECRETS_DIR}/ts_authkey"}
 
 volumes:
   db-data:
   temporal-data:
+  ts-state:
