@@ -9,7 +9,7 @@ from psycopg.conninfo import conninfo_to_dict
 from test_deposits_service import CARD, POLICY, FakePayPal, mandate
 
 from dive_trip.application import deposits as app
-from dive_trip.bootstrap.deposits_runtime import conninfo
+from dive_trip.bootstrap.deposits_runtime import conninfo, settlement_model
 from dive_trip.modules.deposits import service
 from dive_trip.modules.deposits import transactions as tx
 from dive_trip.modules.deposits.paypal import PayPalClient
@@ -68,6 +68,14 @@ def test_compose_database_host_must_be_a_service_name(tmp_path) -> None:
 
 def test_without_a_host_the_loopback_fixture_is_used() -> None:
     assert conninfo_to_dict(conninfo(namespace()))["host"] == "127.0.0.1"
+
+
+def test_groq_is_not_forced_to_call_a_tool(monkeypatch) -> None:
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.setenv("GROQ_API_KEY", "synthetic-test-key")
+    model = settlement_model()
+    assert model is not None
+    assert model.profile.get("openai_supports_tool_choice_required") is False
 
 
 @pytest.mark.integration

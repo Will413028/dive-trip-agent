@@ -28,6 +28,7 @@ from pydantic_ai.models import Model
 from pydantic_ai.models.fallback import FallbackModel
 from pydantic_ai.models.google import GoogleModel
 from pydantic_ai.models.openai import OpenAIChatModel
+from pydantic_ai.profiles.openai import OpenAIModelProfile
 from pydantic_ai.providers.google import GoogleProvider
 from pydantic_ai.providers.openai import OpenAIProvider
 from temporalio.client import Client, WorkflowHandle
@@ -112,6 +113,10 @@ def settlement_model() -> Model | None:
             OpenAIChatModel(
                 os.environ.get("DEPOSITS_GROQ_MODEL", "openai/gpt-oss-120b"),
                 provider=OpenAIProvider(openai_client=openai),
+                # gpt-oss on Groq sometimes answers in text; with tool_choice=required
+                # Groq rejects that (400 tool_use_failed) instead of letting the agent
+                # ask it again for the output tool.
+                profile=OpenAIModelProfile(openai_supports_tool_choice_required=False),
             )
         )
     if not models:
