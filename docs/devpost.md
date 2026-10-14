@@ -57,10 +57,22 @@ PayPal Orders v2, PayPal Payments v2, PayPal JS SDK, PydanticAI, Gemini, Groq, T
 
 https://dive-deposits.tail357fef.ts.net/deposits, then follow "Try it in 3 steps" in the repository README. Sandbox test Visa: `4012 8888 8888 1881`, any future expiry and CVC.
 
+## Testing notes for judges
+
+- **Sandbox only.** Every payment is a PayPal sandbox transaction on synthetic data; no real money moves. Never enter a real card.
+- **Your own workspace.** Each browser gets a private workspace with up to five bookings; **Reset workspace** releases its holds and deletes them. The whole demo is rebuilt every day at 10:00 UTC, after every open sandbox hold is voided.
+- **Guest card.** Use PayPal's sandbox Visa `4012 8888 8888 1881`, any future expiry and CVC, and made-up contact details (the US billing form asks for a mobile number). The generic `4111 1111 1111 1111` is declined in the guest form.
+- **Free-tier AI.** The agent runs on free model tiers (Groq first, Gemini as fallback) with a daily cap. When a provider is rate-limited, identical evidence replays a clearly labelled *Recorded AI result*; otherwise the deterministic rules produce a *No AI* proposal that always needs approval. If you see *No AI*, wait a minute and press **Check evidence now** again on new evidence.
+- **Not a safety tool.** Whether a boat goes out is always the operator's call.
+
+## Sandbox status
+
+If the PayPal sandbox or a model provider is down during judging, the recorded video shows the full flow, and the audit timeline on any existing booking still shows every recorded PayPal call.
+
 ## Checklist before submitting
 
 - [x] Live AI path verified on the public demo with Groq `gpt-oss-120b` (2026-10-14): a verbatim citation that stops on "AI and rules disagree", auto-execution inside the mandate, and a stop on per-diver and per-booking caps outside it.
 - [ ] Guest card checkout verified through the public URL in a browser.
 - [ ] Refund-after-capture shown in the UI: settle Day 2 (partial final capture), then add Day 3 evidence and check again; captured divers get a sandbox refund. Verified through the public API on 2026-10-14 (USD 33.33 refunded to each of four captured divers after approval); not yet recorded in the browser.
 - [ ] Recorded fallback video (about 3 minutes, outline in the design doc section 10).
-- [ ] Sandbox status note and judge testing notes added to the submission.
+- [x] Sandbox status note and judge testing notes drafted above; paste them into the Devpost form.
