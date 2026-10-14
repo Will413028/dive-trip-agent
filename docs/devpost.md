@@ -59,7 +59,7 @@ https://dive-deposits.tail357fef.ts.net/deposits, then follow "Try it in 3 steps
 
 ## Checklist before submitting
 
-- [ ] Live AI path verified with real Gemini/Groq keys on the demo (citations, auto-execute inside the mandate, stop-and-ask outside it). Until then, the "What it does" agent bullets describe the design, not a verified run.
+- [x] Live AI path verified on the public demo with Groq `gpt-oss-120b` (2026-10-14): a verbatim citation that stops on "AI and rules disagree", auto-execution inside the mandate, and a stop on per-diver and per-booking caps outside it.
 - [ ] Guest card checkout verified through the public URL in a browser.
 - [ ] Refund-after-capture shown in the UI: settle Day 2 (partial final capture), then add Day 3 evidence and check again; captured divers get a sandbox refund.
 - [ ] Recorded fallback video (about 3 minutes, outline in the design doc section 10).
