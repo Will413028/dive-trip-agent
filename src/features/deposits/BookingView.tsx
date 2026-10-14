@@ -132,7 +132,7 @@ export default function BookingView({ bookingId }: { bookingId: string }) {
     <section className="panel" aria-labelledby="timeline-title">
       <h2 id="timeline-title">Audit timeline</h2>
       <ol className="timeline">{booking.timeline.map((t, i) => <li key={i}>
-        <time dateTime={t.at}>{t.at.slice(11, 19)}</time> {timelineLabel(t.kind)}
+        <time dateTime={t.at}>{t.at.slice(11, 19)}</time> {timelineLabel(t)}
         {typeof t.detail.excerpt === 'string' && <q>{t.detail.excerpt}</q>}
       </li>)}</ol>
     </section>

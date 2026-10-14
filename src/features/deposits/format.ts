@@ -1,4 +1,4 @@
-import type { Action, AgentCall, Diver, Settlement } from './types';
+import type { Action, AgentCall, Diver, Settlement, TimelineEntry } from './types';
 
 export function usd(minor: number): string {
   return `USD ${(minor / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -44,6 +44,11 @@ export function sourceLabel(settlement: Settlement): string {
   return 'Organizer';
 }
 
-export function timelineLabel(kind: string): string {
-  return kind.replaceAll('_', ' ').replace(/^./, (c) => c.toUpperCase());
+export function timelineLabel(entry: TimelineEntry): string {
+  const agent = entry.detail.agent;
+  // Without the AI only the forecast rules ran, so "nothing found" must not read as "no cancellation".
+  if (entry.kind === 'no_cancellation_found' && typeof agent === 'string' && agent !== 'ran') {
+    return `Nothing settled: ${REASON_LABEL[agent] ?? 'AI not run'}; the forecast rules found no cancellation`;
+  }
+  return entry.kind.replaceAll('_', ' ').replace(/^./, (c) => c.toUpperCase());
 }

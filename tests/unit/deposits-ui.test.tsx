@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { expect, test } from 'vitest';
 import EvidenceForm, { SAMPLE_NOTICE } from '../../src/features/deposits/EvidenceForm';
 import SettlementCard from '../../src/features/deposits/SettlementCard';
-import { depositState, sourceLabel, usd } from '../../src/features/deposits/format';
+import { depositState, sourceLabel, timelineLabel, usd } from '../../src/features/deposits/format';
 import type { Diver, Evidence, Settlement } from '../../src/features/deposits/types';
 
 const diver = (state: Diver['state'], captured = 0, refunded = 0): Diver => ({
@@ -55,4 +55,14 @@ test('recorded and capped results are labelled as such', () => {
   expect(html).toContain('No AI · deterministic rules');
   expect(html).toContain('Daily AI limit reached');
   expect(html).not.toContain('Approve and execute');
+});
+
+test('a check that settles nothing says when the AI did not run', () => {
+  const at = '2026-11-18T10:01:00Z';
+  expect(timelineLabel({ kind: 'no_cancellation_found', detail: { agent: 'ran' }, at })).toBe('No cancellation found');
+  expect(timelineLabel({ kind: 'no_cancellation_found', detail: { agent: 'AI_UNAVAILABLE' }, at }))
+    .toBe('Nothing settled: AI models unavailable; the forecast rules found no cancellation');
+  expect(timelineLabel({ kind: 'no_cancellation_found', detail: { agent: 'not_configured' }, at }))
+    .toBe('Nothing settled: AI not run; the forecast rules found no cancellation');
+  expect(timelineLabel({ kind: 'evidence_added', detail: {}, at })).toBe('Evidence added');
 });
