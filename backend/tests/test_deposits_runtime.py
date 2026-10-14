@@ -6,6 +6,7 @@ from datetime import date
 import httpx2 as httpx
 import pytest
 from psycopg.conninfo import conninfo_to_dict
+from pydantic_ai.models.fallback import FallbackModel
 from test_deposits_service import CARD, POLICY, FakePayPal, mandate
 
 from dive_trip.application import deposits as app
@@ -76,6 +77,17 @@ def test_groq_is_not_forced_to_call_a_tool(monkeypatch) -> None:
     model = settlement_model()
     assert model is not None
     assert model.profile.get("openai_supports_tool_choice_required") is False
+
+
+def test_groq_runs_before_gemini(monkeypatch) -> None:
+    monkeypatch.setenv("GEMINI_API_KEY", "synthetic-test-key")
+    monkeypatch.setenv("GROQ_API_KEY", "synthetic-test-key")
+    model = settlement_model()
+    assert isinstance(model, FallbackModel)
+    assert [m.model_name for m in model.models] == [
+        "openai/gpt-oss-120b",
+        "gemini-3.8-flash",
+    ]
 
 
 @pytest.mark.integration

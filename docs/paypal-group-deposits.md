@@ -91,7 +91,7 @@ All inputs are data, never system instructions. Each input item gets an evidence
 
 ### 4.4 Models and fallback
 
-PydanticAI `FallbackModel`: Gemini Flash, then Groq (Workers AI optional). Each provider is tried once. If every model fails, or the daily cap is reached, the server produces a **policy-only "No AI" proposal** from the threshold rules. That proposal always needs human approval.
+PydanticAI `FallbackModel`: Groq (`gpt-oss-120b`), then Gemini Flash (Workers AI optional). Groq comes first because Gemini's free tier allows about 20 requests a day. Each provider is tried once. If every model fails, or the daily cap is reached, the server produces a **policy-only "No AI" proposal** from the threshold rules. That proposal always needs human approval.
 
 ### 4.5 Light rules for live model calls
 

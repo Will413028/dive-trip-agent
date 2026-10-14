@@ -4,9 +4,9 @@ It runs against its own loopback PostgreSQL (schema `deposits_demo`) and Tempora
 synthetic data and the PayPal sandbox only, and never starts the planning agent or any
 existing hosted path. PayPal credentials come from the process environment
 (PAYPAL_ENV=sandbox, PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET); they are never logged.
-The settlement agent is optional: GEMINI_API_KEY and/or GROQ_API_KEY enable it (Gemini
-first, Groq as fallback, each tried once per request), DEPOSITS_AI_DAILY_CAP bounds live
-runs per UTC day (default 50). Without a key every assessment is "No AI".
+The settlement agent is optional: GROQ_API_KEY and/or GEMINI_API_KEY enable it
+(Groq first, Gemini as fallback, each tried once per request), DEPOSITS_AI_DAILY_CAP
+bounds live runs per UTC day (default 50). Without a key every assessment is "No AI".
 See docs/adr/2026-10-12-paypal-hackathon-demo-profile.md.
 """
 
@@ -89,19 +89,7 @@ class TemporalWorkflows:
 def settlement_model() -> Model | None:
     """Free-tier models from the environment; SDK retries are off so each runs once."""
     models: list[Model] = []
-    if gemini_key := os.environ.get("GEMINI_API_KEY"):
-        client = GoogleClient(
-            api_key=gemini_key,
-            http_options=HttpOptions(
-                timeout=30000, retry_options=HttpRetryOptions(attempts=1)
-            ),
-        )
-        models.append(
-            GoogleModel(
-                os.environ.get("DEPOSITS_GEMINI_MODEL", "gemini-3.8-flash"),
-                provider=GoogleProvider(client=client),
-            )
-        )
+    # Groq first: Gemini's free tier allows about 20 requests a day, a few assessments.
     if groq_key := os.environ.get("GROQ_API_KEY"):
         openai = AsyncOpenAI(
             api_key=groq_key,
@@ -117,6 +105,19 @@ def settlement_model() -> Model | None:
                 # Groq rejects that (400 tool_use_failed) instead of letting the agent
                 # ask it again for the output tool.
                 profile=OpenAIModelProfile(openai_supports_tool_choice_required=False),
+            )
+        )
+    if gemini_key := os.environ.get("GEMINI_API_KEY"):
+        client = GoogleClient(
+            api_key=gemini_key,
+            http_options=HttpOptions(
+                timeout=30000, retry_options=HttpRetryOptions(attempts=1)
+            ),
+        )
+        models.append(
+            GoogleModel(
+                os.environ.get("DEPOSITS_GEMINI_MODEL", "gemini-3.8-flash"),
+                provider=GoogleProvider(client=client),
             )
         )
     if not models:

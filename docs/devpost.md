@@ -23,7 +23,7 @@ Divers often book a boat with an operator in another country they have never met
 
 - **PayPal Orders v2 and Payments v2** in sandbox: one `intent=AUTHORIZE` order per diver, then void, partial final capture, capture or refund. Every PayPal write is stored as a money command with its `PayPal-Request-Id` and `invoice_id` before it is sent; unknown outcomes are retried with the same key or reconciled with a GET, never re-sent under a new key.
 - **PayPal JS SDK** card button for the guest diver's own deposit; the server creates the AUTHORIZE order and authorizes it on approval under the stored request ID.
-- **PydanticAI** agent with four server-wrapped tools (`get_booking`, `get_weather`, `propose_settlement`, `execute_within_mandate`), a `FallbackModel` (Gemini Flash, then Groq), a daily live-call cap with a separate call log, and replay of recorded results for identical evidence.
+- **PydanticAI** agent with four server-wrapped tools (`get_booking`, `get_weather`, `propose_settlement`, `execute_within_mandate`), a `FallbackModel` (Groq `gpt-oss-120b`, then Gemini Flash), a daily live-call cap with a separate call log, and replay of recorded results for identical evidence.
 - **Temporal** workflow per booking (timer to trip start, `check_now` and `approve` signals), **FastAPI**, **PostgreSQL**, **Next.js**.
 - Deployed as an isolated Docker Compose stack on a small ARM VM, exposed through Tailscale Funnel and rebuilt from scratch every night after voiding every open sandbox hold.
 
