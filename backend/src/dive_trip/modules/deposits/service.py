@@ -6,13 +6,21 @@ PayPal returns the original result instead of moving money again.
 """
 
 from typing import Any
+from uuid import uuid4
 
 from dive_trip.platform.database import Database
 from dive_trip.platform.errors import DomainError
 
 from . import transactions as tx
 from .domain import DiverSettlement
-from .paypal import PayPalClient, PayPalError, PayPalUnknownOutcome, SandboxCard
+from .errors import DepositConflict
+from .paypal import (
+    PayPalClient,
+    PayPalError,
+    PayPalUnexpectedResponse,
+    PayPalUnknownOutcome,
+    SandboxCard,
+)
 
 KIND_OF_ACTION = {
     "void": "void",
@@ -30,21 +38,21 @@ async def send(
 ) -> dict[str, Any]:
     kind, request_id = command["kind"], command["request_id"]
     if kind == "authorize":
-        if card is not None:
+        if command["method"] == "checkout":  # the buyer's own approved order
+            auth = await client.authorize_order(
+                command["order_id"], request_id=request_id
+            )
+        elif card is not None:
             auth = await client.create_card_authorization(
                 invoice_id=command["invoice_id"],
                 amount_minor=command["amount_minor"],
                 card=card,
                 request_id=request_id,
             )
-        elif diver["order_id"]:  # the buyer's own checkout order
-            auth = await client.authorize_order(
-                diver["order_id"], request_id=request_id
-            )
         else:
             raise DomainError("DEPOSIT_CARD_REQUIRED")
         if auth.status != "CREATED" or auth.amountMinor != command["amount_minor"]:
-            raise DomainError("PAYPAL_AUTHORIZATION_UNEXPECTED")
+            raise PayPalUnexpectedResponse("PAYPAL_AUTHORIZATION_UNEXPECTED")
         return {
             "orderId": auth.orderId,
             "authorizationId": auth.authorizationId,
@@ -78,22 +86,20 @@ async def execute(
     card: SandboxCard | None = None,
 ) -> str:
     with database.transaction() as connection:
-        command = connection.execute(
-            "SELECT * FROM deposit_money_commands WHERE id=%s "
-            "AND status IN ('pending','unknown')",
-            (command_id,),
-        ).fetchone()
-        if command is None:
-            raise DomainError("MONEY_COMMAND_NOT_OPEN")
+        command = tx.claim_command(connection, command_id)
+        if command["method"] == "test_card" and card is None:
+            raise DomainError("DEPOSIT_CARD_REQUIRED")  # rolls the claim back
         diver = connection.execute(
             "SELECT * FROM deposit_divers WHERE id=%s", (command["diver_id"],)
         ).fetchone()
         assert diver is not None
     try:
         result = await send(client, command, diver, card)
-    except PayPalUnknownOutcome:
+    except PayPalUnknownOutcome as error:
         with database.transaction() as connection:
-            tx.complete_command(connection, command_id, "unknown")
+            tx.complete_command(
+                connection, command_id, "unknown", error_code=error.code
+            )
         return "unknown"
     except PayPalError as error:
         with database.transaction() as connection:
@@ -112,82 +118,80 @@ async def reconcile(
     booking_id: str,
     card: SandboxCard | None = None,
 ) -> dict[str, str]:
-    """Retry every open command with its original request id."""
+    """Retry every open command with its original request id.
+
+    One command that cannot be sent does not stop the others; its code is the outcome.
+    """
     with database.transaction() as connection:
         open_ids = [str(c["id"]) for c in tx.open_commands(connection, booking_id)]
-    return {
-        command_id: await execute(database, client, command_id, card)
-        for command_id in open_ids
-    }
+    outcomes: dict[str, str] = {}
+    for command_id in open_ids:
+        try:
+            outcomes[command_id] = await execute(database, client, command_id, card)
+        except DomainError as error:
+            outcomes[command_id] = error.code
+    return outcomes
 
 
-async def authorize_diver(
+class HoldRejected(DepositConflict):
+    """The attempt closed without a hold; the code says why (decline, replaced)."""
+
+
+def _held(database: Database, command_id: str, outcome: str) -> None:
+    """Raise unless the attempt placed the hold, with the reason PayPal gave."""
+    if outcome == "unknown":  # a reconcile retries it with the same request id
+        raise PayPalUnknownOutcome()
+    if outcome == "rejected":
+        with database.transaction() as connection:
+            closed = connection.execute(
+                "SELECT error_code FROM deposit_money_commands WHERE id=%s",
+                (command_id,),
+            ).fetchone()
+        raise HoldRejected((closed or {}).get("error_code") or "PAYPAL_REJECTED")
+
+
+async def hold_with_test_card(
     database: Database,
     client: PayPalClient,
     booking_id: str,
-    name: str,
+    diver_id: str,
     card: SandboxCard,
-    *,
-    seeded: bool,
-) -> tuple[str, str]:
+) -> None:
+    """Place the diver's deposit hold with the server's sandbox test card."""
     with database.transaction() as connection:
-        row = connection.execute(
-            "SELECT deposit_minor FROM deposit_bookings WHERE id=%s", (booking_id,)
-        ).fetchone()
-        if row is None:
-            raise DomainError("NOT_FOUND")
-        diver_id = tx.add_diver(connection, booking_id, name, seeded=seeded)
-        command = tx.record_command(
-            connection,
-            booking_id=booking_id,
-            diver_id=diver_id,
-            kind="authorize",
-            amount_minor=row["deposit_minor"],
-        )
-    return diver_id, await execute(database, client, str(command["id"]), card)
+        command = tx.open_hold_attempt(connection, booking_id, diver_id, "test_card")
+    command_id = str(command["id"])
+    _held(database, command_id, await execute(database, client, command_id, card))
 
 
 async def start_checkout(
-    database: Database, client: PayPalClient, booking_id: str, name: str
-) -> tuple[str, str]:
-    """Add a diver whose deposit hold the buyer approves in PayPal's checkout.
+    database: Database, client: PayPalClient, booking_id: str, diver_id: str
+) -> str:
+    """Create the order the buyer approves in PayPal's checkout; return its id.
 
-    The authorize command is stored first; `complete_checkout` (or a reconcile)
-    sends it once PayPal reports the order approved.
+    An AUTHORIZE order moves no money (only our authorize call places a hold), so it
+    is created first and stored with its attempt in one step. An order whose attempt
+    is refused or replaced is never authorized and simply expires at PayPal.
+    `complete_checkout` (or a reconcile) authorizes it once the buyer approves.
     """
+    command_id = str(uuid4())
     with database.transaction() as connection:
-        row = connection.execute(
-            "SELECT deposit_minor FROM deposit_bookings WHERE id=%s", (booking_id,)
-        ).fetchone()
-        if row is None:
-            raise DomainError("NOT_FOUND")
-        # A declined checkout leaves the diver without a hold; retrying reuses it.
-        diver_id = tx.retry_checkout_diver(connection, booking_id, name) or (
-            tx.add_diver(connection, booking_id, name, seeded=False)
-        )
-        command = tx.record_command(
+        amount_minor = tx.deposit_of(connection, booking_id, diver_id)
+    order_id = await client.create_checkout_order(
+        invoice_id=tx.invoice_id(command_id),
+        amount_minor=amount_minor,
+        request_id=f"{tx.request_id('authorize', command_id)}-order",
+    )
+    with database.transaction() as connection:
+        tx.open_hold_attempt(
             connection,
-            booking_id=booking_id,
-            diver_id=diver_id,
-            kind="authorize",
-            amount_minor=row["deposit_minor"],
+            booking_id,
+            diver_id,
+            "checkout",
+            command_id=command_id,
+            order_id=order_id,
         )
-    try:
-        order_id = await client.create_checkout_order(
-            invoice_id=command["invoice_id"],
-            amount_minor=command["amount_minor"],
-            request_id=f"{command['request_id']}-order",
-        )
-    except DomainError as error:
-        # No order means nothing the buyer could approve: close the hold attempt.
-        with database.transaction() as connection:
-            tx.complete_command(
-                connection, str(command["id"]), "rejected", error_code=error.code
-            )
-        raise
-    with database.transaction() as connection:
-        tx.set_checkout_order(connection, diver_id, order_id)
-    return diver_id, order_id
+    return order_id
 
 
 async def complete_checkout(
@@ -196,28 +200,23 @@ async def complete_checkout(
     booking_id: str,
     diver_id: str,
     order_id: str,
-) -> str:
+) -> None:
     with database.transaction() as connection:
-        command = connection.execute(
-            "SELECT c.id FROM deposit_money_commands c JOIN deposit_divers d "
-            "ON d.id=c.diver_id WHERE c.booking_id=%s AND c.diver_id=%s "
-            "AND c.kind='authorize' AND c.status IN ('pending','unknown') "
-            "AND d.order_id=%s",
-            (booking_id, diver_id, order_id),
-        ).fetchone()
-        if command is None:
-            raise DomainError("MONEY_COMMAND_NOT_OPEN")
-    outcome = await execute(database, client, str(command["id"]))
-    if outcome == "unknown":  # a reconcile retries it with the same request id
-        raise PayPalUnknownOutcome()
-    if outcome == "rejected":
+        command_id = tx.checkout_attempt(connection, booking_id, diver_id, order_id)
+    try:
+        outcome = await execute(database, client, command_id)
+    except DepositConflict as error:
+        if error.code != "MONEY_COMMAND_NOT_OPEN":
+            raise
+        # Closed meanwhile: by a reconcile that placed this hold, or a newer attempt.
         with database.transaction() as connection:
             closed = connection.execute(
-                "SELECT error_code FROM deposit_money_commands WHERE id=%s",
-                (command["id"],),
+                "SELECT status FROM deposit_money_commands WHERE id=%s", (command_id,)
             ).fetchone()
-        raise DomainError((closed or {}).get("error_code") or "PAYPAL_REJECTED")
-    return outcome
+        if closed is None or closed["status"] != "succeeded":
+            raise DepositConflict("DEPOSIT_ATTEMPT_CLOSED") from error
+        outcome = "succeeded"
+    _held(database, command_id, outcome)
 
 
 async def execute_settlement(
@@ -234,10 +233,10 @@ async def execute_settlement(
             (settlement_id, booking_id),
         ).fetchone()
         if settlement is None:
-            raise DomainError("SETTLEMENT_NOT_OPEN")
+            raise DepositConflict("SETTLEMENT_NOT_OPEN")
         if settlement["status"] == "proposed":
             if actor != "agent" or not settlement["within_mandate"]:
-                raise DomainError("SETTLEMENT_NEEDS_APPROVAL")
+                raise DepositConflict("SETTLEMENT_NEEDS_APPROVAL")
         plan = [DiverSettlement.model_validate(item) for item in settlement["plan"]]
         command_ids = []
         for item in plan:
@@ -269,8 +268,24 @@ async def execute_settlement(
     return outcomes
 
 
-async def void_all_holds(database: Database, client: PayPalClient) -> dict[str, str]:
-    """Release every open hold in the schema, e.g. before a demo rebuild."""
+async def void_all_holds(
+    database: Database, client: PayPalClient, card: SandboxCard
+) -> dict[str, str]:
+    """Release every open hold in the schema, e.g. before a demo rebuild.
+
+    Open commands are reconciled first, so a hold PayPal placed for an attempt whose
+    answer never arrived is recorded, and then released, instead of being lost.
+    """
+    with database.transaction() as connection:
+        booking_ids = [
+            str(row["booking_id"])
+            for row in connection.execute(
+                "SELECT DISTINCT booking_id FROM deposit_money_commands "
+                "WHERE status IN ('pending','unknown')"
+            ).fetchall()
+        ]
+    for booking_id in booking_ids:
+        await reconcile(database, client, booking_id, card)
     with database.transaction() as connection:
         held = connection.execute(
             "SELECT id,booking_id FROM deposit_divers WHERE state='authorized'"

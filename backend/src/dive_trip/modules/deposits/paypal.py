@@ -8,6 +8,8 @@ reconcile with a GET, never send a fresh key.
 
 import base64
 import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any
 
@@ -30,8 +32,13 @@ class PayPalError(DomainError):
 class PayPalUnknownOutcome(DomainError):
     """The request may or may not have taken effect."""
 
-    def __init__(self) -> None:
-        super().__init__("PAYPAL_OUTCOME_UNKNOWN")
+    def __init__(self, code: str = "PAYPAL_OUTCOME_UNKNOWN") -> None:
+        super().__init__(code)
+
+
+class PayPalUnexpectedResponse(PayPalUnknownOutcome):
+    """PayPal accepted the request but answered in a shape we cannot record, so a hold
+    may exist: keep the command open for reconciliation rather than closing it."""
 
 
 @dataclass(frozen=True)
@@ -71,9 +78,19 @@ def usd(minor: int) -> dict[str, str]:
     return {"currency_code": "USD", "value": f"{minor // 100}.{minor % 100:02d}"}
 
 
+@contextmanager
+def answered(code: str) -> Iterator[None]:
+    """Read a 2xx answer. PayPal accepted the request, so an answer we cannot read
+    leaves its outcome unknown rather than failed."""
+    try:
+        yield
+    except (KeyError, IndexError, TypeError, ValueError) as error:
+        raise PayPalUnexpectedResponse(code) from error
+
+
 def minor_of(amount: dict[str, Any]) -> int:
     if amount.get("currency_code") != "USD":
-        raise DomainError("PAYPAL_CURRENCY_UNEXPECTED")
+        raise PayPalUnexpectedResponse("PAYPAL_CURRENCY_UNEXPECTED")
     whole, _, cents = str(amount["value"]).partition(".")
     return int(whole) * 100 + int((cents + "00")[:2])
 
@@ -139,7 +156,8 @@ class PayPalClient:
         if request_id:
             headers["PayPal-Request-Id"] = request_id
         response = await self._send(method, path, json=body, headers=headers)
-        return response.json() if response.content else {}
+        with answered("PAYPAL_RESPONSE_UNREADABLE"):
+            return response.json() if response.content else {}
 
     async def create_card_authorization(
         self,
@@ -185,7 +203,8 @@ class PayPalClient:
             },
             request_id,
         )
-        return str(order["id"])
+        with answered("PAYPAL_ORDER_UNEXPECTED"):
+            return str(order["id"])
 
     async def authorize_order(self, order_id: str, *, request_id: str) -> Authorization:
         order = await self._call(
@@ -213,9 +232,10 @@ class PayPalClient:
             body,
             request_id,
         )
-        return Capture(
-            str(capture["id"]), str(capture["status"]), minor_of(capture["amount"])
-        )
+        with answered("PAYPAL_CAPTURE_UNEXPECTED"):
+            return Capture(
+                str(capture["id"]), str(capture["status"]), minor_of(capture["amount"])
+            )
 
     async def void(self, authorization_id: str, *, request_id: str) -> None:
         await self._call(
@@ -239,9 +259,10 @@ class PayPalClient:
             {"amount": usd(amount_minor), "invoice_id": invoice_id},
             request_id,
         )
-        return Refund(
-            str(refund["id"]), str(refund["status"]), minor_of(refund["amount"])
-        )
+        with answered("PAYPAL_REFUND_UNEXPECTED"):
+            return Refund(
+                str(refund["id"]), str(refund["status"]), minor_of(refund["amount"])
+            )
 
     async def get_authorization(self, authorization_id: str) -> dict[str, Any]:
         return await self._call(
@@ -253,16 +274,17 @@ class PayPalClient:
 
 
 def authorization_of(order: dict[str, Any]) -> Authorization:
-    units = order.get("purchase_units") or []
-    payments = (units[0].get("payments") or {}) if units else {}
-    authorizations = payments.get("authorizations") or []
-    if not authorizations:
-        raise DomainError("PAYPAL_AUTHORIZATION_MISSING")
-    auth = authorizations[0]
-    return Authorization(
-        orderId=str(order["id"]),
-        authorizationId=str(auth["id"]),
-        status=str(auth["status"]),
-        amountMinor=minor_of(auth["amount"]),
-        expiresAt=auth.get("expiration_time"),
-    )
+    with answered("PAYPAL_AUTHORIZATION_UNEXPECTED"):
+        units = order.get("purchase_units") or []
+        payments = (units[0].get("payments") or {}) if units else {}
+        authorizations = payments.get("authorizations") or []
+        if not authorizations:
+            raise PayPalUnexpectedResponse("PAYPAL_AUTHORIZATION_MISSING")
+        auth = authorizations[0]
+        return Authorization(
+            orderId=str(order["id"]),
+            authorizationId=str(auth["id"]),
+            status=str(auth["status"]),
+            amountMinor=minor_of(auth["amount"]),
+            expiresAt=auth.get("expiration_time"),
+        )

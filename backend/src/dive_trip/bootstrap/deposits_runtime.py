@@ -184,7 +184,7 @@ async def run(args: argparse.Namespace) -> None:
             return
         if args.role == "void-holds":
             # Before the nightly rebuild: no sandbox hold outlives its booking.
-            outcomes = await service.void_all_holds(database, paypal)
+            outcomes = await service.void_all_holds(database, paypal, SEED_CARD)
             print(
                 json.dumps(
                     {

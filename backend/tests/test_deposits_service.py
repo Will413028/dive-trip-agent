@@ -76,6 +76,14 @@ class FakePayPal:
         return httpx.Response(404, json={"name": "RESOURCE_NOT_FOUND"})
 
 
+async def hold(database, client: PayPalClient, booking_id: str, name: str) -> str:
+    """A seeded diver whose deposit hold the server places with the test card."""
+    with database.transaction() as connection:
+        diver_id = tx.join_diver(connection, booking_id, name, seeded=True)
+    await service.hold_with_test_card(database, client, booking_id, diver_id, CARD)
+    return diver_id
+
+
 def booking(connection: tx.ConnectionType, cap: int) -> str:
     return tx.create_booking(
         connection,
@@ -104,10 +112,7 @@ async def test_unknown_capture_is_reconciled_with_the_same_request_id(
     client = PayPalClient("id", "s", transport=httpx.MockTransport(fake.handle))
     with database.transaction() as connection:
         booking_id = booking(connection, cap=5000)
-    _, outcome = await service.authorize_diver(
-        database, client, booking_id, "Ana", CARD, seeded=True
-    )
-    assert outcome == "succeeded"
+    await hold(database, client, booking_id, "Ana")
     with database.transaction() as connection:
         settlement_id = propose(connection, booking_id, cap=5000)
     first = await service.execute_settlement(
@@ -128,9 +133,7 @@ async def test_settlement_outside_the_mandate_needs_the_organizer(database) -> N
     client = PayPalClient("id", "s", transport=httpx.MockTransport(fake.handle))
     with database.transaction() as connection:
         booking_id = booking(connection, cap=1000)
-    await service.authorize_diver(
-        database, client, booking_id, "Ana", CARD, seeded=True
-    )
+    await hold(database, client, booking_id, "Ana")
     with database.transaction() as connection:
         settlement_id = propose(connection, booking_id, cap=1000)
     with pytest.raises(DomainError, match="SETTLEMENT_NEEDS_APPROVAL"):
@@ -167,10 +170,7 @@ async def test_live_sandbox_group_settlement(database) -> None:
     with database.transaction() as connection:
         booking_id = booking(connection, cap=5000)
     for name in ("Ana", "Ben"):
-        _, outcome = await service.authorize_diver(
-            database, client, booking_id, name, CARD, seeded=True
-        )
-        assert outcome == "succeeded"
+        await hold(database, client, booking_id, name)
     with database.transaction() as connection:
         settlement_id = propose(connection, booking_id, cap=5000)
     outcomes = await service.execute_settlement(

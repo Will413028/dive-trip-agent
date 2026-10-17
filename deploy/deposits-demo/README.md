@@ -47,12 +47,18 @@ docker build -f deploy/deposits-demo/web.Dockerfile -t dive-deposits-web:$REV .
 docker save dive-deposits-backend:$REV dive-deposits-web:$REV | gzip | ssh oci-a1 'gunzip | docker load'
 ```
 
-VM 上：
+VM 上第一次啟動：
 
 ```sh
 cd /home/ubuntu/dive-deposits-demo/deploy/deposits-demo
 set -a; . ../../demo.env; set +a
 docker compose -f compose.yaml up -d
+```
+
+之後換 revision 一律走重建，不直接 `up`：先由現行 revision 釋放所有預授權，再以空 DB 跑新 revision 的 migration（deposits migration 不為舊 demo 資料做 backfill，遇到既有資料會拒絕執行）。腳本會把 `demo.env` 的 `DEMO_REVISION` 改成新值，之後每晚重建沿用它：
+
+```sh
+DEMO_NEXT_REVISION=<new short SHA> ./nightly-rebuild.sh
 ```
 
 `.dockerignore` 是 allowlist：image 只含原始碼、lockfile 與 migrations；env 檔、`.artifacts`、`evals` 不進 build context。

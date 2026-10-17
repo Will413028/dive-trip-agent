@@ -2,28 +2,13 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ApiError, request } from '../../lib/api';
+import { request } from '../../lib/api';
+import { PAYPAL_TIMEOUT_MS, bookingUrl as base, depositError, diverUrl, joinGroup } from './api';
 import EvidenceForm from './EvidenceForm';
 import PayPalCheckout from './PayPalCheckout';
 import SettlementCard from './SettlementCard';
 import { depositState, timelineLabel, usd } from './format';
 import type { Booking } from './types';
-
-// Calls that place or release several sandbox holds in sequence take longer.
-export const PAYPAL_TIMEOUT_MS = 60_000;
-
-const base = (id: string) => `/api/deposits/bookings/${encodeURIComponent(id)}`;
-
-export function depositError(error: unknown): string {
-  if (error instanceof ApiError) {
-    if (error.status === 404) return 'This booking is not in your workspace. It may have been reset.';
-    if (error.code === 'DEPOSIT_WORKSPACE_FULL') return 'A workspace holds at most 5 bookings. Reset it to start again.';
-    if (error.status === 409) return 'That step is no longer possible; the booking changed. The page has been refreshed.';
-    if (error.status === 400) return 'Please check the input and try again.';
-    return 'The service or the PayPal sandbox is unavailable right now. Try again shortly.';
-  }
-  return 'Connection lost. Try again.';
-}
 
 export default function BookingView({ bookingId }: { bookingId: string }) {
   const [booking, setBooking] = useState<Booking | null>(null);
@@ -47,8 +32,6 @@ export default function BookingView({ bookingId }: { bookingId: string }) {
 
   useEffect(() => { void load(); }, [load]);
 
-  const authorizeUrl = useCallback(
-    (diverId: string) => `${base(bookingId)}/divers/${encodeURIComponent(diverId)}/authorize`, [bookingId]);
   const checkedOut = useCallback(() => { setJoinName(''); setError(''); void load(); }, [load]);
 
   // The workflow assesses and executes in the background; poll for a while afterwards.
@@ -97,11 +80,14 @@ export default function BookingView({ bookingId }: { bookingId: string }) {
         <label htmlFor="join-name">Join this group (a display name, not your real name)</label>
         <input id="join-name" maxLength={60} value={joinName} onChange={(e) => setJoinName(e.target.value)} />
         <p className="muted">Your deposit of {usd(booking.depositMinor)} is a PayPal sandbox authorization: a hold, not a charge. Use the sandbox test Visa <strong>4012 8888 8888 1881</strong>, any future expiry and CVC, and made-up contact details (see <a href="https://developer.paypal.com/tools/sandbox/card-testing/" target="_blank" rel="noreferrer">PayPal card testing</a>). Never enter a real card.</p>
-        {clientId && <PayPalCheckout clientId={clientId} checkoutUrl={`${base(bookingId)}/checkout`}
-          authorizeUrl={authorizeUrl} name={joinName} onDone={checkedOut} onError={(message) => { setError(message); void load(); }} />}
+        {clientId && <PayPalCheckout clientId={clientId} bookingId={bookingId}
+          name={joinName} onDone={checkedOut} onError={(message) => { setError(message); void load(); }} />}
         <details>
           <summary>Checkout not working? Use the server&apos;s sandbox test card</summary>
-          <button disabled={busy || !joinName.trim()} onClick={() => void act(() => request(`${base(bookingId)}/join`, { name: joinName.trim() }, undefined, PAYPAL_TIMEOUT_MS)).then((ok) => { if (ok) setJoinName(''); })}>
+          <button disabled={busy || !joinName.trim()} onClick={() => void act(async () => {
+            const diverId = await joinGroup(bookingId, joinName.trim());
+            return request(`${diverUrl(bookingId, diverId)}/test-card-hold`, {}, undefined, PAYPAL_TIMEOUT_MS);
+          }).then((ok) => { if (ok) setJoinName(''); })}>
             Place hold with the test card</button>
         </details>
       </div>}

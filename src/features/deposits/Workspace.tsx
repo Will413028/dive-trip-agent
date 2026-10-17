@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { request } from '../../lib/api';
-import { PAYPAL_TIMEOUT_MS, depositError } from './BookingView';
+import { PAYPAL_TIMEOUT_MS, depositError } from './api';
 import { usd } from './format';
 import type { Booking } from './types';
 
@@ -26,6 +26,11 @@ export function demoBooking() {
     },
     seedDivers: 4,
   };
+}
+
+/** Reset keeps a booking whose holds PayPal has not confirmed released. */
+export function resetKept(kept: number): string {
+  return `${kept === 1 ? 'One booking was' : `${kept} bookings were`} kept: PayPal has not confirmed its holds were released. The nightly reset retries; try again later.`;
 }
 
 export default function Workspace() {
@@ -61,7 +66,11 @@ export default function Workspace() {
           router.push(`/deposits/${encodeURIComponent(booking.id)}`);
         })}>{busy ? 'Placing sandbox holds…' : 'Create demo group'}</button>
       <button disabled={busy || !bookings?.length}
-        onClick={() => void run(async () => { await request('/api/deposits/reset', {}, undefined, PAYPAL_TIMEOUT_MS); setBookings([]); })}>
+        onClick={() => void run(async () => {
+          const { kept } = await request<{ deleted: number; kept: number }>('/api/deposits/reset', {}, undefined, PAYPAL_TIMEOUT_MS);
+          setBookings(await request<Booking[]>('/api/deposits/bookings'));
+          if (kept) setError(resetKept(kept));
+        })}>
         Reset workspace</button>
     </div>
     <p className="muted">Your workspace is private to this browser. Reset releases its open holds and deletes its bookings.</p>

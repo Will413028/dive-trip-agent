@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { ApiError, request } from '../../lib/api';
+import { PAYPAL_TIMEOUT_MS, depositError, diverUrl, joinGroup } from './api';
 
 // The slice of the PayPal JS SDK this page uses.
 interface PayPalButtons { render(container: HTMLElement): Promise<void>; close(): Promise<void>; isEligible(): boolean }
@@ -37,10 +38,9 @@ function loadSdk(clientId: string): Promise<PayPalNamespace> {
 }
 
 /** The judge's own deposit: a guest card AUTHORIZE in PayPal's sandbox checkout. */
-export default function PayPalCheckout({ clientId, checkoutUrl, authorizeUrl, name, onDone, onError }: {
+export default function PayPalCheckout({ clientId, bookingId, name, onDone, onError }: {
   clientId: string;
-  checkoutUrl: string;
-  authorizeUrl: (diverId: string) => string;
+  bookingId: string;
   name: string;
   onDone: () => void;
   onError: (message: string) => void;
@@ -53,9 +53,11 @@ export default function PayPalCheckout({ clientId, checkoutUrl, authorizeUrl, na
   useEffect(() => {
     let buttons: PayPalButtons | null = null;
     let cancelled = false;
-    // PayPal may call createOrder again (e.g. after a field fails validation): reuse
-    // the order already started for this name instead of adding another diver.
-    let started: { name: string; diverId: string; orderId: string } | null = null;
+    // The diver whose hold the current order is for. PayPal may call createOrder again
+    // (e.g. after a field fails validation); the server then replaces the unfinished order.
+    let diverId = '';
+    // PayPal may hand onError its own error instead of ours, so keep what the server said.
+    let refused: unknown = null;
     loadSdk(clientId).then(async (paypal) => {
       if (cancelled || !container.current) return;
       buttons = paypal.Buttons({
@@ -64,37 +66,43 @@ export default function PayPalCheckout({ clientId, checkoutUrl, authorizeUrl, na
         createOrder: async () => {
           const displayName = latest.current.name.trim();
           if (!displayName) throw new Error('NAME_REQUIRED');
-          if (started?.name !== displayName) {
-            started = { name: displayName, ...await request<{ diverId: string; orderId: string }>(checkoutUrl, { name: displayName }) };
-          }
-          return started.orderId;
+          refused = null;
+          try {
+            diverId = await joinGroup(bookingId, displayName);
+            const { orderId } = await request<{ orderId: string }>(`${diverUrl(bookingId, diverId)}/checkout`, {});
+            return orderId;
+          } catch (error) { refused = error; throw error; }
         },
         onApprove: async ({ orderID }) => {
-          const diverId = started?.diverId ?? '';
-          started = null;  // a retry after a decline starts a fresh order
           try {
-            await request(authorizeUrl(diverId), { orderId: orderID }, undefined, 60_000);
+            await request(`${diverUrl(bookingId, diverId)}/authorize`, { orderId: orderID }, undefined, PAYPAL_TIMEOUT_MS);
             latest.current.onDone();
           } catch (error) {
-            latest.current.onError(error instanceof ApiError && error.code === 'PAYPAL_INSTRUMENT_DECLINED'
-              ? 'The PayPal sandbox declined this card, so no hold was placed. Try again, or use the sandbox test card below.'
-              : 'PayPal did not confirm the hold. Refresh in a moment, or use the sandbox test card below.');
+            latest.current.onError(error instanceof ApiError && error.status === 503
+              ? 'PayPal did not confirm the hold. Refresh in a moment, or use the sandbox test card below.'
+              : depositError(error));
           }
         },
         onCancel: () => latest.current.onError('Checkout cancelled; no hold was placed.'),
-        onError: (error) => latest.current.onError(error instanceof Error && error.message === 'NAME_REQUIRED'
-          ? 'Enter a display name first.' : 'PayPal checkout failed. You can retry, or use the sandbox test card below.'),
+        onError: (error) => latest.current.onError(checkoutError(refused ?? error)),
       });
       if (!buttons.isEligible()) { setReady('unavailable'); return; }
       await buttons.render(container.current);
       if (!cancelled) setReady('ready');
     }).catch(() => { if (!cancelled) setReady('unavailable'); });
     return () => { cancelled = true; void buttons?.close().catch(() => undefined); };
-  }, [clientId, checkoutUrl, authorizeUrl]);
+  }, [clientId, bookingId]);
 
   return <div className="paypal-checkout">
     {ready === 'loading' && <p role="status" className="muted">Loading PayPal checkout…</p>}
     {ready === 'unavailable' && <p role="alert" className="muted">PayPal checkout is unavailable right now; use the sandbox test card below.</p>}
     <div ref={container} />
   </div>;
+}
+
+/** PayPal reports createOrder failures through onError; say what our server refused. */
+export function checkoutError(error: unknown): string {
+  if (error instanceof ApiError) return depositError(error);
+  if (error instanceof Error && error.message === 'NAME_REQUIRED') return 'Enter a display name first.';
+  return 'PayPal checkout failed. You can retry, or use the sandbox test card below.';
 }

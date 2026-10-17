@@ -93,9 +93,14 @@ async def create_booking(
             mandate=mandate,
         )
     for name in SEED_NAMES[:seed_divers]:
-        await service.authorize_diver(
-            ctx.database, ctx.paypal, booking_id, name, ctx.seed_card, seeded=True
-        )
+        with ctx.database.transaction() as connection:
+            diver_id = tx.join_diver(connection, booking_id, name, seeded=True)
+        try:
+            await service.hold_with_test_card(
+                ctx.database, ctx.paypal, booking_id, diver_id, ctx.seed_card
+            )
+        except DomainError as error:  # the booking stands; that diver shows no hold
+            logger.warning("seed hold not placed: %s", error.code)
     return booking_id
 
 
@@ -336,7 +341,7 @@ async def finalize_booking(booking_id: str) -> dict[str, str]:
 @activity.defn
 async def reconcile_booking(booking_id: str) -> dict[str, str]:
     ctx = context()
-    return await service.reconcile(ctx.database, ctx.paypal, booking_id)
+    return await service.reconcile(ctx.database, ctx.paypal, booking_id, ctx.seed_card)
 
 
 DEPOSIT_ACTIVITIES: list[Callable[..., Any]] = [

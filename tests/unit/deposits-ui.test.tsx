@@ -1,6 +1,10 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { expect, test } from 'vitest';
+import { ApiError } from '../../src/lib/api';
+import { depositError } from '../../src/features/deposits/api';
 import EvidenceForm, { SAMPLE_NOTICE } from '../../src/features/deposits/EvidenceForm';
+import { checkoutError } from '../../src/features/deposits/PayPalCheckout';
+import { resetKept } from '../../src/features/deposits/Workspace';
 import SettlementCard from '../../src/features/deposits/SettlementCard';
 import { depositState, sourceLabel, timelineLabel, usd } from '../../src/features/deposits/format';
 import type { Diver, Evidence, Settlement } from '../../src/features/deposits/types';
@@ -65,4 +69,24 @@ test('a check that settles nothing says when the AI did not run', () => {
   expect(timelineLabel({ kind: 'no_cancellation_found', detail: { agent: 'not_configured' }, at }))
     .toBe('Nothing settled: AI not run; the forecast rules found no cancellation');
   expect(timelineLabel({ kind: 'evidence_added', detail: {}, at })).toBe('Evidence added');
+});
+
+test('a business conflict is never reported as an outage', () => {
+  expect(depositError(new ApiError(409, 'DEPOSIT_NAME_TAKEN'))).toContain('Pick another display name');
+  expect(depositError(new ApiError(409, 'DEPOSIT_HOLD_IN_FLIGHT'))).toContain('still confirming');
+  expect(depositError(new ApiError(409, 'DEPOSIT_ATTEMPT_CLOSED'))).toContain('replaced by a newer attempt');
+  expect(depositError(new ApiError(500, 'INTERNAL_ERROR'))).toContain('on our side');
+  expect(depositError(new ApiError(500, 'INTERNAL_ERROR'))).not.toContain('unavailable');
+  expect(depositError(new ApiError(503, 'SERVICE_UNAVAILABLE'))).toContain('unavailable');
+});
+
+test('a card checkout the server refused says why', () => {
+  expect(checkoutError(new ApiError(409, 'DEPOSIT_NAME_TAKEN'))).toContain('Pick another display name');
+  expect(checkoutError(new Error('NAME_REQUIRED'))).toBe('Enter a display name first.');
+  expect(checkoutError(new Error('zoid destroyed'))).toContain('PayPal checkout failed');
+});
+
+test('a reset that keeps a booking says why', () => {
+  expect(resetKept(1)).toMatch(/^One booking was kept: PayPal has not confirmed/);
+  expect(resetKept(2)).toMatch(/^2 bookings were kept/);
 });

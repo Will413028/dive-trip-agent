@@ -58,6 +58,11 @@ class AlwaysCaptures(FakePayPal):
         super().__init__()
         self.capture_calls = 1
 
+    def handle(self, request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/void"):
+            return httpx.Response(204)
+        return super().handle(request)
+
 
 def build(database):
     paypal = PayPalClient(
@@ -80,10 +85,11 @@ def test_judge_flow_and_workspace_isolation(database) -> None:
         assert [d["state"] for d in booking["divers"]] == ["authorized"] * 2
         assert workflows.calls[0] == ("start", "2026-11-20T00:00:00+00:00")
 
-        joined = client.post(
-            f"/api/deposits/bookings/{booking['id']}/join", json={"name": "Judge"}
-        ).json()
+        base = f"/api/deposits/bookings/{booking['id']}"
+        diver = client.post(f"{base}/divers", json={"name": "Judge"}).json()["diverId"]
+        joined = client.post(f"{base}/divers/{diver}/test-card-hold", json={}).json()
         assert len(joined["divers"]) == 3 and not joined["divers"][-1]["seeded"]
+        assert joined["divers"][-1]["state"] == "authorized"
 
         client.post(
             f"/api/deposits/bookings/{booking['id']}/simulate-storm",
@@ -112,7 +118,7 @@ def test_judge_flow_and_workspace_isolation(database) -> None:
             assert stranger.get("/api/deposits/bookings").json() == []
 
         reset = client.post("/api/deposits/reset", json={})
-        assert reset.status_code == 200 and reset.json() == {"deleted": 1}
+        assert reset.status_code == 200 and reset.json() == {"deleted": 1, "kept": 0}
         assert client.get("/api/deposits/bookings").json() == []
     asyncio.run(paypal.aclose())
 

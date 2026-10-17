@@ -32,7 +32,7 @@ Divers often book a boat with an operator in another country they have never met
 - Never charging first and refunding later: choosing void or a smaller final capture per diver from their current payment state.
 - Making retries safe for money: idempotency keys, deterministic invoice IDs and reconciliation instead of blind re-sends.
 - Keeping the model out of the money path: the model can only cite and classify; quotes are verified server-side and amounts are computed by code.
-- Guest card checkout in sandbox: the generic `4111…` number is declined in the guest form while PayPal's listed sandbox Visa `4012 8888 8888 1881` authorizes; the SDK also calls `createOrder` before form validation, so the page reuses the order it already started.
+- Guest card checkout in sandbox: the generic `4111…` number is declined in the guest form while PayPal's listed sandbox Visa `4012 8888 8888 1881` authorizes; the SDK also calls `createOrder` before form validation and may call it again, so a diver joins once and each order is a replaceable hold attempt under that diver.
 
 ## Accomplishments that we're proud of
 

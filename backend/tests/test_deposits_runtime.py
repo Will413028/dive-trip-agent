@@ -107,7 +107,7 @@ async def test_void_all_holds_releases_every_open_authorization(database) -> Non
             mandate=mandate(5000),
             seed_divers=2,
         )
-    outcomes = await service.void_all_holds(database, client)
+    outcomes = await service.void_all_holds(database, client, CARD)
     assert list(outcomes.values()) == ["succeeded"] * 4
     assert len(set(fake.voided)) == 4
     with database.transaction() as connection:
@@ -117,5 +117,5 @@ async def test_void_all_holds_releases_every_open_authorization(database) -> Non
             for row in tx.divers(connection, booking_id)
         }
     assert states == {"voided"}
-    assert await service.void_all_holds(database, client) == {}
+    assert await service.void_all_holds(database, client, CARD) == {}
     await client.aclose()

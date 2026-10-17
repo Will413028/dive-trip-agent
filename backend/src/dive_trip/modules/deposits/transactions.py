@@ -19,10 +19,12 @@ from .domain import (
     RefundPolicy,
     SettlementFacts,
 )
+from .errors import DepositConflict
 
 ConnectionType = Connection[dict[str, Any]]
 CommandKind = Literal["authorize", "capture", "void", "refund"]
 CommandStatus = Literal["succeeded", "rejected", "unknown"]
+PaymentMethod = Literal["checkout", "test_card"]
 
 
 def workspace_hash(token: str) -> str:
@@ -95,43 +97,137 @@ def mandate_of(row: dict[str, Any]) -> Mandate:
     return Mandate.model_validate(row["mandate"])
 
 
-def add_diver(
+def join_diver(
     connection: ConnectionType, booking_id: str, name: str, *, seeded: bool
 ) -> str:
+    """Add a diver once. The booking's own browser may rejoin under a name that still
+    holds nothing, which resumes that diver's deposit instead of adding another."""
     diver_id = str(uuid4())
-    connection.execute(
+    inserted = connection.execute(
         "INSERT INTO deposit_divers(id,booking_id,display_name,seeded,state) "
-        "VALUES(%s,%s,%s,%s,'pending')",
+        "VALUES(%s,%s,%s,%s,'pending') "
+        "ON CONFLICT (booking_id,display_name) DO NOTHING RETURNING id",
         (diver_id, booking_id, name, seeded),
-    )
-    append(connection, booking_id, "diver_joined", {"diverId": diver_id, "name": name})
-    return diver_id
-
-
-def retry_checkout_diver(
-    connection: ConnectionType, booking_id: str, name: str
-) -> str | None:
-    """A non-seeded diver whose every hold attempt was rejected, ready to retry."""
-    row = connection.execute(
-        "UPDATE deposit_divers d SET order_id=NULL WHERE booking_id=%s "
-        "AND display_name=%s AND NOT seeded AND state='pending' AND NOT EXISTS ("
-        "SELECT 1 FROM deposit_money_commands c WHERE c.diver_id=d.id "
-        "AND c.status<>'rejected') RETURNING id",
+    ).fetchone()
+    if inserted is not None:
+        append(
+            connection, booking_id, "diver_joined", {"diverId": diver_id, "name": name}
+        )
+        return diver_id
+    existing = connection.execute(
+        "SELECT id,seeded,state FROM deposit_divers "
+        "WHERE booking_id=%s AND display_name=%s",
         (booking_id, name),
     ).fetchone()
-    return str(row["id"]) if row else None
+    assert existing is not None
+    if seeded or existing["seeded"] or existing["state"] != "pending":
+        raise DepositConflict("DEPOSIT_NAME_TAKEN")
+    return str(existing["id"])
 
 
-def set_checkout_order(
-    connection: ConnectionType, diver_id: str, order_id: str
-) -> None:
+def open_hold_attempt(
+    connection: ConnectionType,
+    booking_id: str,
+    diver_id: str,
+    method: PaymentMethod,
+    *,
+    command_id: str | None = None,
+    order_id: str | None = None,
+) -> dict[str, Any]:
+    """Record a new attempt to place a diver's deposit hold.
+
+    A checkout the buyer never authorized is replaced: PayPal may still show its order
+    as approved, but only our authorize call places a hold, and that call now finds the
+    attempt closed. An attempt already sent to PayPal blocks until it settles.
+    """
+    diver = connection.execute(
+        "SELECT d.state,b.deposit_minor FROM deposit_divers d JOIN deposit_bookings b "
+        "ON b.id=d.booking_id WHERE d.id=%s AND d.booking_id=%s FOR UPDATE OF d",
+        (diver_id, booking_id),
+    ).fetchone()
+    if diver is None:
+        raise DomainError("NOT_FOUND")
+    if diver["state"] != "pending":
+        raise DepositConflict("DEPOSIT_ALREADY_HELD")
+    for replaced in connection.execute(
+        "UPDATE deposit_money_commands SET status='rejected',"
+        "error_code='CHECKOUT_REPLACED',completed_at=clock_timestamp() "
+        "WHERE diver_id=%s AND kind='authorize' AND method='checkout' "
+        "AND status='pending' AND sent_at IS NULL RETURNING id",
+        (diver_id,),
+    ).fetchall():
+        append(
+            connection,
+            booking_id,
+            "payment_authorize_rejected",
+            {
+                "diverId": diver_id,
+                "commandId": str(replaced["id"]),
+                "amountMinor": diver["deposit_minor"],
+                "errorCode": "CHECKOUT_REPLACED",
+            },
+        )
+    if connection.execute(
+        "SELECT 1 FROM deposit_money_commands WHERE diver_id=%s AND kind='authorize' "
+        "AND status IN ('pending','unknown')",
+        (diver_id,),
+    ).fetchone():
+        raise DepositConflict("DEPOSIT_HOLD_IN_FLIGHT")
+    return record_command(
+        connection,
+        booking_id=booking_id,
+        diver_id=diver_id,
+        kind="authorize",
+        amount_minor=diver["deposit_minor"],
+        method=method,
+        command_id=command_id,
+        order_id=order_id,
+    )
+
+
+def deposit_of(connection: ConnectionType, booking_id: str, diver_id: str) -> int:
     row = connection.execute(
-        "UPDATE deposit_divers SET order_id=%s WHERE id=%s AND state='pending' "
-        "AND order_id IS NULL RETURNING id",
-        (order_id, diver_id),
+        "SELECT b.deposit_minor FROM deposit_divers d JOIN deposit_bookings b "
+        "ON b.id=d.booking_id WHERE d.id=%s AND d.booking_id=%s",
+        (diver_id, booking_id),
     ).fetchone()
     if row is None:
-        raise DomainError("DEPOSIT_CHECKOUT_CONFLICT")
+        raise DomainError("NOT_FOUND")
+    return int(row["deposit_minor"])
+
+
+def request_id(kind: CommandKind, command_id: str) -> str:
+    return f"dive-{kind}-{command_id}"
+
+
+def invoice_id(command_id: str) -> str:
+    return f"dive-{command_id}"
+
+
+def checkout_attempt(
+    connection: ConnectionType, booking_id: str, diver_id: str, order_id: str
+) -> str:
+    row = connection.execute(
+        "SELECT id FROM deposit_money_commands WHERE booking_id=%s AND diver_id=%s "
+        "AND kind='authorize' AND method='checkout' AND order_id=%s "
+        "AND status IN ('pending','unknown')",
+        (booking_id, diver_id, order_id),
+    ).fetchone()
+    if row is None:
+        raise DepositConflict("DEPOSIT_ATTEMPT_CLOSED")
+    return str(row["id"])
+
+
+def claim_command(connection: ConnectionType, command_id: str) -> dict[str, Any]:
+    """Mark an open command as sent, so no newer attempt can replace it."""
+    row = connection.execute(
+        "UPDATE deposit_money_commands SET sent_at=COALESCE(sent_at,clock_timestamp()) "
+        "WHERE id=%s AND status IN ('pending','unknown') RETURNING *",
+        (command_id,),
+    ).fetchone()
+    if row is None:
+        raise DepositConflict("MONEY_COMMAND_NOT_OPEN")
+    return row
 
 
 def divers(connection: ConnectionType, booking_id: str) -> list[dict[str, Any]]:
@@ -164,12 +260,15 @@ def record_command(
     amount_minor: int,
     final_capture: bool = False,
     settlement_id: str | None = None,
+    method: PaymentMethod | None = None,
+    command_id: str | None = None,
+    order_id: str | None = None,
 ) -> dict[str, Any]:
-    command_id = str(uuid4())
+    command_id = command_id or str(uuid4())
     row = connection.execute(
         "INSERT INTO deposit_money_commands(id,booking_id,diver_id,settlement_id,kind,"
-        "amount_minor,final_capture,request_id,invoice_id,status) "
-        "VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,'pending') RETURNING *",
+        "amount_minor,final_capture,request_id,invoice_id,status,method,order_id) "
+        "VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,'pending',%s,%s) RETURNING *",
         (
             command_id,
             booking_id,
@@ -178,8 +277,10 @@ def record_command(
             kind,
             amount_minor,
             final_capture,
-            f"dive-{kind}-{command_id}",
-            f"dive-{command_id}",
+            request_id(kind, command_id),
+            invoice_id(command_id),
+            method,
+            order_id,
         ),
     ).fetchone()
     assert row is not None
@@ -217,7 +318,7 @@ def complete_command(
         ),
     ).fetchone()
     if row is None:
-        raise DomainError("MONEY_COMMAND_NOT_OPEN")
+        raise DepositConflict("MONEY_COMMAND_NOT_OPEN")
     if status == "succeeded":
         apply_outcome(connection, row, result or {})
     append(
@@ -241,10 +342,9 @@ def apply_outcome(
     update: tuple[str, tuple[Any, ...]]
     if kind == "authorize":
         update = (
-            "state='authorized',order_id=%s,authorization_id=%s,"
+            "state='authorized',authorization_id=%s,"
             "authorization_expires_at=%s,authorized_minor=%s",
             (
-                result["orderId"],
                 result["authorizationId"],
                 result.get("expiresAt"),
                 amount,
@@ -323,7 +423,7 @@ def decide_settlement(
         (decision, settlement_id, booking_id, list(allowed)),
     ).fetchone()
     if row is None:
-        raise DomainError("SETTLEMENT_NOT_OPEN")
+        raise DepositConflict("SETTLEMENT_NOT_OPEN")
     append(
         connection,
         booking_id,

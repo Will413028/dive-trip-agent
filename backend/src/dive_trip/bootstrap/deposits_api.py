@@ -1,7 +1,7 @@
 """Group deposit routes for the PayPal demo profile.
 
 The caller's anonymous session is the workspace: each judge's browser sees only its own
-bookings. Money moves only in the workflow or in the explicit join/reset calls, always
+bookings. Money moves only in the workflow or in the explicit hold/reset calls, always
 through stored money commands.
 """
 
@@ -9,7 +9,8 @@ from collections.abc import Callable
 from datetime import UTC, date, datetime, time
 from typing import Annotated, Any, Literal, Protocol
 
-from fastapi import Depends, FastAPI, Request, Response
+import psycopg
+from fastapi import Depends, FastAPI, Path, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import Field
@@ -21,6 +22,8 @@ from dive_trip.application.deposits import (
 from dive_trip.modules.deposits import service
 from dive_trip.modules.deposits import transactions as tx
 from dive_trip.modules.deposits.domain import CauseRule, Mandate, RefundPolicy
+from dive_trip.modules.deposits.errors import DepositConflict
+from dive_trip.modules.deposits.paypal import PayPalError, PayPalUnknownOutcome
 from dive_trip.modules.identity.public import Sessions
 from dive_trip.platform.database import Database
 from dive_trip.platform.db_async import run_db
@@ -34,6 +37,11 @@ from dive_trip.platform.schema import (
 )
 
 from .http_boundary import HttpBoundary
+
+# Path ids are UUIDs; anything else is a malformed request, not a database error.
+ResourceId = Annotated[
+    str, Path(pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+]
 
 
 class Workflows(Protocol):
@@ -178,7 +186,7 @@ def register_deposits(
     async def create(body: CreateBooking, workspace: Workspace) -> dict[str, Any]:
         with database.transaction() as connection:
             if len(tx.workspace_bookings(connection, workspace)) >= 5:
-                raise DomainError("DEPOSIT_WORKSPACE_FULL")
+                raise DepositConflict("DEPOSIT_WORKSPACE_FULL")
         starts_on = date.fromisoformat(body.startsOn)
         booking_id = await create_booking(
             ctx,
@@ -202,37 +210,56 @@ def register_deposits(
         return await run_db(read, workspace, booking_id)
 
     @app.get("/api/deposits/bookings/{booking_id}")
-    def get(booking_id: str, workspace: Workspace) -> dict[str, Any]:
-        return read(workspace, booking_id)
-
-    @app.post("/api/deposits/bookings/{booking_id}/join")
-    async def join(booking_id: str, body: Join, workspace: Workspace) -> dict[str, Any]:
-        owned(workspace, booking_id)
-        await service.authorize_diver(
-            database, ctx.paypal, booking_id, body.name, ctx.seed_card, seeded=False
-        )
+    def get(booking_id: ResourceId, workspace: Workspace) -> dict[str, Any]:
         return read(workspace, booking_id)
 
     @app.get("/api/deposits/config")
     def config() -> dict[str, str | None]:
         return {"paypalClientId": ctx.paypal_client_id}
 
-    @app.post("/api/deposits/bookings/{booking_id}/checkout")
+    @app.post("/api/deposits/bookings/{booking_id}/divers")
+    def join(
+        booking_id: ResourceId, body: Join, workspace: Workspace
+    ) -> dict[str, str]:
+        """Join once; this browser may rejoin under a name that holds nothing yet."""
+        owned(workspace, booking_id)
+        with database.transaction() as connection:
+            return {
+                "diverId": tx.join_diver(
+                    connection, booking_id, body.name, seeded=False
+                )
+            }
+
+    @app.post("/api/deposits/bookings/{booking_id}/divers/{diver_id}/test-card-hold")
+    async def test_card_hold(
+        booking_id: ResourceId, diver_id: ResourceId, workspace: Workspace
+    ) -> dict[str, Any]:
+        """The fallback: the server places the hold with its sandbox test card."""
+        owned(workspace, booking_id)
+        await service.hold_with_test_card(
+            database, ctx.paypal, booking_id, diver_id, ctx.seed_card
+        )
+        return read(workspace, booking_id)
+
+    @app.post("/api/deposits/bookings/{booking_id}/divers/{diver_id}/checkout")
     async def checkout(
-        booking_id: str, body: Join, workspace: Workspace
+        booking_id: ResourceId, diver_id: ResourceId, workspace: Workspace
     ) -> dict[str, str]:
         """Start the judge's own deposit: an order they approve in PayPal checkout."""
         owned(workspace, booking_id)
         if ctx.paypal_client_id is None:
-            raise DomainError("DEPOSIT_CHECKOUT_DISABLED")
-        diver_id, order_id = await service.start_checkout(
-            database, ctx.paypal, booking_id, body.name
+            raise DepositConflict("DEPOSIT_CHECKOUT_DISABLED")
+        order_id = await service.start_checkout(
+            database, ctx.paypal, booking_id, diver_id
         )
-        return {"diverId": diver_id, "orderId": order_id}
+        return {"orderId": order_id}
 
     @app.post("/api/deposits/bookings/{booking_id}/divers/{diver_id}/authorize")
     async def authorize(
-        booking_id: str, diver_id: str, body: Authorize, workspace: Workspace
+        booking_id: ResourceId,
+        diver_id: ResourceId,
+        body: Authorize,
+        workspace: Workspace,
     ) -> dict[str, Any]:
         owned(workspace, booking_id)
         await service.complete_checkout(
@@ -242,7 +269,7 @@ def register_deposits(
 
     @app.post("/api/deposits/bookings/{booking_id}/evidence")
     def add_evidence(
-        booking_id: str, body: AddEvidence, workspace: Workspace
+        booking_id: ResourceId, body: AddEvidence, workspace: Workspace
     ) -> dict[str, Any]:
         owned(workspace, booking_id)
         with database.transaction() as connection:
@@ -251,7 +278,7 @@ def register_deposits(
 
     @app.post("/api/deposits/bookings/{booking_id}/simulate-storm")
     def simulate(
-        booking_id: str, body: SimulateStorm, workspace: Workspace
+        booking_id: ResourceId, body: SimulateStorm, workspace: Workspace
     ) -> dict[str, Any]:
         owned(workspace, booking_id)
         days = sorted(set(body.cancelledDays))
@@ -267,14 +294,17 @@ def register_deposits(
         return read(workspace, booking_id)
 
     @app.post("/api/deposits/bookings/{booking_id}/check")
-    async def check(booking_id: str, workspace: Workspace) -> dict[str, bool]:
+    async def check(booking_id: ResourceId, workspace: Workspace) -> dict[str, bool]:
         owned(workspace, booking_id)
         await workflows.check_now(booking_id)
         return {"requested": True}
 
     @app.post("/api/deposits/bookings/{booking_id}/settlements/{settlement_id}")
     async def decide(
-        booking_id: str, settlement_id: str, body: Decide, workspace: Workspace
+        booking_id: ResourceId,
+        settlement_id: ResourceId,
+        body: Decide,
+        workspace: Workspace,
     ) -> dict[str, Any]:
         owned(workspace, booking_id)
         decision: Literal["approved", "rejected"] = (
@@ -290,11 +320,18 @@ def register_deposits(
 
     @app.post("/api/deposits/reset")
     async def reset(workspace: Workspace) -> dict[str, int]:
-        """Release this workspace's holds, stop its workflows, delete its bookings."""
+        """Release this workspace's holds, stop its workflows, delete its bookings.
+
+        A booking whose holds cannot all be confirmed released is kept, so the record
+        of a hold PayPal may still have is never deleted; the nightly void retries it.
+        """
         with database.transaction() as connection:
             booking_ids = tx.workspace_bookings(connection, workspace)
+        deleted = 0
         for booking_id in booking_ids:
             await workflows.stop(booking_id)
+            # Record any hold whose answer never arrived, so it is released below.
+            await service.reconcile(database, ctx.paypal, booking_id, ctx.seed_card)
             with database.transaction() as connection:
                 held = [
                     tx.record_command(
@@ -310,10 +347,16 @@ def register_deposits(
             for command in held:
                 await service.execute(database, ctx.paypal, str(command["id"]))
             with database.transaction() as connection:
+                if tx.open_commands(connection, booking_id) or any(
+                    d["state"] == "authorized"
+                    for d in tx.divers(connection, booking_id)
+                ):
+                    continue
                 connection.execute(
                     "DELETE FROM deposit_bookings WHERE id=%s", (booking_id,)
                 )
-        return {"deleted": len(booking_ids)}
+                deleted += 1
+        return {"deleted": deleted, "kept": len(booking_ids) - deleted}
 
 
 def create_deposits_app(
@@ -337,15 +380,17 @@ def create_deposits_app(
     async def domain_error(request: Request, error: DomainError) -> JSONResponse:
         if error.code == "NOT_FOUND":
             return JSONResponse({"error": error.code}, status_code=404)
-        if error.code.startswith(
-            ("SETTLEMENT_", "MONEY_COMMAND_", "DEPOSIT_", "PAYPAL_")
-        ):
+        if isinstance(error, PayPalUnknownOutcome):
+            return JSONResponse({"error": error.code}, status_code=503)
+        if isinstance(error, (DepositConflict, PayPalError)):
             return JSONResponse({"error": error.code}, status_code=409)
-        return JSONResponse({"error": "SERVICE_UNAVAILABLE"}, status_code=503)
+        return JSONResponse({"error": "INTERNAL_ERROR"}, status_code=500)
 
     @app.exception_handler(Exception)
-    async def unavailable(request: Request, error: Exception) -> JSONResponse:
-        return JSONResponse({"error": "SERVICE_UNAVAILABLE"}, status_code=503)
+    async def unexpected(request: Request, error: Exception) -> JSONResponse:
+        if isinstance(error, psycopg.OperationalError):
+            return JSONResponse({"error": "SERVICE_UNAVAILABLE"}, status_code=503)
+        return JSONResponse({"error": "INTERNAL_ERROR"}, status_code=500)
 
     def workspace_of(request: Request, response: Response) -> str:
         owner = sessions.resolve(";".join(request.headers.getlist("cookie")))

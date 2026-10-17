@@ -45,14 +45,9 @@ def new_booking(connection: tx.ConnectionType, workspace: str = "judge-1") -> st
 
 
 def authorize(connection: tx.ConnectionType, booking_id: str, name: str) -> str:
-    diver = tx.add_diver(connection, booking_id, name, seeded=True)
-    command = tx.record_command(
-        connection,
-        booking_id=booking_id,
-        diver_id=diver,
-        kind="authorize",
-        amount_minor=10000,
-    )
+    diver = tx.join_diver(connection, booking_id, name, seeded=True)
+    command = tx.open_hold_attempt(connection, booking_id, diver, "test_card")
+    tx.claim_command(connection, str(command["id"]))
     tx.complete_command(
         connection,
         str(command["id"]),
@@ -86,6 +81,7 @@ def test_partial_cancellation_flows_from_hold_to_final_capture(database) -> None
                 final_capture=True,
                 settlement_id=settlement,
             )
+            tx.claim_command(connection, str(command["id"]))
             tx.complete_command(
                 connection, str(command["id"]), "succeeded", result={"captureId": "C"}
             )
@@ -134,6 +130,7 @@ def test_unknown_outcome_stays_open_and_completes_once(database) -> None:
             kind="void",
             amount_minor=0,
         )
+        tx.claim_command(connection, str(command["id"]))
         tx.complete_command(connection, str(command["id"]), "unknown")
         assert [str(c["id"]) for c in tx.open_commands(connection, booking_id)] == [
             str(command["id"])

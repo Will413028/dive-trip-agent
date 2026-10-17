@@ -9,7 +9,6 @@ from typing import Annotated, Literal
 
 from pydantic import Field
 
-from dive_trip.platform.errors import DomainError
 from dive_trip.platform.schema import (
     CalendarDate,
     Nonempty,
@@ -17,6 +16,8 @@ from dive_trip.platform.schema import (
     PositiveInt,
     WireModel,
 )
+
+from .errors import DepositConflict
 
 Cause = Literal["weather", "operator"]
 Action = Literal["void", "partial_capture", "capture", "refund", "none"]
@@ -80,16 +81,16 @@ def rule_for(policy: RefundPolicy, cause: Cause) -> CauseRule:
     for rule in policy.rules:
         if rule.cause == cause:
             return rule
-    raise DomainError("SETTLEMENT_CAUSE_NOT_IN_POLICY")
+    raise DepositConflict("SETTLEMENT_CAUSE_NOT_IN_POLICY")
 
 
 def validate_facts(policy: RefundPolicy, facts: SettlementFacts) -> None:
     rule_for(policy, facts.cause)
     days = facts.cancelledDays
     if len(set(days)) != len(days) or any(day > policy.tripDays for day in days):
-        raise DomainError("SETTLEMENT_DAYS_INVALID")
+        raise DepositConflict("SETTLEMENT_DAYS_INVALID")
     if len(set(facts.evidenceIds)) != len(facts.evidenceIds):
-        raise DomainError("SETTLEMENT_EVIDENCE_DUPLICATED")
+        raise DepositConflict("SETTLEMENT_EVIDENCE_DUPLICATED")
 
 
 def owed_minor(policy: RefundPolicy, facts: SettlementFacts) -> int:
@@ -114,7 +115,7 @@ def settle_diver(payment: DiverPayment, owed: int) -> DiverSettlement:
         )
     if payment.state == "authorized":
         if owed > payment.authorizedMinor:
-            raise DomainError("SETTLEMENT_EXCEEDS_AUTHORIZATION")
+            raise DepositConflict("SETTLEMENT_EXCEEDS_AUTHORIZATION")
         if owed == 0:
             action: Action = "void"
         elif owed < payment.authorizedMinor:
@@ -143,7 +144,7 @@ def settle(
     policy: RefundPolicy, facts: SettlementFacts, payments: list[DiverPayment]
 ) -> list[DiverSettlement]:
     if len({p.diverId for p in payments}) != len(payments):
-        raise DomainError("SETTLEMENT_DIVER_DUPLICATED")
+        raise DepositConflict("SETTLEMENT_DIVER_DUPLICATED")
     owed = owed_minor(policy, facts)
     return [settle_diver(payment, owed) for payment in payments]
 
