@@ -72,7 +72,7 @@ If the PayPal sandbox or a model provider is down during judging, the recorded v
 ## Checklist before submitting
 
 - [x] Live AI path verified on the public demo with Groq `gpt-oss-120b` (2026-10-14): a verbatim citation that stops on "AI and rules disagree", auto-execution inside the mandate, and a stop on per-diver and per-booking caps outside it.
-- [ ] Guest card checkout verified through the public URL in a browser.
+- [x] Guest card checkout verified through the public URL in a browser (2026-10-17, revision eb429a5): PayPal card form with sandbox Visa `4012 8888 8888 1881`, authorization succeeded and shown on the timeline; the server test-card fallback also places the hold after an abandoned card checkout under the same name.
 - [ ] Refund-after-capture shown in the UI: settle Day 2 (partial final capture), then add Day 3 evidence and check again; captured divers get a sandbox refund. Verified through the public API on 2026-10-14 (USD 33.33 refunded to each of four captured divers after approval); not yet recorded in the browser.
 - [ ] Recorded fallback video (about 3 minutes, outline in the design doc section 10).
 - [x] Sandbox status note and judge testing notes drafted above; paste them into the Devpost form.
