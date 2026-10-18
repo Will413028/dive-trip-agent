@@ -61,7 +61,7 @@ https://dive-deposits.tail357fef.ts.net/deposits, then follow "Try it in 3 steps
 
 - **Sandbox only.** Every payment is a PayPal sandbox transaction on synthetic data; no real money moves. Never enter a real card.
 - **Your own workspace.** Each browser gets a private workspace with up to five bookings; **Reset workspace** releases its holds and deletes them. The whole demo is rebuilt every day at 10:00 UTC, after every open sandbox hold is voided.
-- **Guest card.** Use PayPal's sandbox Visa `4012 8888 8888 1881`, any future expiry and CVC, and made-up contact details (the US billing form asks for a mobile number). The generic `4111 1111 1111 1111` is declined in the guest form.
+- **Guest card.** Use PayPal's sandbox Visa `4012 8888 8888 1881`, any future expiry and CVC, and made-up contact details (the US billing form asks for a mobile number). The generic `4111 1111 1111 1111` is declined in the guest form. If the card form fails, expand *Checkout not working?* and press **Place hold with the test card**.
 - **Free-tier AI.** The agent runs on free model tiers (Groq first, Gemini as fallback) with a daily cap. When a provider is rate-limited, identical evidence replays a clearly labelled *Recorded AI result*; otherwise the deterministic rules produce a *No AI* proposal that always needs approval. If you see *No AI*, wait a minute and press **Check evidence now** again on new evidence.
 - **Not a safety tool.** Whether a boat goes out is always the operator's call.
 
