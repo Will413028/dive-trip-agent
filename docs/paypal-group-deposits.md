@@ -77,7 +77,7 @@ All inputs are data, never system instructions. Each input item gets an evidence
 | --- | --- | --- |
 | `get_booking` | Booking, divers, payment states, policy version, mandate | Read only |
 | `get_weather` | Normalized forecast plus stored notice and alert texts with evidence IDs | Read only |
-| `propose_settlement` | Submits **structured facts**: cause, affected days, evidence citations, confidence | Facts only, never amounts or percentages |
+| `propose_settlement` | Submits **structured facts**: cause, affected days, evidence citations, confidence; returns the server's per-diver actions and mandate preview | Facts only, never amounts or percentages; each citation is a short quote that must appear verbatim in the cited evidence |
 | `execute_within_mandate` | Asks the server to execute a stored proposal | Proposal ID only |
 | optional read-only PayPal Agent Toolkit order lookup | Lets the agent answer "what is the status of my deposit" | Read only; no money-moving toolkit tools are exposed |
 
@@ -87,10 +87,11 @@ All inputs are data, never system instructions. Each input item gets an evidence
 2. **Computes all amounts deterministically** from the immutable policy version and each diver's payment state, then picks void, partial capture, capture, or refund per diver.
 3. Runs **deterministic threshold rules** (wave height, alert present) as a **sanity guard, not a veto**. Disagreement does not discard the proposal, because an operator notice can legitimately cancel a day that the forecast numbers do not flag. It removes auto-execution and shows "AI and rules disagree" to the organizer.
 4. Checks the **mandate**: auto-execute cap per diver and per booking, allowed actions, allowed causes, expiry. Inside the mandate, `execute_within_mandate` creates money commands. Outside it, the agent stops and the organizer approves or rejects. The organizer can correct facts, not amounts; the server recomputes.
+5. Auto-executes only when every gate passes: the agent called `execute_within_mandate` on its latest proposal, rated its confidence high, agrees with the rules guard, and the mandate check passes. Each failed gate is a reason shown to the organizer (`AI_REQUESTED_REVIEW`, `AI_NOT_CONFIDENT`, `AI_AND_RULES_DISAGREE`, mandate reasons). The agent runs over a snapshot; its tools never touch the database or PayPal, and only verified quotes reach the UI.
 
 ### 4.4 Models and fallback
 
-PydanticAI `FallbackModel`: Gemini Flash, then Groq (Workers AI optional). Each provider is tried once. If every model fails, or the daily cap is reached, the server produces a **policy-only "No AI" proposal** from the threshold rules. That proposal always needs human approval.
+PydanticAI `FallbackModel`: Groq (`gpt-oss-120b`), then Gemini Flash (Workers AI optional). Groq comes first because Gemini's free tier allows about 20 requests a day. Each provider is tried once. If every model fails, or the daily cap is reached, the server produces a **policy-only "No AI" proposal** from the threshold rules. That proposal always needs human approval.
 
 ### 4.5 Light rules for live model calls
 
@@ -99,7 +100,7 @@ This module uses its own light governance and does not change the repository's e
 - synthetic data only;
 - an environment-configured daily cap (default **50 live runs/day**), with auto-stop when it is reached;
 - a separate call-log table owned by this module (existing quota tables are untouched);
-- when the cap is hit, the UI shows precomputed results, clearly labeled **"Recorded AI result"** with model and timestamp.
+- when the cap is hit, the UI shows precomputed results, clearly labeled **"Recorded AI result"** with model and timestamp. A recorded result is the latest successful live result for the same policy terms and the same evidence content (evidence IDs differ per booking and are remapped); the same replay also covers a failed live call (for example a free-tier rate limit); with nothing to replay, the assessment is "No AI". The call log records failures as short reasons such as `RATE_LIMITED` or `MODEL_NOT_FOUND`. Every started live run counts, including failures, and call rows outlive workspace resets.
 
 ## 5. Weather and time
 
@@ -114,6 +115,7 @@ This module uses its own light governance and does not change the repository's e
 - **Seeded group**: on workspace create or reset, the server authorizes the other group members itself through Orders v2 with `payment_source.card` and **sandbox test cards**. No buyer login is needed. (Sending raw card data from a server is acceptable only for sandbox test cards; production would use PayPal-hosted card fields.)
 - **The judge pays exactly one deposit** as a guest card payment in the PayPal checkout. If the week-1 spike shows that guest card authorization fails in sandbox, the fallback is one shared sandbox buyer account, documented in the Devpost testing notes and kept out of the public repository.
 - **README "Try it in 3 steps"**: (1) open the demo and join the seeded group, (2) pay your deposit with the listed sandbox test card, (3) flip "Simulated storm" or paste the sample operator notice, press fast-forward, and watch the agent propose, execute, or ask.
+- **Synthetic text only**: the operator notice input says "Paste demo text only", because pasted text goes to a free-tier model, and offers a one-click synthetic sample notice that the agent can read and the threshold rules cannot.
 - A **"PayPal sandbox status"** note links PayPal's status page and explains what to do if the sandbox is degraded. A **recorded fallback video** shows the full flow.
 
 ## 7. Deployment: separate demo profile
@@ -194,7 +196,16 @@ Run against a US sandbox business account with the sandbox test Visa `4111 1111 
 
 A payee account outside the US (sandbox country C2) rejected the card order with `422 PAYEE_NOT_ENABLED_FOR_CARD_PROCESSING`, so the demo merchant must be a US sandbox business account.
 
+Guest card checkout (2026-10-13, local demo stack, JS SDK card button, `intent=authorize`): the server creates the AUTHORIZE order without `payment_source`, the buyer approves it in PayPal's inline card form, and `onApprove` asks the server to call `orders/{id}/authorize` under the stored money command's request ID.
+
+| Check | Result |
+| --- | --- |
+| Sandbox test Visa `4012 8888 8888 1881` from PayPal's card-testing list | authorization `CREATED`, diver on hold for USD 100.00 |
+| Generic `4111 1111 1111 1111` in the same guest form | `422 INSTRUMENT_DECLINED` on authorize (the same number works for the server-side `payment_source.card` seed) |
+| Form fields | the US billing form requires a mobile number; the SDK calls `createOrder` before field validation and may call it again |
+
+A diver joins once (`POST …/divers`, server-issued id) and each deposit hold is a separate attempt under that diver: a checkout order (`…/divers/{id}/checkout`, then `…/authorize` on approval) or the server's sandbox test card (`…/divers/{id}/test-card-hold`). Rejoining under a name that holds nothing yet resumes that diver; a seeded or held name is `409 DEPOSIT_NAME_TAKEN`. A new attempt replaces a checkout order that was never sent for authorization (closed as `CHECKOUT_REPLACED`); an approval of the replaced order later is `409 DEPOSIT_ATTEMPT_CLOSED` and places no hold, because only our authorize call does. An attempt already sent to PayPal blocks new ones (`409 DEPOSIT_HOLD_IN_FLIGHT`) until it settles or trip-start reconciliation retries it. Creating an AUTHORIZE order moves no money, so the checkout order is created first and stored with its attempt in one step; an order whose attempt is refused or replaced is never authorized and expires at PayPal. Each attempt records its method and order, so reconciliation retries a test-card attempt with the card and a checkout attempt with its order. A PayPal answer we cannot record (an authorization that is not `CREATED`, or none at all) keeps the attempt open as unknown, since a hold may exist; reconciliation retries each open attempt independently, and reset and the nightly void reconcile first, so such a hold is recorded and released rather than lost; reset keeps a booking whose holds it cannot confirm released (`{"deleted", "kept"}`) instead of deleting the record. Known limit: an authorization PayPal returns as `PENDING` or for a different amount stays unknown without its authorization id, so it blocks that diver and is left to the 29-day expiry; sandbox test cards authorize `CREATED`. Store and void that returned authorization before using live credentials or once sandbox returns `PENDING`. Business conflicts are `409` with a code (typed `DepositConflict`); `503` is kept for a database or PayPal outage, and any other failure is `500`.
+
 Still open:
 
-1. Does a guest card payment through the PayPal JS SDK checkout (the judge's own deposit) complete `intent=AUTHORIZE`?
-2. Duplicate `invoice_id` responses and same-key retries for create and refund; how long PayPal keeps an idempotency key.
+1. Duplicate `invoice_id` responses and same-key retries for create and refund; how long PayPal keeps an idempotency key.

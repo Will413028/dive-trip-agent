@@ -1,0 +1,13 @@
+[Unit]
+Description=Nightly reset of the PayPal deposits demo (sandbox, synthetic data)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/dive-deposits-demo/deploy/deposits-demo
+# DEMO_SECRETS_DIR, DEMO_REVISION, DEMO_ORIGIN; no secret values in this file.
+EnvironmentFile=/home/ubuntu/dive-deposits-demo/demo.env
+ExecStart=/home/ubuntu/dive-deposits-demo/deploy/deposits-demo/nightly-rebuild.sh
+TimeoutStartSec=15min

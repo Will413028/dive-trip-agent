@@ -1,0 +1,181 @@
+# PayPal hackathon demo profile (docs/adr/2026-10-12-paypal-hackathon-demo-profile.md).
+# Synthetic data and the PayPal sandbox only; rebuilt from scratch every night.
+# Nothing publishes a host port: the only way in is Tailscale Funnel to web.
+#
+# Required host files under ${DEMO_SECRETS_DIR} (chmod 600, never committed):
+#   db_password    random database password
+#   paypal.env     PAYPAL_CLIENT_ID=..., PAYPAL_CLIENT_SECRET=... (sandbox app)
+#   models.env     GEMINI_API_KEY=..., GROQ_API_KEY=... (either may be empty)
+name: dive-deposits-demo
+
+x-hardening: &hardening
+  read_only: true
+  tmpfs: [/tmp]
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options: {max-size: 10m, max-file: "3"}
+
+x-runtime: &runtime
+  <<: *hardening
+  image: dive-deposits-backend:${DEMO_REVISION:?set DEMO_REVISION}
+  env_file:
+    - "${DEMO_SECRETS_DIR:?set DEMO_SECRETS_DIR}/paypal.env"
+  environment:
+    PAYPAL_ENV: sandbox
+  secrets: [db_password]
+  mem_limit: 512m
+  cpus: 0.5
+
+services:
+  db:
+    <<: *hardening
+    image: postgres:18-alpine
+    read_only: false  # the official image writes its socket and init files
+    cap_drop: []
+    environment:
+      POSTGRES_USER: deposits
+      POSTGRES_DB: deposits
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    secrets: [db_password]
+    volumes: [db-data:/var/lib/postgresql]
+    healthcheck:
+      test: [CMD, pg_isready, -U, deposits, -d, deposits]
+      interval: 5s
+      retries: 20
+    mem_limit: 512m
+    cpus: 0.5
+
+  temporal:
+    <<: *hardening
+    image: temporalio/temporal:1.9.1
+    # The volume mounts on the image user's home so it inherits uid 1000 ownership.
+    command: [server, start-dev, --ip, 0.0.0.0, --headless, --db-filename, /home/temporal/temporal.db]
+    read_only: false
+    volumes: [temporal-data:/home/temporal]
+    healthcheck:
+      test: [CMD, temporal, operator, cluster, health, --address, 127.0.0.1:7233]
+      interval: 5s
+      retries: 30
+    mem_limit: 512m
+    cpus: 0.5
+
+  # Owns the network namespace that api and web share (like a pod's pause
+  # container): api restarts no longer strand web, and the API stays on loopback.
+  net:
+    <<: *hardening
+    image: dive-deposits-backend:${DEMO_REVISION}
+    entrypoint: [sleep, infinity]
+    mem_limit: 32m
+    cpus: 0.1
+
+  migrate:
+    <<: *runtime
+    restart: "no"
+    command:
+      - --role=migrate
+      - --database-host=db
+      - --database-port=5432
+      - --database-password-file=/run/secrets/db_password
+      - --temporal-address=temporal:7233
+      - "--origin=${DEMO_ORIGIN:?set DEMO_ORIGIN}"
+    depends_on:
+      db: {condition: service_healthy}
+
+  api:
+    <<: *runtime
+    network_mode: service:net
+    command:
+      - --role=api
+      - --host=127.0.0.1
+      - --port=4420
+      - --database-host=db
+      - --database-port=5432
+      - --database-password-file=/run/secrets/db_password
+      - --temporal-address=temporal:7233
+      - "--origin=${DEMO_ORIGIN:?set DEMO_ORIGIN}"
+    depends_on:
+      net: {condition: service_started}
+      migrate: {condition: service_completed_successfully}
+      temporal: {condition: service_healthy}
+
+  worker:
+    <<: *runtime
+    env_file:
+      - "${DEMO_SECRETS_DIR}/paypal.env"
+      - "${DEMO_SECRETS_DIR}/models.env"
+    environment:
+      PAYPAL_ENV: sandbox
+      DEPOSITS_AI_DAILY_CAP: ${DEPOSITS_AI_DAILY_CAP:-50}
+      # gemini-2.5-flash is closed to new API users (404 on 2026-10-14).
+      DEPOSITS_GEMINI_MODEL: ${DEPOSITS_GEMINI_MODEL:-gemini-3.8-flash}
+    command:
+      - --role=worker
+      - --database-host=db
+      - --database-port=5432
+      - --database-password-file=/run/secrets/db_password
+      - --temporal-address=temporal:7233
+      - "--origin=${DEMO_ORIGIN:?set DEMO_ORIGIN}"
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      temporal: {condition: service_healthy}
+
+  web:
+    <<: *hardening
+    image: dive-deposits-web:${DEMO_REVISION}
+    # Shares net's namespace with api, so the backend proxy reaches 127.0.0.1:4420.
+    network_mode: service:net
+    environment:
+      APP_ORIGIN: ${DEMO_ORIGIN}
+      DIVE_BACKEND_ORIGIN: http://127.0.0.1:4420
+    tmpfs: [/tmp, /app/.next/cache]
+    depends_on: [net, api]
+    mem_limit: 512m
+    cpus: 0.5
+
+  # Public entry: a dedicated Tailscale node with Funnel, proxying to web. It keeps
+  # its state volume across nightly rebuilds so the public hostname never changes.
+  ts:
+    <<: *hardening
+    image: tailscale/tailscale:${TS_IMAGE_TAG:-v1.104.1}
+    read_only: false
+    hostname: dive-deposits
+    environment:
+      TS_HOSTNAME: dive-deposits
+      TS_EXTRA_ARGS: --advertise-tags=tag:dive-demo
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_USERSPACE: "true"
+      TS_SERVE_CONFIG: /config/serve.json
+    # First boot prints a login URL (docker compose logs ts); an admin who owns
+    # tag:dive-demo approves it once. The identity then lives in ts-state.
+    volumes:
+      - ts-state:/var/lib/tailscale
+      - ./serve.json:/config/serve.json:ro
+    depends_on: [web]
+    mem_limit: 128m
+    cpus: 0.25
+
+  # Maintenance only (nightly-rebuild.sh): release every sandbox hold.
+  void-holds:
+    <<: *runtime
+    restart: "no"
+    profiles: [maintenance]
+    command:
+      - --role=void-holds
+      - --database-host=db
+      - --database-port=5432
+      - --database-password-file=/run/secrets/db_password
+      - --temporal-address=temporal:7233
+      - "--origin=${DEMO_ORIGIN:?set DEMO_ORIGIN}"
+    depends_on:
+      db: {condition: service_healthy}
+
+secrets:
+  db_password: {file: "${DEMO_SECRETS_DIR}/db_password"}
+
+volumes:
+  db-data:
+  temporal-data:
+  ts-state:

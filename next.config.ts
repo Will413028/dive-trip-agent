@@ -1,6 +1,8 @@
 import type { NextConfig } from 'next';
 
 const config: NextConfig = { devIndicators: false, poweredByHeader: false,
+  // AGENTS.md is hand-maintained; `next dev` must not append its own rules block.
+  agentRules: false,
   skipProxyUrlNormalize: process.env.DIVE_HOSTED_FIXTURE === '1',
   skipTrailingSlashRedirect: process.env.DIVE_HOSTED_FIXTURE === '1',
   async headers() { return [{ source: '/share/:path*', headers: [

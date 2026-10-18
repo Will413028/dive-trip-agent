@@ -8,8 +8,18 @@ import psycopg
 import pytest
 from psycopg import sql
 
+from dive_trip.modules.deposits.migrations import migrate_deposits
 from dive_trip.platform.database import Database, fixture_conninfo
 from dive_trip.platform.migrations import migrate
+
+
+@pytest.fixture(autouse=True)
+def deposit_chain(request):
+    """Only deposit tests get the separate demo-profile chain on their schema."""
+    if request.module.__name__.startswith("test_deposits_") and (
+        "database" in request.fixturenames
+    ):
+        migrate_deposits(request.getfixturevalue("database"))
 
 
 @pytest.fixture(scope="session")

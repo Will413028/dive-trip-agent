@@ -1,0 +1,19 @@
+# Allowlist: images get source, lockfiles and migrations only. Env files,
+# .artifacts, evals, local credentials and node_modules never enter a build context.
+*
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!next.config.ts
+!tsconfig.json
+!next-env.d.ts
+!src/
+!data/
+!tests/support/next-command.ts
+!tests/support/next-environment.ts
+!backend/pyproject.toml
+!backend/uv.lock
+!backend/src/
+!migrations/
+**/__pycache__
+**/.env*

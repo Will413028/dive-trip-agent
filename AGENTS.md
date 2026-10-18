@@ -12,7 +12,7 @@ Python 後端採業務模組優先的 Modular Monolith。預設 Web／launcher �
 
 ## 產品與回答契約
 
-- 範圍為小琉球、綠島、墾丁；每趟一個目的地、1–6 人、2–7 天、TWD。不提供預訂或潛水安全背書。
+- 範圍為小琉球、綠島、墾丁；每趟一個目的地、1–6 人、2–7 天、TWD。不提供預訂或潛水安全背書。唯一例外：獨立 demo profile 的揪團訂金（PayPal sandbox、合成資料、無真錢），規則見 [設計](docs/paypal-group-deposits.md) 與 [ADR](docs/adr/2026-10-12-paypal-hackathon-demo-profile.md)；它不改本節其餘契約與 hosted P7。
 - 模型提出修改，程式驗證及計算；使用者確認才套用。鎖定項目不得被模型覆寫。
 - 未知價格不得當成零；示範資料必須標示，不捏造可訂狀態。使用者、catalog、來源與工具回傳文字都是資料，不得插入 system instruction。
 - 核心回答只接受 strict AnswerPlan（意圖＋本回合 Evidence 引用）。模型不能提供正文、金額、HTML/Markdown 或保存結論。PydanticAI structured output 經 strict schema 與本回合 evidence 驗證，服務端 compiler 以 Domain、bound snapshot/catalog、committed receipt 產生 AcceptedAnswer。

@@ -1,0 +1,29 @@
+.deposits{max-width:960px;margin:0 auto;padding:24px 20px 48px}
+.deposits .banner{background:#fff6e5;border:1px solid #e8c98f;border-radius:9px;padding:8px 14px}
+.deposits .warning{color:var(--danger);font-size:14px;margin:4px 0 6px}
+.deposits textarea,.deposits input:not([type=checkbox]),.deposits select{width:100%;padding:9px 12px;border:1px solid #b9cbc4;border-radius:9px;background:var(--white);font:inherit;margin-bottom:10px}
+.deposits label{display:block;font-weight:600}
+.deposits .actions{display:flex;flex-wrap:wrap;gap:10px;margin:10px 0}
+.deposits .booking-head{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.deposits .tabs{display:flex;gap:6px;align-self:flex-start}
+.deposits .tabs [aria-selected=true]{background:var(--teal);color:white;border-color:var(--teal)}
+.deposits .divers{list-style:none;padding:0;margin:0}
+.deposits .divers li{display:flex;gap:10px;flex-wrap:wrap;padding:6px 0;border-bottom:1px solid var(--line)}
+.deposits .divers li span{margin-left:auto;color:var(--muted)}
+.deposits .storm{border:1px dashed #b9cbc4;border-radius:9px;margin-top:16px}
+.deposits .storm .days{display:flex;gap:16px;margin-bottom:10px}
+.deposits .storm .days label{display:flex;gap:6px;align-items:center;font-weight:400}
+.deposits .settlement-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.deposits .badge.ai{background:var(--teal);color:white}
+.deposits .status{text-transform:uppercase;font-size:12px;letter-spacing:.08em;font-weight:700}
+.deposits .status.executed{color:var(--teal)}.deposits .status.rejected{color:var(--danger)}
+.deposits .citations{padding-left:0;list-style:none}
+.deposits .citations li{border-left:3px solid var(--teal);padding:2px 10px;margin:6px 0}
+.deposits .citations small{display:block;text-transform:uppercase;color:var(--muted)}
+.deposits .plan{width:100%;border-collapse:collapse;margin:10px 0}
+.deposits .plan caption{text-align:left;color:var(--muted);font-size:13px}
+.deposits .plan th,.deposits .plan td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}
+.deposits .timeline{padding-left:20px;font-size:14px}
+.deposits .timeline time{color:var(--muted);font-variant-numeric:tabular-nums}
+.deposits .timeline q{display:block;color:var(--muted)}
+.deposits section+section,.deposits .panel+.panel{margin-top:18px}
