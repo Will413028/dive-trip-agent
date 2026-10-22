@@ -8,9 +8,9 @@ factory. Constructing a session does not call it; receipt phases never call it.
 import httpx2 as httpx
 
 from dive_trip.application.evaluation_runtime import OwnedGeneration
+from dive_trip.modules.usage.adapters.provider_sdk import _SdkGeneration
 from dive_trip.modules.usage.public import ProviderBinding
 from dive_trip.platform.errors import DomainError
-from dive_trip.platform.provider_sdk import _SdkGeneration
 
 
 async def reviewed_cloudflare_generation(

@@ -29,8 +29,8 @@ from pydantic_ai.providers.openrouter import OpenRouterProvider
 from pydantic_ai.settings import ModelSettings
 
 from dive_trip.modules.usage.public import ModelUsageEvent, ProviderBinding
+from dive_trip.platform.errors import DomainError
 
-from .errors import DomainError
 from .provider_wire import ProviderFailure, wire_evidence
 
 
