@@ -16,12 +16,18 @@ from pydantic_ai.models.wrapper import WrapperModel
 from pydantic_ai.tools import ToolDefinition
 
 from dive_trip.modules.planning.answer_contract import AnswerPlan
+from dive_trip.modules.usage.adapters import provider_sdk
+from dive_trip.modules.usage.adapters.provider_sdk import (
+    OfflineSdkGeneration,
+    endpoint,
+)
+from dive_trip.modules.usage.adapters.provider_wire import (
+    ProviderFailure,
+    wire_evidence,
+)
 from dive_trip.modules.usage.provider import CLOUDFLARE_MODEL, GEMINI_MODEL
 from dive_trip.modules.usage.public import ProviderBinding
-from dive_trip.platform import provider_sdk
 from dive_trip.platform.errors import DomainError
-from dive_trip.platform.provider_sdk import OfflineSdkGeneration, endpoint
-from dive_trip.platform.provider_wire import ProviderFailure, wire_evidence
 
 
 @pytest.mark.parametrize("budget_calls", [1, 6])

@@ -32,10 +32,10 @@ from dive_trip.modules.catalog.public import Destination
 from dive_trip.modules.planning.answer_contract import AnswerPlan
 from dive_trip.modules.planning.evidence import Binding
 from dive_trip.modules.planning.tool_contract import AgentChange
+from dive_trip.modules.usage.adapters.provider_wire import ProviderFailure
 from dive_trip.modules.usage.public import ModelUsageEvent, ProviderBinding
 from dive_trip.platform.db_async import run_db
 from dive_trip.platform.errors import DomainError, ModelDispatchNotStarted
-from dive_trip.platform.provider_wire import ProviderFailure
 
 from .planning import PlanningService
 

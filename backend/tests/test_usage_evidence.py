@@ -10,8 +10,8 @@ from dive_trip.application.planning import PlanningService
 from dive_trip.application.runtime_accounting import RuntimeAccounting
 from dive_trip.application.usage_evidence import UsageEvidence, read_usage_evidence
 from dive_trip.modules.planning.answer_contract import AnswerPlan
+from dive_trip.modules.usage.adapters.provider_wire import wire_evidence
 from dive_trip.platform.errors import DomainError
-from dive_trip.platform.provider_wire import wire_evidence
 
 
 def prepared(database, provider):

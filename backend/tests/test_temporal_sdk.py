@@ -26,8 +26,8 @@ from dive_trip.application.temporal_evidence import (
 from dive_trip.application.trips import TripService
 from dive_trip.application.usage_evidence import read_usage_evidence
 from dive_trip.application.workflow import ACTIVITIES, TripWorkflow
+from dive_trip.modules.usage.adapters.provider_sdk import OfflineSdkGeneration
 from dive_trip.platform.errors import DomainError
-from dive_trip.platform.provider_sdk import OfflineSdkGeneration
 
 pytestmark = pytest.mark.integration
 
